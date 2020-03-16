@@ -43,33 +43,21 @@ class CodeObject:
                 raise Exception(f"Bad code {i} ({type(i)})")
 
 
-class Symbol(l.Node):
-    """Special compiler-only (for now??) symbol bindings"""
-
-    def __init__(self, ptr):
-        super().__init__(ptr)
-        self.ptr = ptr
-
-    @property
-    def descendents(self):
-        return []
-
-
 @singledispatch
 def compile_node(node: l.Node) -> CodeObject:
+    """Take an AST node and (recursively) compile it into machine code"""
     raise NotImplementedError(node, type(node))
 
 
 @compile_node.register
 def _(node: l.Quote) -> CodeObject:
+    """Quote: just unquote it and push the value"""
     return CodeObject([m.PushV(node.unquote())])
 
 
 @compile_node.register
 def _(node: l.FCall) -> CodeObject:
-    # Yes, this is very similar to Call. Generically, all types are really
-    # functions, so this could be implemented as a function. But to simplify
-    # implementation, MFCall is a machine instruction (for now). 03/12/20
+    """FCall: compile the arguments, then WAIT for them before calling function"""
     arg_code = flatten(compile_node(arg).code for arg in node.args)
     num_args = len(node.args)
     waits = [m.Wait() for _ in range(num_args)]
@@ -86,6 +74,7 @@ def _(node: l.FCall) -> CodeObject:
 
 @compile_node.register
 def _(node: l.Builtin) -> CodeObject:
+    """Builtin: call a machine instruction of the same name"""
     arg_code = flatten(compile_node(arg).code for arg in node.operands)
     return CodeObject(
         [
@@ -103,12 +92,12 @@ def _(node: l.Funcall) -> CodeObject:
     # some leaking abstraction here.
     arg_code = flatten(compile_node(arg).code for arg in reversed(node.operands))
     wait = [] if node.run_async else [m.Wait()]
-    return CodeObject([*arg_code, node] + wait)
+    return CodeObject([*arg_code, m.Call()] + wait)
 
 
 @compile_node.register
-def _(node: Symbol) -> CodeObject:
-    return CodeObject([m.PushB(node.ptr)])
+def _(node: l.Symbol) -> CodeObject:
+    return CodeObject([m.PushB(node.symbol_name)])
 
 
 @compile_node.register
@@ -164,7 +153,7 @@ def compile_function(fn: l.Func) -> Tuple[List[m.Instruction], List[l.Func]]:
     """Compile function and list other functions it calls"""
     # Bind the arguments so they can be used later
     bindings, placeholders = list(
-        zip(*[(m.Bind(i), Symbol(i)) for i in range(fn.num_args)])
+        zip(*[(m.Bind(i), l.Symbol(i)) for i in range(fn.num_args)])
     )
     node = fn.b_reduce(placeholders)
     fn_compiled = compile_node(node)

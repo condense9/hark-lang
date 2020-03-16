@@ -128,7 +128,14 @@ class Return(I):
 
 
 class Fork(I):
-    """Like Funcall, but split the stack and allow a continuation from this point"""
+    """Like Call, but split the stack and allow a continuation from this point"""
+
+
+# This is the /application/ of a function - first arg must /evaluate to/ a Func,
+# which is the /reference to/ a function.
+# TODO - why is this a Builtin, not a machine Instruction?
+class Call(I):
+    """Call a function (sync)"""
 
 
 # I think we'll need a "stream" datatype
@@ -275,7 +282,7 @@ class M:
     ## "builtins":
 
     @evali.register
-    def _(self, i: l.Funcall):
+    def _(self, i: Call):
         # Arguments for the function must already be on the stack
         name = self.state.ds_pop()
         self.state.es_enter(self._offset[name])

@@ -55,6 +55,18 @@ class Node:
         )
 
 
+class Symbol(Node):
+    """A symbolic value"""
+
+    def __init__(self, name):
+        super().__init__(name)
+        self.symbol_name = name
+
+    @property
+    def descendents(self):
+        return []
+
+
 @singledispatch
 def quote_value(value):
     return value
@@ -101,6 +113,16 @@ class If(Node):
 
     def __repr__(self):
         return f"<If {self.cond} ? {self.then} : {self.els}>"
+
+
+class Funcall(Node):
+    """Call a function with some arguments"""
+
+    def __init__(self, function, *args, run_async=True):
+        if not isinstance(function, (Func, Symbol)):
+            raise ValueError(f"{function} is not a Func/Symbol (it's {type(function)})")
+        super().__init__(function, *args)
+        self.run_async = run_async
 
 
 class Asm(Node):
@@ -161,17 +183,6 @@ class Builtin(Node):
 
 # These are not "instructions" strictly, they are some kind of built-in
 # The __init__ forms are declared just for arity-checking.
-
-
-# This is the /application/ of a function - first arg must /evaluate to/ a Func,
-# which is the /reference to/ a function.
-# TODO - why is this a Builtin, not a machine Instruction?
-class Funcall(Builtin):
-    """Call a function with some arguments"""
-
-    def __init__(self, function: Func, *args, run_async=True):
-        super().__init__(function, *args)
-        self.run_async = run_async
 
 
 class Eq(Builtin):

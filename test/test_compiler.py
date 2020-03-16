@@ -18,7 +18,7 @@ def dummy(a, b):
 
 
 def test_dummy():
-    node = compiler.Symbol(1)
+    node = l.Symbol(1)
     check_compile_node(node, "PUSHB    1")
 
 
@@ -57,7 +57,7 @@ def test_func_if():
         PUSHV    2
         PUSHV    1
         PUSHV    F_dummy
-        $FUNCALL
+        CALL
         PUSHV    True
         JUMPIE   2
         PUSHV    2
@@ -75,7 +75,7 @@ def test_apply():
         PUSHV    2
         PUSHV    1
         PUSHV    F_dummy
-        $FUNCALL
+        CALL
         """,
     )
 
@@ -90,9 +90,9 @@ def test_apply2():
         PUSHV    2
         PUSHV    1
         PUSHV    F_dummy
-        $FUNCALL
+        CALL
         PUSHV    F_dummy
-        $FUNCALL
+        CALL
         """,
     )
 
@@ -141,7 +141,7 @@ def test_compile_all():
                 m.PushB(0),
                 m.PushB(0),
                 m.PushV("F_simple_func"),
-                l.Funcall,
+                m.Call(),
                 m.Return()
                 # --
             ],
@@ -190,12 +190,12 @@ def test_call_map():
                 m.PushB(1),
                 l.Car,
                 m.PushB(0),
-                l.Funcall,
+                m.Call(),
                 m.PushB(1),
                 l.Cdr,
                 m.PushB(0),
                 m.PushV("F_Map"),
-                l.Funcall,
+                m.Call(),
                 l.Cons,
                 m.Jump(1),
                 m.PushV([]),
@@ -229,7 +229,7 @@ def test_map():
                 m.PushB(0),
                 m.PushV(fcall_times2.label),
                 m.PushV(l.Map.label),
-                l.Funcall,
+                m.Call(),
                 m.Return()
                 # --
             ],
