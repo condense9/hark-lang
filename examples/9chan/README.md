@@ -98,13 +98,17 @@ BUCKET_NAME = "images"
 def on_upload(request, obj):
     # handle both events at the same time (hence two arguments)
     validation = validate_upload(obj)
-    saving = save_image_in_db(obj, async=True)
-    response = If(validation.success, R200(saving.status), R400(validation.errors))
+    response = If(
+        validation.success,
+        R200(save_image_in_db(obj, async=True)),
+        R400(validation.errors)
+    )
     return response
 
 def validate_upload(obj):
     pass  # check extension, etc
 
+@Func
 def save_image_in_db(obj):
     pass  # move to different folder, put metadata in DB, etc
 ```
