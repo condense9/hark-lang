@@ -1,9 +1,6 @@
 ## C9C :: Condense9 Compiler
 
-The instruction set, compiler and reference implementation of the abstract
-machine.
-
-Goal:
+Goal, **PART ONE**:
 - write concurrent programs and have them execute on serverless infrastructure
 
 How:
@@ -11,17 +8,28 @@ How:
   threads, etc)
 
 What this is:
-- an abstract imperative machine with native concurrency, and other
-  cloud/serverless features*
-- a high-level language to express concurrent computation, and other
-  cloud/serverless features*
+- an abstract imperative machine with native concurrency
+- a high-level language to express concurrent computation
 - a compiler
 
 Sort of like programming a cluster, but without the cluster part.
 
-*: Other features like specifying performance/placement constraints, and
-creating event handlers (e.g. this is a GET handler, and must respond within
-20ms)
+Goal, **PART TWO**:
+- build serverless applications without knowing in detail how to configure
+  AWS/GCP/etc
+
+How:
+- "synthesize" the infrastructure based on the logic description
+
+What this is:
+- enhancements to the language of part 1 to describe application requirements
+- a transformer from the DAG in part 1 to an infrastructure description
+
+Generating IAC.
+
+The source language may include features like specifying performance/placement
+requirements, and creating event handlers (e.g. this is a GET handler, and must
+respond within 20ms).
 
 
 ### MVP Requirements
