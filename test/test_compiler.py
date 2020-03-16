@@ -1,49 +1,11 @@
-import warnings
-from compiler import *
-from typing import Dict, List
+"""Test that the compiler generates appropriate machine code"""
 
 import lang as l
 import machine as m
+import compiler
 from lang import Func
 from simple_functions import *
-
-
-def listing(code):
-    print("\n".join(f"{i} | {a}" for i, a in enumerate(code)))
-
-
-def list_defs(defs):
-    for n, c in defs.items():
-        print(f"{n}:")
-        listing(c)
-
-
-def check(node, expected):
-    """Check that the evaluation output is as expected"""
-    result = [str(a) for a in compile_node(node).code]
-    expected = [a.strip() for a in expected.split("\n")]
-    expected = list(filter(lambda x: len(x), expected))
-    assert len(expected) == len(result)
-    for i, (a, b) in enumerate(zip(result, expected)):
-        assert i >= 0 and a.strip() == b.strip()
-
-
-def check_compiled(defs: Dict[str, List[m.Instruction]], expected):
-    """Check that some function definitions are correct"""
-    for k in defs.keys():
-        if k not in expected:
-            warnings.warn(f"Not checking definition of {k}")
-    for k in expected.keys():
-        assert k in defs
-        assert len(defs[k]) == len(expected[k])
-        for i, (a, b) in enumerate(zip(defs[k], expected[k])):
-            # Awkward. Builtins take arguments in the source, but not in the
-            # assembly. So this is to avoid having to instantiate real builtins
-            # in EXPECTED
-            if isinstance(a, l.Builtin):
-                assert k and i >= 0 and type(a) == b
-            else:
-                assert k and i >= 0 and a == b
+from utils import listing, list_defs, check_compile_all, check_compile_node
 
 
 ################################################################################
@@ -56,13 +18,13 @@ def dummy(a, b):
 
 
 def test_dummy():
-    node = Symbol(1)
-    check(node, "PUSHB    1")
+    node = compiler.Symbol(1)
+    check_compile_node(node, "PUSHB    1")
 
 
 def test_value():
     node = l.Quote(4)
-    check(node, "PUSHV    4")
+    check_compile_node(node, "PUSHV    4")
 
 
 def test_simple_if():
@@ -70,7 +32,7 @@ def test_simple_if():
     a = l.Quote(1)
     b = l.Quote(2)
     node = l.If(c, a, b)
-    check(
+    check_compile_node(
         node,
         """
         PUSHV    True
@@ -89,7 +51,7 @@ def test_func_if():
     c = l.Funcall(dummy, l.Quote(1), l.Quote(2))
     b = l.Quote(2)
     node = l.If(c, a, b)
-    check(
+    check_compile_node(
         node,
         """
         PUSHV    2
@@ -107,7 +69,7 @@ def test_func_if():
 
 def test_apply():
     node = l.Funcall(dummy, l.Quote(1), l.Quote(2))
-    check(
+    check_compile_node(
         node,
         """
         PUSHV    2
@@ -121,7 +83,7 @@ def test_apply():
 def test_apply2():
     result = l.Funcall(dummy, l.Quote(1), l.Quote(2))
     node = l.Funcall(dummy, result, l.Quote(3))
-    check(
+    check_compile_node(
         node,
         """
         PUSHV    3
@@ -137,7 +99,7 @@ def test_apply2():
 
 def test_builtin():
     node = l.Cons(l.Quote(0), l.Quote(1))
-    check(
+    check_compile_node(
         node,
         """
         PUSHV    0
@@ -162,9 +124,8 @@ def simple_func2(a):
 
 
 def test_compile_all():
-    defs = compile_all(simple_func2)
-    check_compiled(
-        defs,
+    check_compile_all(
+        simple_func2,
         {
             "F_simple_func": [
                 # --
@@ -194,9 +155,8 @@ def fcall_times2(a):
 
 
 def test_fcall():
-    defs = compile_all(fcall_times2)
-    check_compiled(
-        defs,
+    check_compile_all(
+        fcall_times2,
         {
             fcall_times2.label: [
                 # --
@@ -213,13 +173,12 @@ def test_fcall():
 
 def test_apply_map():
     node = l.Funcall(l.Map, fcall_times2, l.Quote([1, 2, 3]))
-    listing(compile_node(node).code)
+    listing(compiler.compile_node(node).code)
 
 
 def test_call_map():
-    defs = compile_all(l.Map)
-    check_compiled(
-        defs,
+    check_compile_all(
+        l.Map,
         {
             "F_Map": [
                 m.Bind(0),
@@ -252,9 +211,8 @@ def simple_map(a):
 
 
 def test_map():
-    defs = compile_all(simple_map)
-    check_compiled(
-        defs,
+    check_compile_all(
+        simple_map,
         {
             fcall_times2.label: [
                 # --

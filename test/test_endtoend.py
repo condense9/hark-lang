@@ -1,17 +1,10 @@
+"""Test that programs run correctly - ie test both compiler and machine"""
+
 from compiler import compile_all
 from lang import *
-from machine import LocalState, LocalMachine, Wait
+from machine import LocalState, Wait
 from simple_functions import *
-from test_machine import run_dbg_local
-from test_compiler import list_defs
-
-
-def check(defs: dict, data: LocalState, expected: LocalState):
-    """Run a program to termination, and check that the data stack is as expected"""
-    run_dbg_local(defs, data, trace=True)
-    assert len(expected._ds) == len(data._ds)
-    for i, (a, b) in enumerate(zip(expected._ds, data._ds)):
-        assert i >= 0 and a == b
+from utils import run_dbg_local, list_defs, check_exec
 
 
 @Func
@@ -32,7 +25,7 @@ def test_simple():
     data = LocalState(5)
     expected = LocalState(5)
     compiled = compile_all(main)
-    check(compiled, data, expected)
+    check_exec(compiled, data, expected)
 
 
 @Func
@@ -66,7 +59,7 @@ def test_slow_math():
     expected = LocalState([5, 7, 9, 11, 13])
     compiled = compile_all(main)
     list_defs(compiled)
-    check(compiled, data, expected)
+    check_exec(compiled, data, expected)
 
 
 if __name__ == "__main__":

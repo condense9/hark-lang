@@ -1,5 +1,8 @@
+"""Test that the machine executes instructions correctly"""
+
 from machine import *
 from simple_functions import *
+from utils import run_dbg_local
 
 
 def simple_test_scratch():
@@ -51,17 +54,6 @@ def make_printer(buf: Buf) -> list:
         Return(),
         # --
     ]
-
-
-def run_dbg_local(functions, data, *, trace=True):
-    """Run the machine locally and print lots of state"""
-    probe = DebugProbe(trace=trace)
-    machine = LocalMachine(functions, data, "F_main", probe)
-    if trace:
-        machine.print_instructions()
-    machine.run()
-    print("*** FINISHED")
-    machine.state.show()
 
 
 ################################################################################
