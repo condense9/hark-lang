@@ -1,0 +1,179 @@
+# Example :: Imageboard
+
+Let's build a 4chan-ish clone.
+
+This could be trivially implemented with a small Flask app. Like
+[this](https://github.com/RealArpanBhattacharya/QuickChan/blob/master/server.py)!
+
+App requirements
+- upload image
+- put a comment on an image
+- view an image + comments
+- view N most recent images (no comments)
+
+User (programmer) requirements
+- handle file uploads
+- serve GET requests
+- handle POST requests
+- store comments in a 
+
+Views
+- List some images
+- Show a specific image (and comments, and comment box)
+
+To make the backend slightly more complex we could require that there is a
+thumbnail creation step, and thumbnails are displayed in the first view. The
+thumbnail creation must be implemented "asynchronously" as if it is a really
+expensive computation. DB updated only once it's finished.
+
+
+## Let's do it!
+
+Serverless is all about events.
+
+So what events have we got?
+- User browses to the site (`GET /`)
+- File uploaded (`POST /upload`)
+- Specific image viewed (`GET /image/<id>`)
+- Comment posted to image (`POST /image/<id>/comments`)
+
+So let's stub some event handlers.
+
+```python
+@e.http.GET("/")
+def index(request):
+    pass
+
+@e.http.POST("/upload")
+def on_upload(request):
+    pass
+
+@e.http.GET("/image/<id>")
+def view_image(request, image_id):
+    pass
+
+@e.http.POST("/image/<id>/comments")
+def post_comment(request, image_id):
+    pass
+```
+
+Now we'll implement each one separately.
+
+
+### GET /
+
+This is easy.
+
+```python
+@e.http.GET("/")
+def index(_):
+    images = db_qry("select * from images limit 10 order by date_created")
+    return R200(render('index.html', images=images))
+```
+
+Assuming we have the ability to render templates and query a database.
+
+`R200` means return an HTTP 200 response with the given string body.
+
+Note that `index` is a normal Python function. The `request` parameter isn't
+used, so it's named `_`.
+
+
+### POST /upload
+
+This is the interesting bit. We want uploaded files to end up in S3. We want to
+do things with them there. But we also want to respond to the HTTP request.
+
+So we handle the POST request with a special form that says "this takes a file
+(with some validation** and puts it into object storage** and then runs some
+code with the resulting file. **At the same time**, we want to respond to the
+user request saying whether the upload was successful or not.
+
+```python
+BUCKET_NAME = "images"
+
+@e.http.POST("/upload")
+@to_object_store(BUCKET_NAME, "uploads", field_name="image")
+@Func
+def on_upload(request, obj):
+    # handle both events at the same time (hence two arguments)
+    validation = validate_upload(obj)
+    saving = save_image_in_db(obj, async=True)
+    response = If(validation.success, R200(saving.status), R400(validation.errors))
+    return response
+
+def validate_upload(obj):
+    pass  # check extension, etc
+
+def save_image_in_db(obj):
+    pass  # move to different folder, put metadata in DB, etc
+```
+
+Assuming we can "validate" an existing object, and put its metadata into the db.
+
+Of course, common validations (e.g. extension) could be wrapped up in
+`to_object_store` with a nice API.
+
+Note that `on_upload` is a `Func` - **not** a normal Python function.
+
+
+### GET /image/<id>
+
+Also a trivial Python function.
+
+```python
+@e.http.GET("/image/<id>")
+def view_image(_, image_id):
+    image = db_qry("select * from images where image_id=%d", image_id)
+    comments = db_qry("select * from comments where image_id=%d", image_id)
+    return R200(render('image.html', image=image, comments=comments))
+```
+
+Note that the two DB queries could be done concurrently if they were
+long-running. We'd have to change `view_image` to a `Func` though, so it'd be
+slightly less pretty. But way more powerful.
+
+Also note that request is unused.
+
+
+### POST /image/<id>/comments
+
+Also trivial. Just update the DB and show the page again.
+
+```python
+@e.http.POST("/image/<id>/comments")
+def post_comment(request, image_id):
+    comment = request.comment
+    db_qry(
+        "insert into comments (image_id, comment_text) values (?, ?)",
+        image_id,
+        comment
+    )
+    comments = db_qry("select * from comments where image_id=%d", image_id)
+    return view_image(None, image_id)
+```
+
+Note that if anything fails (db down, ...) an unhandled exception will fall
+through to the top level, where it would be turned into an `R500`.
+
+Also, we reused the existing `view_image` implementation to respond, but we
+don't pass a request, because it's not needed.
+
+
+## Ric's Notes
+
+Ideas and thoughts while writing this example.
+
+Chaining events is interested (on HTTP POST -> on object create object -> handle
+both). Returning things to events. The idea that events (eg HTTP req) can handle
+something being returned. Not all can (eg object created event). And if it
+doesn't, what side-effects are there? Nothing... All side-effects are handled in
+the Foreign code.
+
+But actually returning something to an event handler is a neat way of having
+side effects but not having to write icky foreign code.
+
+The event handler creates a promise which is fulfilled by the user's function.
+
+There could be multiple `to_object_store` to deal with multiple files being
+uploaded. The programmer specifies the form field name.

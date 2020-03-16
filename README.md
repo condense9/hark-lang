@@ -57,6 +57,7 @@ Run [Shellcheck](https://www.shellcheck.net/) over shell scripts.
 
 Use Python 3.8.
 
+
 #### The Oath
 
 [Uncle Bob](https://blog.cleancoder.com/uncle-bob/2015/11/18/TheProgrammersOath.html)
@@ -87,3 +88,11 @@ I Promise that, to the best of my ability and judgement:
   will not make promises without certainty.
 
 - I will never stop learning and improving my craft.
+
+
+### Implementation Notes
+
+It would be nice to have a consistent API to talk to infrastructure providers,
+cross cloud. [Libcloud](https://libcloud.apache.org/ ) doesn't do Lambda,
+unfortunately. But surely something else does. Ultimately though, it must be
+possible for the programmer/designer to override the output.
