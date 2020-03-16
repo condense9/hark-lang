@@ -26,7 +26,7 @@ def printit(arg):
 
 
 def random_sleep_math(x):
-    time.sleep(random.random())
+    time.sleep(random.random()/10.0)
     return (2 * x) + 3
 
 

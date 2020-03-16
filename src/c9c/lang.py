@@ -1,6 +1,10 @@
-"""Really we're building an AST
+"""This implements a minimal language embedded in Python
 
-Reimplementing a lisp-like structure.
+Capabilities
+- first-class functions
+- branching
+- native python value handling
+- foreign function calling
 
 """
 import inspect
@@ -16,10 +20,11 @@ class CompileError(Exception):
 
 
 class Node:
-    """An AST is built from nodes and edges
+    """The language is built from nodes (it's a DAG)
 
-    Nodes are expressions to be evaluated. Edges are "sub-expressions" that must
-    be evaluated first. Sub-expressions may be shared.
+    Nodes are expressions to be evaluated. Children are "sub-expressions" that
+    must be evaluated first (arguments). Sub-expressions may be shared between
+    nodes.
 
     There are a few primitives (values that evaluate to themselves, and are not
     parameterised): Symbols, Numbers, Strings, TODO...
@@ -28,7 +33,7 @@ class Node:
 
     """
 
-    _count = 0
+    _count = 0  # Total node count to assign unique names
 
     def __init__(self, *operands):
         Node._count += 1
@@ -56,7 +61,12 @@ class Node:
 
 
 class Symbol(Node):
-    """A symbolic value"""
+    """A symbolic value
+
+    NOTE that these are not implemented as "proper" symbols in the machine, but
+    are scoped to the current function.
+
+    """
 
     def __init__(self, name):
         super().__init__(name)
@@ -67,22 +77,26 @@ class Symbol(Node):
         return []
 
 
+class VList(list):
+    """Just a marker type for now"""
+
+
 @singledispatch
-def quote_value(value):
+def _unquote(value):
+    """Generic function to unquote a python value.
+
+    This might not be necessary...
+    """
     return value
 
 
-class VList(list):
-    pass
-
-
-@quote_value.register
+@_unquote.register
 def _(value: list):
     return VList(value)
 
 
 class Quote(Node):
-    """This is a bit more like a Quote... represent a real/primitive value"""
+    """Represent a literal/primitive value"""
 
     def __init__(self, value):
         super().__init__()
@@ -92,7 +106,8 @@ class Quote(Node):
         # TODO check allowed operand types?? Or anything goes...
 
     def unquote(self):
-        return quote_value(self.value)
+        """Get the machine representation of the value"""
+        return _unquote(self.value)
 
     @property
     def descendents(self):
@@ -102,8 +117,38 @@ class Quote(Node):
         return isinstance(other, Quote) and self.unquote() == other.unquote()
 
 
+class Func(Quote):
+    """Represents a function - a DAG with symbolic bindings for values
+
+    NOTE that this is a Quote! That is, a literal value.
+    """
+
+    def __init__(self, fn):
+        self.label = "F_" + fn.__name__
+        sig = inspect.signature(fn)
+        self.num_args = len(sig.parameters)
+        self._fn = fn
+
+    def __call__(self, *args):
+        """Create a DAG node that calls this function with arguments"""
+        # Quote first - allows the programmer to not do it (ie '4 == 4)
+        args = [Quote(o) if not isinstance(o, Node) else o for o in args]
+        return Funcall(self, *args)
+
+    def unquote(self):
+        # the "machine representation" of a function is just it's name.
+        return self.label
+
+    def b_reduce(self, values):
+        """Evaluate the function with arguments replaced with values"""
+        return self._fn(*values)
+
+    def __repr__(self):
+        return f"<Func {self.label}>"
+
+
 class If(Node):
-    """Branching!"""
+    """Conditionals - the node evaluates to one of two branches"""
 
     def __init__(self, cond, then, els):
         super().__init__([cond, then, els])
@@ -113,16 +158,6 @@ class If(Node):
 
     def __repr__(self):
         return f"<If {self.cond} ? {self.then} : {self.els}>"
-
-
-class Funcall(Node):
-    """Call a function with some arguments"""
-
-    def __init__(self, function, *args, run_async=True):
-        if not isinstance(function, (Func, Symbol)):
-            raise ValueError(f"{function} is not a Func/Symbol (it's {type(function)})")
-        super().__init__(function, *args)
-        self.run_async = run_async
 
 
 class Asm(Node):
@@ -145,43 +180,37 @@ class Asm(Node):
     # TODO define __eq__, since instructions are not in operands
 
 
-# Call a foreign function
+class Funcall(Node):
+    """Call a function with some arguments
+
+    Function can be an actual function, or a symbolic binding (allowing
+    functions to be passed by reference)
+
+    """
+
+    def __init__(self, function, *args, run_async=True):
+        if not isinstance(function, (Func, Symbol)):
+            raise ValueError(f"{function} is not a Func/Symbol (it's {type(function)})")
+        super().__init__(function, *args)
+        self.run_async = run_async
+
+
 class FCall(Node):
+    """Foreign function calling interface"""
+
     def __init__(self, *operands):
         super().__init__(*operands)
         self.function = operands[0]
         self.args = operands[1:]
 
 
-class Func(Quote):
-    def __init__(self, fn):
-        self.label = "F_" + fn.__name__
-        sig = inspect.signature(fn)
-        self.num_args = len(sig.parameters)
-        self._fn = fn
-
-    def __call__(self, *args):
-        args = [Quote(o) if not isinstance(o, Node) else o for o in args]
-        return Funcall(self, *args)
-
-    def unquote(self):
-        return self.label
-
-    def b_reduce(self, values):
-        """Evaluate the function with arguments replaced with values"""
-        return self._fn(*values)
-
-    def __repr__(self):
-        return f"<Func {self.label}>"
-
-
-# builtin just needs to transform from an AST into a sequence
 class Builtin(Node):
+    """BuiltIn nodes are machine instructions that can be called directly"""
+
     def __repr__(self):
         return "$" + type(self).__name__.upper()
 
 
-# These are not "instructions" strictly, they are some kind of built-in
 # The __init__ forms are declared just for arity-checking.
 
 
@@ -263,128 +292,3 @@ def Map(function, lst):
         Quote([]),
         Cons(Funcall(function, Car(lst)), Map(function, Cdr(lst))),
     )
-
-
-################################################################################
-## Helpers
-
-
-def traverse(fn) -> List[Node]:
-    """List all nodes starting from root"""
-    # This *requires* evaluation, and hence isn't possible (non-determinism).
-    # Original, misguided attempt left below for posterity.
-    raise Exception("Nope")
-    children = [c for c in root.operands if isinstance(c, Node)]
-    print("t ", root, children)
-    if not children:
-        return root
-    else:
-        return [root] + [traverse(c) for c in children]
-
-
-def get_symbol_ops(fn):
-    """List symbolic names of the parameters"""
-    return [str(p) for p in signature(fn).parameters.keys()]
-
-
-def visit(root, do):
-    """Visit all nodes in a graph, in order of evaluation"""
-
-    def _doit(node, visited):
-        do(node)
-
-        for child in node.operands:
-            if child in visited:
-                continue
-            # XXX: not tested:
-            if callable(child):
-                visited += _doit(child.fn(*get_symbol_ops(child.fn)), visited + [child])
-            else:
-                visited += _doit(child, visited + [child])
-
-        return visited
-
-    do(root)
-    _doit(root.fn(*get_symbol_ops(root.fn)), [])
-
-
-def visit_collect(root):
-    nodes = []
-    visit(root, lambda x: nodes.append(x))
-    return nodes
-
-
-def eval_with(root, eval_fn, *, maxdepth=1):
-    """postorder traversal of a node and its children"""
-
-    def _doit(node, depth):
-        for child in node.operands:
-            # XXX: not tested:
-            if callable(child) and depth < maxdepth:
-                _doit(child.fn(*get_symbol_ops(child)), depth + 1)
-            else:
-                _doit(child, depth + 1)
-
-        eval_fn(node)
-
-    # eval_fn(root)
-    _doit(root.fn(*get_symbol_ops(root.fn)), 1)
-
-
-def childrennnn(root):
-    children = []
-    check = deque(root.operands)
-    while check:
-        this_node = check.popleft()
-        children.append(this_node)
-        # FIXME ugly - define which nodes do or don't have operands
-        if hasattr(this_node, "operands"):
-            check.extend(this_node.operands)
-    return children
-
-
-def eval_collect(root, *, maxdepth=1):
-    nodes = []
-    eval_with(root, lambda x: nodes.append(x), maxdepth=maxdepth)
-    return nodes
-
-
-def fn_dot(root_node) -> list:
-    """Return the lines of the graph body"""
-    nodes = []
-    edges = []
-
-    if not isinstance(root_node, Node):
-        root_node = root_node(*get_symbol_ops(root_node))
-
-    for node in eval_collect(root_node):
-        # XXX: not tested:
-        shape = "box" if callable(node) else "oval"
-        nodes.append(f'{node.name} [label="{node}" shape={shape}];')
-
-        for c in node.operands:
-            edges.append(f"{node.name} -> {c.name};")
-
-    return nodes + edges
-
-
-def to_dot(root_node) -> str:
-    if not isinstance(root_node, Node):
-        root_node = root_node(*get_symbol_ops(root_node))
-
-    # root_body = fn_dot(root_node)
-
-    subs = []
-    for node in [root_node] + eval_collect(root_node):
-        if isinstance(node, Func):
-            styles = [f'label = "{node.name}";', "color=lightgrey"]
-            lines = fn_dot(node) + styles
-            body = "\n    ".join(lines)
-            subs.append(body)
-
-    # https://graphviz.gitlab.io/_pages/Gallery/directed/cluster.html
-    # body = "\n  ".join(root_body) + "\n\n  " + "\n\n  ".join(subs)
-    body = "\n\n  ".join(
-        f"subgraph cluster_{i} {{\n{body}}}" for i, body in enumerate(subs)
-    )
-    return f"digraph {root_node.name} {{\n  {body}\n}}"
