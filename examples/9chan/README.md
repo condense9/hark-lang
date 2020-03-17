@@ -81,37 +81,42 @@ backend of the application.
 ```python tangle:service.py
 BUCKET = s.ObjectStore(name="images")
 DB = s.KVStore()  # default pk is id(str), no GSIs
+ImageId = str  # type alias
 ```
 
-And we'll write a couple of helper functions to access the key-value store
-database.
+And add some helper functions to access the new key-value store (this may be
+implemented, depending on compiler constraints, as a DynamoDB).
 
 ```python tangle:service.py
+@Func
 def db_list_images(n: int) -> list:
     """Return the last N images"""
-    # db_qry("select * from images limit 10 order by date_created")
+    # API TBD
 
-
-def db_insert_image(new_image: dict) -> str:
+@Func
+def db_insert_image(new_image: dict) -> ImageId:
     """Put a new image into the database"""
+    # API TBD
 
-def db_find_image(image_id: str) -> dict:
+@Func
+def db_find_image(image_id: ImageId) -> dict:
     """Find a specific image"""
-    # db_qry("select * from images where image_id=%d", image_id)
+    # API TBD
 
-def db_find_comments(image_id: str) -> list:
+@Func
+def db_find_comments(image_id: ImageId) -> list:
     """Find all comments"""
-    # db_qry("select * from comments where image_id=%d", image_id)
+    # API TBD
 
-
-def db_insert_comment(image_id: str, new_comment: dict):
+@Func
+def db_insert_comment(image_id: ImageId, new_comment: dict):
     """Add a comment to an image"""
-    # db_qry(
-    #     "insert into comments (image_id, comment_text) values (?, ?)",
-    #     image_id,
-    #     comment
-    # )
+    # API TBD
 ```
+
+Note that these are all `Func`, **not** normal Python functions, as they will
+all interact with the DB, and hence must be "visible" to the compiler. All of
+the methods presented by the DB are also `Func`.
 
 
 ### GET /
@@ -122,7 +127,7 @@ This is easy.
 @e.http.GET("/")
 def index(_):
     images = db_list_images(10)
-    return R200(render('index.html', images=images))
+    return R200(render('index.html', dict(images=images)))
 ```
 
 Assuming we have the ability to render templates and query a database.
@@ -131,6 +136,9 @@ Assuming we have the ability to render templates and query a database.
 
 Note that `index` is a normal Python function. The `request` parameter isn't
 used, so it's named `_`.
+
+Technical detail: `index` will actually also be a `Func`, because it's handling
+an event, and needs to call other `Func`.
 
 
 ### GET /image/<id>
@@ -142,7 +150,7 @@ Also a trivial Python function.
 def view_image(_, image_id):
     image = db_find_image(image_id)
     comments = db_find_comments(image_id)
-    return R200(render('image.html', image=image, comments=comments))
+    return R200(render('image.html', dict(image=image, comments=comments)))
 ```
 
 Note that the two DB queries could be done concurrently if they were
@@ -161,7 +169,6 @@ Also trivial. Just update the DB and show the page again.
 def post_comment(request, image_id):
     comment = request.comment
     db_insert(image_id, comment)
-    comments = db_qry("select * from comments where image_id=%d", image_id)
     return view_image(None, image_id)
 ```
 
@@ -185,16 +192,15 @@ user request saying whether the upload was successful or not.
 ```python tangle:service.py
 @e.http.POST("/upload")
 @to_object_store(BUCKET, "uploads", field_name="image")  # :: Func
-@Func
 def on_upload(request, obj):
     # handle both events at the same time (hence two arguments)
     validation = validate_upload(obj)
     response = If(
         First(validation),
-        R200(save_image_in_db(obj, run_async=True).task_id),
+        view_image(None, save_image_in_db(obj)),
         R400(Second(validation))
     )
-    return response
+    return
 
 @Foreign
 def validate_upload(obj):
@@ -202,7 +208,7 @@ def validate_upload(obj):
     pass
 
 @Func
-def save_image_in_db(obj):
+def save_image_in_db(obj) -> ImageId:
     # move to different folder, put metadata in DB, etc
     # db_insert_image()
     pass
@@ -214,10 +220,10 @@ Assuming we can "validate" an existing object, and put its metadata into the db.
 Of course, common validations (e.g. extension) could be wrapped up in
 `to_object_store` with a nice API.
 
-Note that `on_upload` is a `Func` - **not** a normal Python function.
-`save_image_in_db` runs asynchronously, so the HTTP request returns immediately,
-but with a reference to the result of saving the image (this isn't well defined
-at the moment).
+Note that `on_upload` will automatically become a `Func` (as it is handling an
+event). `save_image_in_db` runs asynchronously, so the HTTP request returns
+immediately, but with a reference to the result of saving the image (this isn't
+well defined at the moment).
 
 
 ### Finally, compile the service
