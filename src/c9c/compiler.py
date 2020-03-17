@@ -130,6 +130,12 @@ def _(node: l.Func) -> CodeObject:
     return CodeObject([m.PushV(node.label)])
 
 
+@compile_node.register
+def _(node: l.Do) -> CodeObject:
+    arg_code = flatten(compile_node(arg).code for arg in node.operands)
+    return CodeObject(arg_code)
+
+
 def compile_all(fn: l.Func, target_machine=None) -> dict:
     """Compile the function and any other function it depends on"""
     to_compile = deque([fn])

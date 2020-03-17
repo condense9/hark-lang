@@ -211,6 +211,10 @@ class Builtin(Node):
         return "$" + type(self).__name__.upper()
 
 
+class Do(Node):
+    """Do multiple things (PROGN)"""
+
+
 # The __init__ forms are declared just for arity-checking.
 
 
