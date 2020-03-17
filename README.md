@@ -165,3 +165,9 @@ Infrastructure class.
 
 Key point: infrastructure only makes sense if you're doing something with it (ie
 calling a method)!
+
+Examples of DAG nodes that require infrastructure:
+- object stores
+- kv databases
+- service events
+- functions

@@ -233,10 +233,19 @@ in Python, creating the compiler CLI in the same file is a nice way to do it. It
 also ensures that there is a single "top-level" file for the service.
 
 ```python tangle:service.py
+
+class 9ChanBoard(c9c.Service):
+    options = {}
+    export_methods = []
+    outputs = [BUCKET]
+
 if __name__ == '__main__':
     import c9c
-    c9.compiler_cli()
+
+    c9c.compiler_cli(9ChanBoard)
 ```
+
+TODO explain `Service`...
 
 
 ## Ric's Notes
