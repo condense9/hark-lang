@@ -235,14 +235,14 @@ class Cons(Builtin):
         super().__init__(a, b)
 
 
-class Car(Builtin):
+class First(Builtin):
     """CAR (first element) of a list"""
 
     def __init__(self, a):
         super().__init__(a)
 
 
-class Cdr(Builtin):
+class Rest(Builtin):
     """CDR (all elements after first) of a list"""
 
     def __init__(self, a):
@@ -290,5 +290,35 @@ def Map(function, lst):
     return If(
         Nullp(lst),
         Quote([]),
-        Cons(Funcall(function, Car(lst)), Map(function, Cdr(lst))),
+        Cons(Funcall(function, First(lst)), Map(function, Rest(lst))),
     )
+
+
+@Func
+def Nth(n, lst):
+    # NOTE it's *wrong* to use an FCALL in a built-in language function... but
+    # this is MVP :)
+    return If(Eq(n, 0), First(lst), Nth(FCall(lambda x: x - 1, x), Rest(lst)))
+
+
+@Func
+def Second(lst):
+    return Nth(1, lst)
+
+
+@Func
+def Third(lst):
+    return Nth(2, lst)
+
+
+@Func
+def Fourth(lst):
+    return Nth(3, lst)
+
+
+# Aliases
+Car = First
+Cdr = Rest
+Cadr = Second
+Caddr = Third
+Cadddr = Fourth
