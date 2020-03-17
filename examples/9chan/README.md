@@ -31,7 +31,7 @@ expensive computation. DB updated only once it's finished.
 A few things are needed.
 
 ```python tangle:service.py
-"""Imageboard yay"""
+"""A very simple imageboard"""
 
 import c9c.events as e
 import c9c.services as s
@@ -168,7 +168,7 @@ Also trivial. Just update the DB and show the page again.
 @e.http.POST("/image/<id>/comments")
 def post_comment(request, image_id):
     comment = request.comment
-    db_insert(image_id, comment)
+    db_insert_comment(image_id, comment)
     return view_image(None, image_id)
 ```
 

@@ -88,10 +88,10 @@ module import mechanisms.
 CSOs are sort of like DLLs, or object files - they contain the executable code,
 but also list the symbols available, so that objects can be linked together.
 
-There's no "linker" in the cloud, but we do need to know what a service can do.
+There's no "linker** in the cloud, but we do need to know what a service can do.
 So a CSO is a tuple:
 
-CSO :: (options, outputs, methods, events, infrastructure)
+**CSO :: (options, outputs, methods, events, infrastructure)**
 
 Options: values that may/must be provided at deploy time (e.g. a foreign DB).
 
@@ -104,6 +104,9 @@ Events: events which other services can subscribe to.
 
 Infrastructure: partially configured IAC (may take values from Options) to run
 this service.
+
+Services can be reused - imported and instantiated in another module. Not clear
+how this is implemented yet.
 
 
 ### Part 1 - concurrent functional programming
@@ -144,8 +147,21 @@ Most of those details can be inferred from the DAG, and the compiler can choose
 the best configurations based on constraints defined by the programmer (e.g.
 cost, response time, regions...).
 
-The challenge is how to break up the DAG - what's the smallest element?
+Source of infrastructure:
+- raw/explicit inline
+- implicit (lambda-lambda)
 
-Since service objects specify 
+Any explicit infrastructure is instantiated as a service in a module. It's only
+visible to the compiler when it's used though.
 
-Buckets - can be inferred as a 
+Some Nodes are able to generate infrastructure (a subclass of Quote), and then
+when used in a Func, they evaluate to an object that user code can use sensibly.
+
+Then the compiler goes through the DAG, finds all Nodes that require
+infrastructure, and spits it all out.
+
+This allows custom infrastructure to be easily created - just subclass the
+Infrastructure class.
+
+Key point: infrastructure only makes sense if you're doing something with it (ie
+calling a method)!
