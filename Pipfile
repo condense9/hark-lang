@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 pytest = "*"
 md-tangle = "*"
+click = "*"
 
 [requires]
 python_version = "3.8"

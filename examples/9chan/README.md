@@ -26,19 +26,19 @@ thumbnail creation step, and thumbnails are displayed in the first view. The
 thumbnail creation must be implemented "asynchronously" as if it is a really
 expensive computation. DB updated only once it's finished.
 
-### Awkward preface
+### Preface: Imports
 
-Feel free to skip this. It's just imports, and a few generic helper functions
-that aren't really interesting for this demo, but are included for completeness.
+A few things are needed.
 
 ```python tangle:service.py
 """Imageboard yay"""
 
 import c9c.events as e
+import c9c.services as s
 from c9c.lang import Func, If
 from c9c.handlers.http import to_object_store, R200, R400
-
 ```
+
 
 ## Let's do it!
 
@@ -57,10 +57,6 @@ So let's stub some event handlers.
 def index(request):
     pass
 
-@e.http.POST("/upload")
-def on_upload(request):
-    pass
-
 @e.http.GET("/image/<id>")
 def view_image(request, image_id):
     pass
@@ -68,9 +64,54 @@ def view_image(request, image_id):
 @e.http.POST("/image/<id>/comments")
 def post_comment(request, image_id):
     pass
+
+@e.http.POST("/upload")
+def on_upload(request):
+    pass
 ```
 
 Now we'll implement each one separately.
+
+
+### 3rd Party Services
+
+First, we will use a couple of cloud-provider (serverless) services to power the
+backend of the application.
+
+```python tangle:service.py
+BUCKET = s.ObjectStore(name="images")
+DB = s.KVStore()  # default pk is id(str), no GSIs
+```
+
+And we'll write a couple of helper functions to access the key-value store
+database.
+
+```python tangle:service.py
+def db_list_images(n: int) -> list:
+    """Return the last N images"""
+    # db_qry("select * from images limit 10 order by date_created")
+
+
+def db_insert_image(new_image: dict) -> str:
+    """Put a new image into the database"""
+
+def db_find_image(image_id: str) -> dict:
+    """Find a specific image"""
+    # db_qry("select * from images where image_id=%d", image_id)
+
+def db_find_comments(image_id: str) -> list:
+    """Find all comments"""
+    # db_qry("select * from comments where image_id=%d", image_id)
+
+
+def db_insert_comment(image_id: str, new_comment: dict):
+    """Add a comment to an image"""
+    # db_qry(
+    #     "insert into comments (image_id, comment_text) values (?, ?)",
+    #     image_id,
+    #     comment
+    # )
+```
 
 
 ### GET /
@@ -80,7 +121,7 @@ This is easy.
 ```python tangle:service.py
 @e.http.GET("/")
 def index(_):
-    images = db_qry("select * from images limit 10 order by date_created")
+    images = db_list_images(10)
     return R200(render('index.html', images=images))
 ```
 
@@ -92,45 +133,6 @@ Note that `index` is a normal Python function. The `request` parameter isn't
 used, so it's named `_`.
 
 
-### POST /upload
-
-This is the interesting bit. We want uploaded files to end up in S3. We want to
-do things with them there. But we also want to respond to the HTTP request.
-
-So we handle the POST request with a special form that says "this takes a file
-(with some validation** and puts it into object storage** and then runs some
-code with the resulting file. **At the same time**, we want to respond to the
-user request saying whether the upload was successful or not.
-
-```python tangle:service.py
-BUCKET = c9c.ObjectStore(name="images")
-
-@e.http.POST("/upload")
-@to_object_store(BUCKET, "uploads", field_name="image")  # :: Func
-@Func
-def on_upload(request, obj):
-    # handle both events at the same time (hence two arguments)
-    validation = validate_upload(obj)
-    response = If(
-        validation.success,
-        R200(save_image_in_db(obj, run_async=True)),
-        R400(validation.errors)
-    )
-    return response
-
-# def validate_upload(obj): check extension, etc
-# def save_image_in_db(obj): move to different folder, put metadata in DB, etc
-
-```
-
-Assuming we can "validate" an existing object, and put its metadata into the db.
-
-Of course, common validations (e.g. extension) could be wrapped up in
-`to_object_store` with a nice API.
-
-Note that `on_upload` is a `Func` - **not** a normal Python function.
-
-
 ### GET /image/<id>
 
 Also a trivial Python function.
@@ -138,8 +140,8 @@ Also a trivial Python function.
 ```python tangle:service.py
 @e.http.GET("/image/<id>")
 def view_image(_, image_id):
-    image = db_qry("select * from images where image_id=%d", image_id)
-    comments = db_qry("select * from comments where image_id=%d", image_id)
+    image = db_find_image(image_id)
+    comments = db_find_comments(image_id)
     return R200(render('image.html', image=image, comments=comments))
 ```
 
@@ -158,11 +160,7 @@ Also trivial. Just update the DB and show the page again.
 @e.http.POST("/image/<id>/comments")
 def post_comment(request, image_id):
     comment = request.comment
-    db_qry(
-        "insert into comments (image_id, comment_text) values (?, ?)",
-        image_id,
-        comment
-    )
+    db_insert(image_id, comment)
     comments = db_qry("select * from comments where image_id=%d", image_id)
     return view_image(None, image_id)
 ```
@@ -172,6 +170,54 @@ through to the top level, where it would be turned into an `R500`.
 
 Also, we reused the existing `view_image` implementation to respond, but we
 don't pass a request, because it's not needed.
+
+
+### POST /upload
+
+This is the interesting bit. We want uploaded files to end up in S3. We want to
+do things with them there. But we also want to respond to the HTTP request.
+
+So we handle the POST request with a special form that says "this takes a file
+(with some validation** and puts it into object storage** and then runs some
+code with the resulting file. **At the same time**, we want to respond to the
+user request saying whether the upload was successful or not.
+
+```python tangle:service.py
+@e.http.POST("/upload")
+@to_object_store(BUCKET, "uploads", field_name="image")  # :: Func
+@Func
+def on_upload(request, obj):
+    # handle both events at the same time (hence two arguments)
+    validation = validate_upload(obj)
+    response = If(
+        First(validation),
+        R200(save_image_in_db(obj, run_async=True).task_id),
+        R400(Second(validation))
+    )
+    return response
+
+@Foreign
+def validate_upload(obj):
+    # check extension, etc
+    pass
+
+@Func
+def save_image_in_db(obj):
+    # move to different folder, put metadata in DB, etc
+    # db_insert_image()
+    pass
+
+```
+
+Assuming we can "validate" an existing object, and put its metadata into the db.
+
+Of course, common validations (e.g. extension) could be wrapped up in
+`to_object_store` with a nice API.
+
+Note that `on_upload` is a `Func` - **not** a normal Python function.
+`save_image_in_db` runs asynchronously, so the HTTP request returns immediately,
+but with a reference to the result of saving the image (this isn't well defined
+at the moment).
 
 
 ### Finally, compile the service
