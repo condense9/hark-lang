@@ -26,6 +26,19 @@ thumbnail creation step, and thumbnails are displayed in the first view. The
 thumbnail creation must be implemented "asynchronously" as if it is a really
 expensive computation. DB updated only once it's finished.
 
+### Awkward preface
+
+Feel free to skip this. It's just imports, and a few generic helper functions
+that aren't really interesting for this demo, but are included for completeness.
+
+```python tangle:service.py
+"""Imageboard yay"""
+
+import c9c.events as e
+from c9c.lang import Func, If
+from c9c.handlers.http import to_object_store, R200, R400
+
+```
 
 ## Let's do it!
 
@@ -64,7 +77,7 @@ Now we'll implement each one separately.
 
 This is easy.
 
-```python
+```python tangle:service.py
 @e.http.GET("/")
 def index(_):
     images = db_qry("select * from images limit 10 order by date_created")
@@ -89,28 +102,25 @@ So we handle the POST request with a special form that says "this takes a file
 code with the resulting file. **At the same time**, we want to respond to the
 user request saying whether the upload was successful or not.
 
-```python
-BUCKET_NAME = "images"
+```python tangle:service.py
+BUCKET = c9c.ObjectStore(name="images")
 
 @e.http.POST("/upload")
-@to_object_store(BUCKET_NAME, "uploads", field_name="image")
+@to_object_store(BUCKET, "uploads", field_name="image")  # :: Func
 @Func
 def on_upload(request, obj):
     # handle both events at the same time (hence two arguments)
     validation = validate_upload(obj)
     response = If(
         validation.success,
-        R200(save_image_in_db(obj, async=True)),
+        R200(save_image_in_db(obj, run_async=True)),
         R400(validation.errors)
     )
     return response
 
-def validate_upload(obj):
-    pass  # check extension, etc
+# def validate_upload(obj): check extension, etc
+# def save_image_in_db(obj): move to different folder, put metadata in DB, etc
 
-@Func
-def save_image_in_db(obj):
-    pass  # move to different folder, put metadata in DB, etc
 ```
 
 Assuming we can "validate" an existing object, and put its metadata into the db.
@@ -125,7 +135,7 @@ Note that `on_upload` is a `Func` - **not** a normal Python function.
 
 Also a trivial Python function.
 
-```python
+```python tangle:service.py
 @e.http.GET("/image/<id>")
 def view_image(_, image_id):
     image = db_qry("select * from images where image_id=%d", image_id)
@@ -144,7 +154,7 @@ Also note that request is unused.
 
 Also trivial. Just update the DB and show the page again.
 
-```python
+```python tangle:service.py
 @e.http.POST("/image/<id>/comments")
 def post_comment(request, image_id):
     comment = request.comment
@@ -164,6 +174,19 @@ Also, we reused the existing `view_image` implementation to respond, but we
 don't pass a request, because it's not needed.
 
 
+### Finally, compile the service
+
+The last detail we need to do is compile the service. Since this is all embedded
+in Python, creating the compiler CLI in the same file is a nice way to do it. It
+also ensures that there is a single "top-level" file for the service.
+
+```python tangle:service.py
+if __name__ == '__main__':
+    import c9c
+    c9.compiler_cli()
+```
+
+
 ## Ric's Notes
 
 Ideas and thoughts while writing this example.
@@ -181,3 +204,23 @@ The event handler creates a promise which is fulfilled by the user's function.
 
 There could be multiple `to_object_store` to deal with multiple files being
 uploaded. The programmer specifies the form field name.
+
+
+## How it works in the poet's mind
+
+To build this, we need
+- a database
+- API gateways
+- lambda request handlers
+- S3 bucket
+- CDN (maybe) for statics (CSS...)
+
+The compiler knows which bits are needed - except the database.
+
+There are too many possible implementations to easily optimise though.
+
+We could reuse serverless components (generate YAML from some arguments in the
+python).
+
+We could easily generate a pythonic interface to serverless components. ie
+generate YAML from a dict.
