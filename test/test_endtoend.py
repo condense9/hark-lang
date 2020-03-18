@@ -30,17 +30,17 @@ def test_simple():
 
 @Func
 def xtimes2plus3(x):
-    return FCall(lambda x: (2 * x) + 3, x)
+    return ForeignCall(lambda x: (2 * x) + 3, x)
 
 
 @Func
 def slow_math(x):
-    return FCall(random_sleep_math, x)
+    return ForeignCall(random_sleep_math, x)
 
 
 @Func
 def f_func(*args):
-    return FCall(f, *args)
+    return ForeignCall(f, *args)
 
 
 @Func
@@ -61,6 +61,27 @@ def test_slow_math():
     list_defs(compiled)
     check_exec(compiled, data, expected)
 
+
+@Foreign
+def simple_math(x):
+    return x - 1
+
+
+@Func
+def call_foreign(x):
+    return Cons(simple_math(x), simple_math(x))
+
+
+def test_call_foreign():
+    @Func
+    def main(x):
+        return Map(resolve, call_foreign(x))
+
+    data = LocalState(5)
+    expected = LocalState([4, 4])
+    compiled = compile_all(main)
+    list_defs(compiled)
+    check_exec(compiled, data, expected)
 
 if __name__ == "__main__":
     test_slow_math()

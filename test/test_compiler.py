@@ -3,7 +3,7 @@
 import lang as l
 import machine as m
 import compiler
-from lang import Func
+from lang import Func, Foreign
 from simple_functions import *
 from utils import listing, list_defs, check_compile_all, check_compile_node
 
@@ -151,7 +151,7 @@ def test_compile_all():
 
 @Func
 def fcall_times2(a):
-    return l.FCall(times2, a)
+    return l.ForeignCall(times2, a)
 
 
 def test_fcall():
@@ -233,6 +233,45 @@ def test_map():
                 m.Return()
                 # --
             ],
+        },
+    )
+
+
+@Foreign
+def simple_math(x):
+    return x - 1
+
+
+@Func
+def call_foreign(x):
+    return simple_math(x)
+
+
+def test_foreign():
+    check_compile_all(
+        call_foreign,
+        {
+            # It's hard to test the MFCall, as the function it's calling is an
+            # instance method. But here's what it looks like:
+            #
+            # "FF_simple_math": [
+            #     # --
+            #     m.Bind(0),
+            #     m.PushB(0),
+            #     m.Wait(),
+            #     m.MFCall(simple_math._wrapper, 1),
+            #     m.Return()
+            #     # --
+            # ]
+            "F_call_foreign": [
+                # --
+                m.Bind(0),
+                m.PushB(0),
+                m.PushV("FF_simple_math"),
+                m.Call(),
+                m.Return()
+                # --
+            ]
         },
     )
 

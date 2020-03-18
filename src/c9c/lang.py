@@ -131,8 +131,6 @@ class Func(Quote):
 
     def __call__(self, *args):
         """Create a DAG node that calls this function with arguments"""
-        # Quote first - allows the programmer to not do it (ie '4 == 4)
-        args = [Quote(o) if not isinstance(o, Node) else o for o in args]
         return Funcall(self, *args)
 
     def unquote(self):
@@ -141,10 +139,27 @@ class Func(Quote):
 
     def b_reduce(self, values):
         """Evaluate the function with arguments replaced with values"""
+        if len(values) != self.num_args:
+            raise Exception(
+                f"Wrong number of arguments - got {len(values)}, needed {self.num_args}"
+            )
         return self._fn(*values)
 
     def __repr__(self):
         return f"<Func {self.label}>"
+
+
+class Foreign(Func):
+    """Represents a foreign (native Python) function"""
+
+    def __init__(self, fn):
+        super().__init__(fn)
+        self.label = "FF_" + fn.__name__
+        self._fn = self._wrapper
+        self._foreign = fn
+
+    def _wrapper(self, *args):
+        return ForeignCall(self._foreign, *args)
 
 
 class If(Node):
@@ -195,7 +210,7 @@ class Funcall(Node):
         self.run_async = run_async
 
 
-class FCall(Node):
+class ForeignCall(Node):
     """Foreign function calling interface"""
 
     def __init__(self, *operands):
@@ -302,7 +317,7 @@ def Map(function, lst):
 def Nth(n, lst):
     # NOTE it's *wrong* to use an FCALL in a built-in language function... but
     # this is MVP :)
-    return If(Eq(n, 0), First(lst), Nth(FCall(lambda x: x - 1, x), Rest(lst)))
+    return If(Eq(n, 0), First(lst), Nth(ForeignCall(lambda x: x - 1, x), Rest(lst)))
 
 
 @Func

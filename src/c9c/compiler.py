@@ -56,8 +56,8 @@ def _(node: l.Quote) -> CodeObject:
 
 
 @compile_node.register
-def _(node: l.FCall) -> CodeObject:
-    """FCall: compile the arguments, then WAIT for them before calling function"""
+def _(node: l.ForeignCall) -> CodeObject:
+    """ForeignCall: compile the arguments, WAIT for them, then call the function"""
     arg_code = flatten(compile_node(arg).code for arg in node.args)
     num_args = len(node.args)
     waits = [m.Wait() for _ in range(num_args)]
