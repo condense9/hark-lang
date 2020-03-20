@@ -9,6 +9,7 @@ verify_ssl = true
 pytest = "*"
 md-tangle = "*"
 click = "*"
+sphinx = "*"
 
 [requires]
 python_version = "3.8"
