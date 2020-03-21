@@ -1,12 +1,12 @@
 """Test that the compiler generates appropriate machine code"""
 
+import compiler
 import lang as l
 import machine as m
-import compiler
-from lang import Func, Foreign
+from lang import Foreign, Func
 from simple_functions import *
-from utils import listing, list_defs, check_compile_all, check_compile_node
-
+from stdlib import Map
+from utils import check_compile_all, check_compile_node, list_defs, listing
 
 ################################################################################
 ## Test nodes first
@@ -172,13 +172,13 @@ def test_fcall():
 
 
 def test_apply_map():
-    node = l.Funcall(l.Map, fcall_times2, l.Quote([1, 2, 3]))
+    node = l.Funcall(Map, fcall_times2, l.Quote([1, 2, 3]))
     listing(compiler.compile_node(node).code)
 
 
 def test_call_map():
     check_compile_all(
-        l.Map,
+        Map,
         {
             "F_Map": [
                 m.Bind(0),
@@ -207,7 +207,7 @@ def test_call_map():
 
 @Func
 def simple_map(a):
-    return l.Map(fcall_times2, a)
+    return Map(fcall_times2, a)
 
 
 def test_map():
@@ -228,7 +228,7 @@ def test_map():
                 m.Bind(0),
                 m.PushB(0),
                 m.PushV(fcall_times2.label),
-                m.PushV(l.Map.label),
+                m.PushV(Map.label),
                 m.Call(),
                 m.Return()
                 # --
@@ -259,10 +259,10 @@ def test_foreign():
             #     m.Bind(0),
             #     m.PushB(0),
             #     m.Wait(),
-            #     m.MFCall(simple_math._wrapper, 1),
+            #     lambda x: (x.operands[1] == 1 and x.operands[0] is l.Foreign._wrapper),
             #     m.Return()
             #     # --
-            # ]
+            # ],
             "F_call_foreign": [
                 # --
                 m.Bind(0),
@@ -271,7 +271,7 @@ def test_foreign():
                 m.Call(),
                 m.Return()
                 # --
-            ]
+            ],
         },
     )
 

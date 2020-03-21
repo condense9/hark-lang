@@ -27,6 +27,16 @@ from typing import Any, Dict, List
 import lang as l
 
 
+def traverse(o, tree_types=(list, tuple)):
+    """Traverse an arbitrarily nested list"""
+    if isinstance(o, tree_types):
+        for value in o:
+            for subvalue in traverse(value, tree_types):
+                yield subvalue
+    else:
+        yield o
+
+
 class Instruction:
     op_types = []
     check_op_types = True
@@ -234,13 +244,19 @@ class M:
     @evali.register
     def _(self, i: Wait):
         val = self.state.ds_peek()
-        if not self._is_future(val):
+        # TODO per-backend tpyes? How? A separate types module?
+        if self._is_future(val):
+            self._wait_for(val)
+        elif isinstance(val, list):
+            for elt in traverse(val):
+                if self._is_future(elt):
+                    # The programmer is responsible for waiting on VLists
+                    raise Exception("Waiting on a VList that contains futures!")
+        else:
             # Not an exception. This can happen if a wait is generated for a
             # normal function call. ie the value already exists.
             # raise Exception("Waiting on something already used")
             pass
-        else:
-            self._wait_for(val)
 
     @evali.register
     def _(self, i: Return):
@@ -305,9 +321,9 @@ class M:
         b = self.state.ds_pop()
         if isinstance(a, list):
             assert not isinstance(b, list)
-            self.state.ds_push(a + l.VList([b]))
+            self.state.ds_push(a + [b])
         else:
-            self.state.ds_push(l.VList([a, b]))
+            self.state.ds_push([a, b])
 
     @evali.register
     def _(self, i: l.Car):

@@ -9,8 +9,8 @@ Capabilities
 """
 import inspect
 import itertools
-from dataclasses import dataclass
 from collections import deque
+from dataclasses import dataclass
 from functools import singledispatch, wraps
 from typing import List
 
@@ -77,24 +77,6 @@ class Symbol(Node):
         return []
 
 
-class VList(list):
-    """Just a marker type for now"""
-
-
-@singledispatch
-def _unquote(value):
-    """Generic function to unquote a python value.
-
-    This might not be necessary...
-    """
-    return value
-
-
-@_unquote.register
-def _(value: list):
-    return VList(value)
-
-
 class Quote(Node):
     """Represent a literal/primitive value"""
 
@@ -107,7 +89,7 @@ class Quote(Node):
 
     def unquote(self):
         """Get the machine representation of the value"""
-        return _unquote(self.value)
+        return self.value
 
     @property
     def descendents(self):
@@ -166,10 +148,12 @@ class If(Node):
     """Conditionals - the node evaluates to one of two branches"""
 
     def __init__(self, cond, then, els):
-        super().__init__([cond, then, els])
-        self.cond = cond
-        self.then = then
-        self.els = els
+        super().__init__(cond, then, els)
+        # Assign the values from self.operands so that they are the proper
+        # Quoted versions. TODO fix abstractions - this is confusing
+        self.cond = self.operands[0]
+        self.then = self.operands[1]
+        self.els = self.operands[2]
 
     def __repr__(self):
         return f"<If {self.cond} ? {self.then} : {self.els}>"
@@ -213,10 +197,10 @@ class Funcall(Node):
 class ForeignCall(Node):
     """Foreign function calling interface"""
 
-    def __init__(self, *operands):
-        super().__init__(*operands)
-        self.function = operands[0]
-        self.args = operands[1:]
+    def __init__(self, fn, *args):
+        super().__init__(*args)
+        self.function = fn  # Must not be a Node. TODO fix - confusing
+        self.args = self.operands
 
 
 class Builtin(Node):
@@ -300,18 +284,7 @@ class Nullp(Builtin):
 # Cond can easily be defun'd, using the If primitive.
 
 
-################################################################################
-## Higher order.
-
-
-@Func
-def Map(function, lst):
-    # function is a symbol referring to a function, so must Apply it
-    return If(
-        Nullp(lst),
-        Quote([]),
-        Cons(Funcall(function, First(lst)), Map(function, Rest(lst))),
-    )
+### TODO These should really be in stdlib:
 
 
 @Func

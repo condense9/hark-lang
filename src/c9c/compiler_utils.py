@@ -33,7 +33,7 @@ def map_funcs(fn: l.Func, mapping_fn) -> dict:
         result[this_fn.label] = body
 
         for c in calls:
-            if c not in domain:
+            if c.label not in result and c not in domain:
                 domain.append(c)
 
     return result
