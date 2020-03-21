@@ -25,13 +25,14 @@ def run_dbg_local(executable, data, *, trace=True):
     if trace:
         machine.print_instructions()
     machine.run()
-    print("*** FINISHED")
-    machine.state.show()
+    if trace:
+        print("*** FINISHED")
+        machine.state.show()
 
 
 def check_exec(executable, data: m.LocalState, expected: m.LocalState):
     """Run a program to termination, and check that the data stack is as expected"""
-    run_dbg_local(executable, data, trace=True)
+    run_dbg_local(executable, data, trace=False)
     assert len(expected._ds) == len(data._ds)
     for i, (a, b) in enumerate(zip(expected._ds, data._ds)):
         assert i >= 0 and a == b
