@@ -1,10 +1,10 @@
 """Test that programs run correctly - ie test both compiler and machine"""
 
-from compiler import compile_all
+from compiler import compile_all, link
 from lang import *
 from machine import LocalState, Wait
 from simple_functions import *
-from utils import run_dbg_local, list_defs, check_exec
+from utils import list_defs, check_exec
 
 
 @Func
@@ -25,8 +25,10 @@ def test_simple():
     data = LocalState(5)
     expected = LocalState(5)
     compiled = compile_all(main)
-    check_exec(compiled, data, expected)
+    check_exec(link(compiled), data, expected)
 
+
+####################
 
 @Func
 def xtimes2plus3(x):
@@ -59,8 +61,10 @@ def test_slow_math():
     expected = LocalState([5, 7, 9, 11, 13])
     compiled = compile_all(main)
     list_defs(compiled)
-    check_exec(compiled, data, expected)
+    check_exec(link(compiled), data, expected)
 
+
+####################
 
 @Foreign
 def simple_math(x):
@@ -81,7 +85,7 @@ def test_call_foreign():
     expected = LocalState([4, 4])
     compiled = compile_all(main)
     list_defs(compiled)
-    check_exec(compiled, data, expected)
+    check_exec(link(compiled), data, expected)
 
 if __name__ == "__main__":
     test_slow_math()

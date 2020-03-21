@@ -18,10 +18,10 @@ def list_defs(defs):
         listing(c)
 
 
-def run_dbg_local(functions, data, *, trace=True):
+def run_dbg_local(executable, data, *, trace=True):
     """Run the machine locally and print lots of state"""
     probe = m.DebugProbe(trace=trace)
-    machine = m.LocalMachine(functions, data, "F_main", probe)
+    machine = m.LocalMachine(executable, data, probe)
     if trace:
         machine.print_instructions()
     machine.run()
@@ -29,9 +29,9 @@ def run_dbg_local(functions, data, *, trace=True):
     machine.state.show()
 
 
-def check_exec(defs: dict, data: m.LocalState, expected: m.LocalState):
+def check_exec(executable, data: m.LocalState, expected: m.LocalState):
     """Run a program to termination, and check that the data stack is as expected"""
-    run_dbg_local(defs, data, trace=True)
+    run_dbg_local(executable, data, trace=True)
     assert len(expected._ds) == len(data._ds)
     for i, (a, b) in enumerate(zip(expected._ds, data._ds)):
         assert i >= 0 and a == b
@@ -52,7 +52,7 @@ def check_compile_all(fn: l.Func, expected: Dict):
     defs = compiler.compile_all(fn)
     for k in defs.keys():
         if k not in expected:
-            warnings.warn(f"Not checking definition of {k}")
+            warnings.warn(f"Skipping {k} - Expected output not given")
     for k in expected.keys():
         assert k in defs
         assert len(defs[k]) == len(expected[k])

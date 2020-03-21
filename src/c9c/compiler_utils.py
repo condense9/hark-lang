@@ -10,6 +10,13 @@ def flatten(list_of_lists: list) -> list:
     return list(itertools.chain.from_iterable(list_of_lists))
 
 
+def pairwise(iterable):
+    """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return itertools.izip(a, b)
+
+
 def map_funcs(fn: l.Func, mapping_fn) -> dict:
     """Apply MAPPING_FN to every Func in FN
 

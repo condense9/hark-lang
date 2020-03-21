@@ -276,6 +276,18 @@ def test_foreign():
     )
 
 
+def test_link():
+    @Func
+    def main(a):
+        return a
+
+    compiled = compiler.compile_all(main)
+    linked = compiler.link(compiled)
+    assert "F_main" in linked.locations
+    # The linker should add some code:
+    assert len(linked.code) > sum(len(code) for code in compiled.values())
+
+
 if __name__ == "__main__":
     # print(compile_function(simple_func2))
     # list_defs(compile_all(simple_func2))

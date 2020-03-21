@@ -154,6 +154,12 @@ class Continuation:
     state: State
 
 
+@dataclass
+class Executable:
+    locations: dict
+    code: list
+
+
 class M:
     """This is the Machine, the CPU.
 
@@ -163,46 +169,46 @@ class M:
     bit gets entirely new memory (with args on the stack) and a Continuation.
     The continuation contains a pointer to the old memory (state), and the IP.
 
+    When run normally, the Machine starts executing instructions from the
+    beginning until the instruction pointer reaches the end.
+
     """
 
     def __init__(
-        self, functions: Dict[str, List], state: State, entrypoint="F_main", probe=None
+        self, executable: Executable, state: State, probe=None,
     ):
+        self.imem = executable.code
+        self.locations = executable.locations
         self.state = state
-        self.imem = []
         self.probe = probe
-        self._offset = {}
-        for name, instructions in functions.items():
-            self._offset[name] = len(self.imem)
-            self.imem += instructions
-        self.state.ip = self._offset[entrypoint]
+        self.state.ip = 0
         self._stopped = False
-        self.builtins = []
 
     @property
     def stopped(self):
-        assert self.state.ip <= len(self.imem)
-        return self._stopped or self.state.ip == len(self.imem)
-
-    def stop(self):
-        self._stopped = True
+        return self._stopped
 
     @property
     def instruction(self):
         return self.imem[self.state.ip]
 
     def step(self):
+        assert self.state.ip < len(self.imem)
         if self.probe:
             self.probe.step_cb(self)
         instr = self.instruction
         self.state.ip += 1
         self.evali(instr)
+        if self.state.ip == len(self.imem):
+            self._stopped = True
 
     def print_instructions(self):
         print(" /")
         for i, instr in enumerate(self.imem):
-            if i in self._offset.values():
-                funcname = next(k for k in self._offset.keys() if self._offset[k] == i)
+            if i in self.locations.values():
+                funcname = next(
+                    k for k in self.locations.keys() if self.locations[k] == i
+                )
                 print(f" | ;; {funcname}:")
             print(f" | {i:4} | {instr}")
         print(" \\")
@@ -238,11 +244,7 @@ class M:
 
     @evali.register
     def _(self, i: Return):
-        try:
-            self.state.es_return()
-        except NoMoreFrames:
-            # No more frames to return
-            self._stopped = True
+        self.state.es_return()
 
     @evali.register
     def _(self, i: Bind):
@@ -285,7 +287,7 @@ class M:
     def _(self, i: Call):
         # Arguments for the function must already be on the stack
         name = self.state.ds_pop()
-        self.state.es_enter(self._offset[name])
+        self.state.es_enter(self.locations[name])
 
     @evali.register
     def _(self, i: l.Atomp):
@@ -373,10 +375,6 @@ from collections import deque
 Future = concurrent.futures.Future
 
 
-class NoMoreFrames(Exception):
-    pass
-
-
 # "State" must be implemented per backend.
 class LocalState(State):
     def __init__(self, *values):
@@ -408,9 +406,6 @@ class LocalState(State):
         self._bindings = {}
 
     def es_return(self):
-        if not self._es:
-            raise NoMoreFrames()
-
         self.ip = self._es.pop()
         self._bindings = self._bs.pop()
 

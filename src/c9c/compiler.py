@@ -19,7 +19,7 @@ from typing import List, Tuple
 
 import lang as l
 import machine as m
-from compiler_utils import map_funcs, flatten
+from compiler_utils import map_funcs, flatten, pairwise
 
 
 @dataclass
@@ -158,3 +158,31 @@ def compile_function(fn: l.Func) -> Tuple[List[m.Instruction], List[l.Func]]:
             calls.append(n)
 
     return body, calls
+
+
+def link(defs) -> m.Executable:
+    """Link a bunch of definitions into a single executable"""
+    preamble_length = 1
+    defs_code = []
+    locations = {}
+
+    for name, instructions in defs.items():
+        locations[name] = len(defs_code) + preamble_length
+        defs_code += instructions
+
+    entrypoint = len(defs_code)  # *relative* jump to after defs_code
+    preamble = [m.Jump(entrypoint)]
+
+    assert len(preamble) == preamble_length
+    assert "F_main" in defs
+
+    code = [
+        *preamble,
+        *defs_code,
+        # actual entrypoint:
+        m.PushV("F_main"),
+        m.Call(),
+        m.Wait()  # Always wait for the last value to resolve
+        # NOTE -- no Return at the end. Nothing to return to!
+    ]
+    return m.Executable(locations, code)
