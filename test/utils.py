@@ -48,7 +48,7 @@ def check_compile_node(node, expected):
         assert i >= 0 and a.strip() == b.strip()
 
 
-def check_compile_all(fn: l.Func, expected: Dict):
+def check_compile_all(fn: l.Func, expected: Dict, allow_custom_validation=False):
     """Check that some function definitions are correct"""
     defs = compiler.compile_all(fn)
     for k in defs.keys():
@@ -63,8 +63,10 @@ def check_compile_all(fn: l.Func, expected: Dict):
                 # assembly. So this is to avoid having to instantiate real
                 # builtins in EXPECTED
                 assert k and i >= 0 and type(a) == b
-            # elif not isinstance(b, l.Node) and callable(b):
-            #     # Allow custom validation
-            #     assert b(a)
+            elif not isinstance(b, l.Node) and callable(b):
+                if allow_custom_validation:
+                    assert b(a)
+                else:
+                    raise Exception("Custom validation disabled")
             else:
                 assert k and i >= 0 and a == b

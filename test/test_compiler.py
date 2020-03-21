@@ -251,18 +251,19 @@ def test_foreign():
     check_compile_all(
         call_foreign,
         {
-            # It's hard to test the MFCall, as the function it's calling is an
-            # instance method. But here's what it looks like:
             #
-            # "FF_simple_math": [
-            #     # --
-            #     m.Bind(0),
-            #     m.PushB(0),
-            #     m.Wait(),
-            #     lambda x: (x.operands[1] == 1 and x.operands[0] is l.Foreign._wrapper),
-            #     m.Return()
-            #     # --
-            # ],
+            "FF_simple_math": [
+                # --
+                m.Bind(0),
+                m.PushB(0),
+                m.Wait(),
+                # When `call_foreign` calls `simple_math`, that creates a new
+                # ForeignCall node, which is compiled an MFCall, and the actual
+                # function is accessed in .foreign
+                m.MFCall(simple_math._foreign, 1),
+                m.Return()
+                # --
+            ],
             "F_call_foreign": [
                 # --
                 m.Bind(0),
