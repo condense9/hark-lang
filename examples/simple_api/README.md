@@ -17,7 +17,7 @@ Very little is needed.
 
 ```python tangle:service.py
 import c9c
-from c9c.http import http_get, Response
+from c9c.handlers import HttpHandler, Response
 ```
 
 
@@ -29,28 +29,48 @@ ok, what events have we got?
 Easy.
 
 ```python tangle:service.py
-@http_get("/")
-def handler(request):
+@HttpHandler("GET", "/")
+def index_foo(event, context):
     return Response(200, "Hello world!")
 ```
 
+### Create the service
+
+```python tangle:service.py
+SERVICE = c9c.Service(
+    name="foo",
+    entrypoint=__file__,
+    # extra_source =
+    handlers=[index_foo],
+    export_methods=[],
+    # outputs=[handler.endpoint_url],
+)
+
+```
 
 ### Compile the service
 
 ```python tangle:service.py
+
+def main():
+    # c9c.cli.generate(SERVICE)
+    c9c.synthesiser.generate(SERVICE, "./build")
+    
 if __name__ == '__main__':
-    import c9c
-    import typing as t
-
-    simple = c9c.Service(
-        handlers = [handler]
-        export_methods = []
-        outputs = [handler.endpoint_url]
-    )
-
-    c9c.compiler_cli(simple)
+    main()
 ```
 
 The result is a folder with
 - the source code to implement the service (ie this file)
 - 
+
+
+For testing:
+
+```
+if __name__ == "__main__":
+    import c9c.compiler
+    import c9c.synthesiser
+
+    print(c9c.synthesiser.generate(SERVICE, "./build"))
+```

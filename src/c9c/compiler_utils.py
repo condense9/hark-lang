@@ -1,8 +1,9 @@
 """Shared utilities"""
 
-import lang as l
 import itertools
 from collections import deque
+
+from . import lang as l
 
 
 def flatten(list_of_lists: list) -> list:
@@ -17,23 +18,24 @@ def pairwise(iterable):
     return itertools.izip(a, b)
 
 
-def map_funcs(fn: l.Func, mapping_fn) -> dict:
-    """Apply MAPPING_FN to every Func in FN
+def traverse_dag(fn: l.Func):
+    """Yield every node in the DAG, starting from FN"""
+    to_visit = deque([fn])
+    visited = []
 
-    Return {x.label: mapping_fn(x) for x::Func in range(fn)}
-    """
-    domain = deque([fn])
-    result = {}
+    while to_visit:
+        this_fn = to_visit.pop()
+        visited.append(this_fn)
 
-    while domain:
-        this_fn = domain.pop()
+        yield this_fn
 
-        body, calls = mapping_fn(this_fn)
+        # Reduce the function with symbolic placeholders, and continue traversal
+        placeholders = [l.Symbol(i) for i in range(this_fn.num_args)]
+        node = this_fn.b_reduce(placeholders)
 
-        result[this_fn.label] = body
-
-        for c in calls:
-            if c.label not in result and c not in domain:
-                domain.append(c)
-
-    return result
+        for n in node.descendents:
+            if n not in visited:
+                if isinstance(n, l.Func):
+                    to_visit.append(n)
+                else:
+                    yield n

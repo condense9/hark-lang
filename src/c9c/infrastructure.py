@@ -10,42 +10,94 @@ Infrastructure doesn't reference functions; functions reference infrastructure
 """
 import yaml
 from dataclasses import dataclass as dc
+from typing import List
+
+from . import lang as l
 
 
-class Infrastructure:
-    region: str
+################################################################################
+## High level infrastructure dependencies
+#
+# These can be constrained - interface TBD.
+#
+# They are used to generate Serverless Components.
 
 
-class Component(Infrastructure):
-    input_spec = {}
-    component_type = None
+class HttpEndpoint(l.Infrastructure):
+    def __init__(self, name, method, path):
+        super().__init__(name)
+        self.method = method
+        self.path = path
 
-    def __init__(self, name, **inputs):
-        assert self.component_type
+
+class ObjectStore(l.Infrastructure):
+    def __init__(self, name):
+        super().__init__(name)
+
+
+class KVStore(l.Infrastructure):
+    def __init__(self, name):
+        super().__init__(name)
+
+
+################################################################################
+## Low level infrastructure...
+
+
+class ServerlessComponent:
+    """Thin abstraction over Serverless Components"""
+
+    def __init__(self, component_type: str, name: str, inputs: dict):
+        self.component_type = component_type
         self.name = name
-        # self.check_inputs(inputs)
         self.inputs = inputs
 
-    def synthesise(self):
-        return serverless_component_yaml(self.name, self.component_type, self.inputs)
+    def yaml(self) -> str:
+        """Create YAML for a Serverless ServerlessComponent"""
+        return yaml.dump(
+            {self.name: {"component": self.component_type, "inputs": self.inputs}}
+        )
 
 
-# FIXME the input_spec thing isn't nice. Try to use a normal Python function
-# interface.
-class Function(Component):
-    component_type = "@serverless/function"
-    input_spec = dict(
-        code=str,
-        handler=str,
-        # ...
-    )
+class Function(ServerlessComponent):
+    def __init__(
+        self,
+        name: str,
+        code: str,
+        handler: str,
+        memory=128,
+        timeout=10,
+        runtime="python3.8",
+        region="eu-west-2",
+    ):
+        inputs = dict(
+            # --
+            code=code,
+            handler=handler,
+            memory=memory,
+            timeout=timeout,
+            runtime=runtime,
+            region=region,
+        )
+        super().__init__("@serverless/function", name, inputs)
 
 
-class Api(Component):
-    component_type = "@serverless/api"
-    inputs = dict(code=str,)
+class Api(ServerlessComponent):
+    _count = 1
 
+    def __init__(self, region):
+        self.region = region
+        self.endpoints = []
+        name = "Api" + str(Api._count)
+        Api._count += 1
+        inputs = dict(
+            # --
+            region=self.region,
+            endpoints=self.endpoints,
+        )
+        super().__init__("@serverless/api", name, inputs)
 
-def serverless_component_yaml(name, component, inputs):
-    """Create YAML for a Serverless Component"""
-    return yaml.dump({name: {"component": component, "inputs": inputs}})
+    def add_endpoint(self, e: HttpEndpoint):
+        self.endpoints.append(
+            dict(path=e.path, method=e.method, function=f"${{{e.name}}}")
+        )

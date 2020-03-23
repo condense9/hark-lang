@@ -1,7 +1,7 @@
 """Standard library of utilities"""
 
-from lang import *
-from machine import Wait
+from .lang import *
+from .machine import Wait
 
 
 @Func

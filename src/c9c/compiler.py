@@ -15,11 +15,11 @@ NOTE: no variables
 
 from dataclasses import dataclass
 from functools import singledispatch
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
-import lang as l
-import machine as m
-from compiler_utils import map_funcs, flatten, pairwise
+from . import lang as l
+from . import machine as m
+from .compiler_utils import traverse_dag, flatten, pairwise
 
 
 @dataclass
@@ -131,12 +131,15 @@ def _(node: l.Do) -> CodeObject:
 ## Node spec done - now compile them.
 
 
-def compile_all(fn: l.Func, target_machine=None) -> dict:
-    return map_funcs(fn, compile_function)
+def compile_all(fn: l.Func, target_machine=None) -> Dict[str, List[m.Instruction]]:
+    """Compile FN and all functions called by FN"""
+    return {
+        n.label: compile_function(n) for n in traverse_dag(fn) if isinstance(n, l.Func)
+    }
 
 
-def compile_function(fn: l.Func) -> Tuple[List[m.Instruction], List[l.Func]]:
-    """Compile function and list other functions it calls"""
+def compile_function(fn: l.Func) -> List[m.Instruction]:
+    """Compile function into machine instructions"""
     # Bind the arguments so they can be used later
     bindings, placeholders = list(
         zip(*[(m.Bind(i), l.Symbol(i)) for i in range(fn.num_args)])
@@ -151,16 +154,14 @@ def compile_function(fn: l.Func) -> Tuple[List[m.Instruction], List[l.Func]]:
         # --
     ]
 
-    calls = []
-    new_nodes = node.descendents
-    for n in new_nodes:
-        if isinstance(n, l.Func) and n not in calls:
-            calls.append(n)
-
-    return body, calls
+    return body
 
 
-def link(defs) -> m.Executable:
+class LinkError(Exception):
+    """Something went wrong while linking"""
+
+
+def link(defs, entrypoint_fn="F_main") -> m.Executable:
     """Link a bunch of definitions into a single executable"""
     preamble_length = 1
     defs_code = []
@@ -173,16 +174,21 @@ def link(defs) -> m.Executable:
     entrypoint = len(defs_code)  # *relative* jump to after defs_code
     preamble = [m.Jump(entrypoint)]
 
-    assert len(preamble) == preamble_length
-    assert "F_main" in defs
+    if len(preamble) != preamble_length:
+        # Defensive coding
+        raise LinkError(f"Preamble length {len(preamble)} != {preamble_length}")
+
+    if entrypoint_fn not in defs:
+        raise LinkError(f"{entrypoint_fn} not found in defitions")
 
     code = [
         *preamble,
         *defs_code,
         # actual entrypoint:
-        m.PushV("F_main"),
+        m.PushV(entrypoint_fn),
         m.Call(),
         m.Wait()  # Always wait for the last value to resolve
         # NOTE -- no Return at the end. Nothing to return to!
     ]
+
     return m.Executable(locations, code)

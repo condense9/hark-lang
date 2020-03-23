@@ -24,7 +24,8 @@ import time
 from dataclasses import dataclass
 from functools import singledispatchmethod
 from typing import Any, Dict, List
-import lang as l
+
+from . import lang as l
 
 
 def traverse(o, tree_types=(list, tuple)):

@@ -12,6 +12,7 @@ def hello(event, context):
     return dict(
         statusCode=200,
         # isBase64Encoded="false",
-        # headers=dict(...),
-        body=json.dumps(dict(message="Hello World!"))
+        headers={"content-type": "text/plain"},
+        # body=json.dumps(dict(message="Hello World!"))
+        body="Hello..."
     )

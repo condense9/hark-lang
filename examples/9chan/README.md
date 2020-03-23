@@ -212,7 +212,6 @@ def save_image_in_db(obj) -> ImageId:
     # move to different folder, put metadata in DB, etc
     # db_insert_image()
     pass
-
 ```
 
 Assuming we can "validate" an existing object, and put its metadata into the db.
@@ -233,8 +232,7 @@ in Python, creating the compiler CLI in the same file is a nice way to do it. It
 also ensures that there is a single "top-level" file for the service.
 
 ```python tangle:service.py
-
-class 9ChanBoard(c9c.Service):
+class ImgBoard(c9c.Service):
     options = {}
     export_methods = []
     outputs = [BUCKET]
@@ -242,7 +240,7 @@ class 9ChanBoard(c9c.Service):
 if __name__ == '__main__':
     import c9c
 
-    c9c.compiler_cli(9ChanBoard)
+    c9c.compiler_cli(ImgBoard)
 ```
 
 TODO explain `Service`...

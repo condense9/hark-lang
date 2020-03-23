@@ -39,37 +39,163 @@ class http_post:
 
 from typing import List
 
-import infrastructure as inf
-import lang as l
-from compiler_utils import map_funcs, flatten
-
-
-@singledispatch
-def synthesise_node(node: l.Node) -> CodeObject:
-    """Take an AST node and (recursively) synthesise infrastructure"""
-    raise NotImplementedError(node, type(node))
+from . import infrastructure as inf
+from . import lang as l
+from .compiler_utils import flatten, traverse_dag
 
 
 ################################################################################
 ## Entrypoints
 
 
-def synthesise_all(fn: l.Func) -> List[inf.Infrastructure]:
+# def synthesise_all(handlers: List[l.Handler]) -> List[l.Infrastructure]:
+#     # TODO
+#     apis = {}
+#     databases = []
+#     buckets = []
+
+
+def get_all_inf(fn: l.Handler) -> List[l.Infrastructure]:
     """Generate infrastructure for FN and all of its dependencies"""
-    synths = map_funcs(fn, synthesise_function)
-    return flatten(synths.values())
+    all_inf = []
+
+    for elt in fn.infrastructure:
+        if isinstance(elt, HttpEndpoint):
+            all_inf.append(Function())
+            components.append(Function(elt.name, code_dir, handler_for()))
+
+    for n in traverse_dag(fn):
+        # Explicit infrastructure - data stores, etc
+        if isinstance(n, inf.Infrastructure):
+            all_inf.append(n)
+
+    # Remove duplicates - some infrastructure may be referenced in multiple
+    # places in the program.
+    return list(set(all_inf))
 
 
-def synthesise_function(
-    fn: l.Func, backend
-) -> Tuple[List[inf.Infrastructure], List[l.Func]]:
-    """Generate infrastructure for function"""
-    out = synthesise_node(node)
+# Synthesis:
+# - take a handler
+#
+# - traverse the entire handler DAG
+#
+# - ignore any more Handlers encountered - they'll be done separately (TODO
+#   think abou the implications of this)
+#
+# - if there are any Infrastructure Nodes, record them as dependencies of this
+# - handler.
+#
+# - Given a set of l.Infrastructure, e.g. one might be "Machine", generate
+# - serverless components (and other files) that implement it. This will have to
+# - be very abstract - e.g. it just gets a build directory.
+#
+# - Return the infrastructure that the handler requires (will be new), plus any
+# - other dependencies (may be reused elsewhere)
 
-    calls = []
-    new_nodes = node.descendents
-    for n in new_nodes:
-        if isinstance(n, l.Func) and n not in calls:
-            calls.append(n)
 
-    return out, calls
+# Implementation:
+# - take some abstract infrastructure pieces as a graph
+# - generate the serverless components to implement the infrastructure
+
+
+# Steps
+# 1. Compilation :: Source -> Handlers
+# 3. Synthesis :: Handlers -> Infrastructure Dependencies + Executables
+# 4. Implementation :: infrastructure deps -> Cloud Resources
+# 5. Generation :: Executables + Cloud Resources -> Deployment Package
+#
+# Constraints may be specified at any step. How?
+
+
+def entrypoint_for(handler):
+    fn_prefix = "handler_"
+    return f"{fn_prefix}{handler.label}"
+
+
+def synthesise(service, region, code_dir):
+    explicit = {}
+    implicit = []
+    endpoints = []
+    api = inf.Api(region)
+
+    for handler in service.handlers:
+        for resource in handler.infrastructure:
+            if isinstance(resource, inf.HttpEndpoint):
+                implicit.append(
+                    inf.Function(
+                        resource.name, code_dir, "main." + entrypoint_for(handler)
+                    )
+                )
+                api.add_endpoint(resource)
+            else:
+                raise NotImplementedError
+
+        # Literal (Quote) infrastructure
+        for node in traverse_dag(handler):
+            if isinstance(node, l.Infrastructure) and node not in explicit:
+                explicit[n] = n.synthesise()
+
+    if api.endpoints:
+        implicit.append(api)
+
+    return implicit + list(explicit.values())
+
+
+from os.path import abspath, join, basename, splitext, dirname
+from shutil import copy, copytree, rmtree
+from os import makedirs
+
+
+# TODO break up this function
+def generate(service, build_dir):
+    # Call this from the top-level file
+    # Generates:
+    # build_dir/serverless.yml
+    # build_dir/code/main.py
+    # build_dir/code/c9c/
+    # build_dir/code/src/
+
+    code_dir = "./code"
+    region = "eu-west-2"
+
+    top_level_file = abspath(service.entrypoint)
+    top_level_module = splitext(basename(service.entrypoint))[0]
+    assert top_level_file.endswith(".py")
+
+    makedirs(join(build_dir, code_dir, "src"))
+
+    # -- build_dir/handlers/src/...
+    print(top_level_file)
+    copy(top_level_file, join(build_dir, code_dir, "src"))
+    # if extra_source: TODO copy extra dirs to handlers/src
+
+    components = synthesise(service, region, code_dir)
+
+    # -- build_dir/serverless.yml
+    with open(join(build_dir, "serverless.yml"), "w") as fp:
+        fp.write(f"name: {service.name}\n")
+        for c in components:
+            fp.write("\n")
+            fp.write(c.yaml())
+
+    # -- build_dir/code_dir/main.py
+    with open(join(build_dir, code_dir, "main.py"), "w") as fp:
+        fp.write("import c9c.runtime.awslambda as awslambda\n\n")
+        for h in service.handlers:
+            fp.write("\n")
+            entrypoint = entrypoint_for(h)
+            implementation = h.fn.__name__
+            fp.write(f"from src.{top_level_module} import {implementation}\n")
+            # Entrypoints to different runtimes could be implemented, and used
+            # depending on constraints. For now, always use awslambda.
+            fp.write(f"{entrypoint} = awslambda.run_from({implementation})\n")
+
+    # -- build_dir/code_dir/c9c
+    copytree(dirname(__file__), join(build_dir, code_dir, "c9c"))
+
+    # -- TODO requirements
+
+
+# Generate:
+# from src.service import foo
+# run_from_foo = run_from(foo)

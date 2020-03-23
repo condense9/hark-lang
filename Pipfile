@@ -10,6 +10,7 @@ pytest = "*"
 md-tangle = "*"
 click = "*"
 sphinx = "*"
+pyyaml = "*"
 
 [requires]
 python_version = "3.8"

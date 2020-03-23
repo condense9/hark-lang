@@ -85,7 +85,8 @@ class Quote(Node):
         # Set operands manually - don't pass in to super().__init__ because it
         # will try to create a Quote, which will try to... etc
         self.value = value
-        # TODO check allowed operand types?? Or anything goes...
+        # TODO check allowed operand types - check that there are no references
+        # to other nodes (a quote is *literal* data).
 
     def unquote(self):
         """Get the machine representation of the value"""
@@ -109,7 +110,8 @@ class Func(Quote):
         self.label = "F_" + fn.__name__
         sig = inspect.signature(fn)
         self.num_args = len(sig.parameters)
-        self._fn = fn
+        self.fn = fn
+        self.constraints = None  # Unused for now.
 
     def __call__(self, *args):
         """Create a DAG node that calls this function with arguments"""
@@ -125,7 +127,7 @@ class Func(Quote):
             raise Exception(
                 f"Wrong number of arguments - got {len(values)}, needed {self.num_args}"
             )
-        return self._fn(*values)
+        return self.fn(*values)
 
     def __repr__(self):
         return f"<Func {self.label}>"
@@ -137,11 +139,32 @@ class Foreign(Func):
     def __init__(self, fn):
         super().__init__(fn)
         self.label = "FF_" + fn.__name__
-        self._fn = self._wrapper
+        self.fn = self._wrapper
         self._foreign = fn
 
     def _wrapper(self, *args):
         return ForeignCall(self._foreign, *args)
+
+
+class Handler(Func):
+    """A special kind of Func that includes some infrastructure"""
+
+    def __init__(self, fn, infrastructure):
+        super().__init__(fn)
+        self.infrastructure = infrastructure
+
+
+# FIXME this is abstract
+class Infrastructure(Quote):
+    """A Quote (compile-time value) that includes some infrastructure"""
+
+    @property
+    def infrastructure(self) -> list:
+        raise NotImplementedError
+
+    def unquote(self):
+        """Get the machine representation of the value"""
+        return self
 
 
 class If(Node):
@@ -264,7 +287,7 @@ class Nullp(Builtin):
 
 
 # Func could be made variadic by assigning self.num_args during __call__ and
-# wrapping self._fn with a new function that takes a specific number of values.
+# wrapping self.fn with a new function that takes a specific number of values.
 
 
 # A "Type" is a function. So a string name (address) and a body. Some Types are

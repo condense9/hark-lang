@@ -1,2 +1,2 @@
-from cli import compile_cli
-from service import Service
+from . import cli
+from .service import Service
