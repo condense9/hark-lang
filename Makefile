@@ -12,4 +12,9 @@ init:  ## Set up development environment
 
 .PHONY: test
 test:  ## Run unit tests
-	cd test && PYTHONPATH=../src/c9c pytest
+	PYTHONPATH=src pytest -v
+
+
+.PHONY: testx
+testx:  ## Run unit tests, stopping after first failure
+	PYTHONPATH=src pytest -x -v
