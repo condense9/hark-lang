@@ -95,7 +95,6 @@ class Future:
     def __init__(self):
         self.resolved = False
         self.value = None
-        self.callbacks = []
         self.chain = None
         self.lock = threading.Lock()
         self.continuations = []
@@ -104,14 +103,7 @@ class Future:
         self.callbacks.append(cb)
 
     def add_continuation(self, machine, offset):
-        # self.continuations.append((machine, offset))
-        def _cont(_, value):
-            machine.state.ds_set(offset, value)
-            machine.state.stopped = False
-            machine.probe.log(f"{self} resolved, continuing {machine}")
-            machine.runtime.executor.run_machine(machine)
-
-        self.add_callback(_cont)
+        self.continuations.append((machine, offset))
 
     def resolve(self, value):
         # value: Either Future or not
@@ -129,8 +121,11 @@ class Future:
         self.value = value
         if self.chain:
             self.chain.resolve(value)
-        for c in self.callbacks:
-            c(self, value)
+        for machine, offset in self.continuations:
+            machine.probe.log(f"{self} resolved, continuing {machine}")
+            machine.state.ds_set(offset, value)
+            machine.state.stopped = False
+            machine.runtime.executor.run_machine(machine)
 
     def __repr__(self):
         return f"<Future {id(self)} {self.resolved} ({self.value})>"
@@ -154,11 +149,14 @@ class DummyProbe:
 
 
 class Executor:
+    """Execute and manage machines running locally using the threading module"""
+
     def __init__(self, executable):
         self.executable = executable
         self.machine_thread = {}
         self.machine_future = {}
         self.to_join = deque()
+        self.future_type = Future
         threading.excepthook = self.threading_excepthook
         self.exception = None
 
@@ -202,8 +200,11 @@ class LocalRuntime(Runtime):
         self.finished = False
         self.result = None
         self.executor = executor
-        self.future_type = Future
         self.top_level = None
+
+    @property
+    def future_type(self):
+        return self.executor.future_type
 
     @property
     def probes(self):
@@ -243,11 +244,11 @@ class LocalRuntime(Runtime):
         if resolved:
             machine.probe.log(f"Resolved {future}")
         else:
-            assert machine is not self.top_level
+            assert machine != self.top_level
             machine.probe.log(f"Chained {future} to {result}")
         if machine == self.top_level and machine.terminated:
-            self.finished = True
             self.result = result
+            self.finished = True
 
 
 def run(executable, *args, probe_cls=None, sleep_interval=0.01):

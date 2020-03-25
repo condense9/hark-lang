@@ -52,10 +52,9 @@ def test_all_calls():
     try:
         runtime = local.run(executable, input_val, probe_cls=DebugProbe)
     finally:
-        pass
-        # m.print_instructions(executable)
-        # for p in runtime.probes:
-        #     p.print_logs()
+        m.print_instructions(executable)
+        for p in runtime.probes:
+            p.print_logs()
     result = runtime.result
     assert result == expected_result
 
@@ -81,10 +80,9 @@ def test_mapping():
     try:
         runtime = local.run(executable, input_val, probe_cls=DebugProbe)
     finally:
-        pass
-        # m.print_instructions(executable)
-        # for p in runtime.probes:
-        #     p.print_logs()
+        m.print_instructions(executable)
+        for p in runtime.probes:
+            p.print_logs()
     result = runtime.result
     assert result == expected_result
 
@@ -120,10 +118,9 @@ def test_call_foreign():
     try:
         runtime = local.run(executable, input_val, probe_cls=DebugProbe)
     finally:
-        pass
-        # m.print_instructions(executable)
-        # for p in runtime.probes:
-        #     p.print_logs()
+        m.print_instructions(executable)
+        for p in runtime.probes:
+            p.print_logs()
     result = runtime.result
     assert result == expected_result
 
@@ -169,10 +166,9 @@ def test_series_concurrent():
     try:
         runtime = local.run(executable, input_val, probe_cls=DebugProbe)
     finally:
-        pass
-        # m.print_instructions(executable)
-        # for p in runtime.probes:
-        #     p.print_logs()
+        m.print_instructions(executable)
+        for p in runtime.probes:
+            p.print_logs()
     result = runtime.result
     assert result == expected_result
 
