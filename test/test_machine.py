@@ -2,9 +2,10 @@
 
 # FIXME nothing in this works anymore. At least it's covered by test_endtoend.py
 
-from machine import *
-from simple_functions import *
-from utils import run_dbg_local
+from c9c.machine import *
+
+from .simple_functions import *
+from .utils import run_dbg_local
 
 
 def make_printer(buf: Buf) -> list:

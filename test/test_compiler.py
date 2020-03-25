@@ -1,12 +1,13 @@
 """Test that the compiler generates appropriate machine code"""
 
-import compiler
-import lang as l
-import machine as m
-from lang import Foreign, Func
-from simple_functions import *
-from stdlib import Map
-from utils import check_compile_all, check_compile_node, list_defs, listing
+import c9c.compiler as compiler
+import c9c.lang as l
+import c9c.machine as m
+from c9c.lang import Foreign, Func
+from c9c.stdlib import Map
+
+from .simple_functions import *
+from .utils import check_compile_all, check_compile_node, list_defs, listing
 
 ################################################################################
 ## Test nodes first
@@ -25,6 +26,48 @@ def test_dummy():
 def test_value():
     node = l.Quote(4)
     check_compile_node(node, "PUSHV    4")
+
+
+def test_apply():
+    node = l.Funcall(dummy, l.Quote(1), l.Quote(2))
+    check_compile_node(
+        node,
+        """
+        PUSHV    2
+        PUSHV    1
+        PUSHV    F_dummy
+        CALL     2
+        """,
+    )
+
+
+def test_apply2():
+    result = l.Funcall(dummy, l.Quote(1), l.Quote(2))
+    node = l.Funcall(dummy, result, l.Quote(3))
+    check_compile_node(
+        node,
+        """
+        PUSHV    3
+        PUSHV    2
+        PUSHV    1
+        PUSHV    F_dummy
+        CALL     2
+        PUSHV    F_dummy
+        CALL     2
+        """,
+    )
+
+
+def test_builtin():
+    node = l.Cons(l.Quote(0), l.Quote(1))
+    check_compile_node(
+        node,
+        """
+        PUSHV    0
+        PUSHV    1
+        $CONS
+        """,
+    )
 
 
 def test_simple_if():
@@ -57,54 +100,12 @@ def test_func_if():
         PUSHV    2
         PUSHV    1
         PUSHV    F_dummy
-        CALL
+        CALL     2
         PUSHV    True
         JUMPIE   2
         PUSHV    2
         JUMP     1
         PUSHV    True
-        """,
-    )
-
-
-def test_apply():
-    node = l.Funcall(dummy, l.Quote(1), l.Quote(2))
-    check_compile_node(
-        node,
-        """
-        PUSHV    2
-        PUSHV    1
-        PUSHV    F_dummy
-        CALL
-        """,
-    )
-
-
-def test_apply2():
-    result = l.Funcall(dummy, l.Quote(1), l.Quote(2))
-    node = l.Funcall(dummy, result, l.Quote(3))
-    check_compile_node(
-        node,
-        """
-        PUSHV    3
-        PUSHV    2
-        PUSHV    1
-        PUSHV    F_dummy
-        CALL
-        PUSHV    F_dummy
-        CALL
-        """,
-    )
-
-
-def test_builtin():
-    node = l.Cons(l.Quote(0), l.Quote(1))
-    check_compile_node(
-        node,
-        """
-        PUSHV    0
-        PUSHV    1
-        $CONS
         """,
     )
 
@@ -141,7 +142,7 @@ def test_compile_all():
                 m.PushB(0),
                 m.PushB(0),
                 m.PushV("F_simple_func"),
-                m.Call(),
+                m.Call(2),
                 m.Return()
                 # --
             ],
@@ -162,7 +163,7 @@ def test_fcall():
                 # --
                 m.Bind(0),
                 m.PushB(0),
-                m.Wait(),
+                m.Wait(0),
                 m.MFCall(times2, 1),
                 m.Return()
                 # --
@@ -190,12 +191,12 @@ def test_call_map():
                 m.PushB(1),
                 l.First,
                 m.PushB(0),
-                m.Call(),
+                m.Call(1),
                 m.PushB(1),
                 l.Rest,
                 m.PushB(0),
                 m.PushV("F_Map"),
-                m.Call(),
+                m.Call(2),
                 l.Cons,
                 m.Jump(1),
                 m.PushV([]),
@@ -218,7 +219,7 @@ def test_map():
                 # --
                 m.Bind(0),
                 m.PushB(0),
-                m.Wait(),
+                m.Wait(0),
                 m.MFCall(times2, 1),
                 m.Return()
                 # --
@@ -229,7 +230,7 @@ def test_map():
                 m.PushB(0),
                 m.PushV(fcall_times2.label),
                 m.PushV(Map.label),
-                m.Call(),
+                m.Call(2),
                 m.Return()
                 # --
             ],
@@ -256,7 +257,7 @@ def test_foreign():
                 # --
                 m.Bind(0),
                 m.PushB(0),
-                m.Wait(),
+                m.Wait(0),
                 # When `call_foreign` calls `simple_math`, that creates a new
                 # ForeignCall node, which is compiled an MFCall, and the actual
                 # function is accessed in .foreign
@@ -269,7 +270,7 @@ def test_foreign():
                 m.Bind(0),
                 m.PushB(0),
                 m.PushV("FF_simple_math"),
-                m.Call(),
+                m.Call(1),
                 m.Return()
                 # --
             ],

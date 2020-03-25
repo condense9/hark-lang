@@ -22,6 +22,10 @@ from . import machine as m
 from .compiler_utils import traverse_dag, flatten, pairwise
 
 
+class CompileError(Exception):
+    pass
+
+
 @dataclass
 class CodeObject:
     code: list  # List[Instruction]
@@ -79,8 +83,11 @@ def _(node: l.Builtin) -> CodeObject:
 def _(node: l.Funcall) -> CodeObject:
     """Call a C9 Function"""
     arg_code = flatten(compile_node(arg).code for arg in reversed(node.operands))
-    wait = [] if node.run_async else [m.Wait()]
-    return CodeObject([*arg_code, m.Call()] + wait)
+    if not isinstance(node.blocking, bool):
+        raise CompileError(f"{node} blocking isn't known at compile-time")
+    call_cls = m.Call if node.blocking else m.ACall
+    # TODO auto-detect oportunities for ACall??
+    return CodeObject([*arg_code, call_cls(len(node.operands) - 1)])
 
 
 @compile_node.register
@@ -88,7 +95,7 @@ def _(node: l.ForeignCall) -> CodeObject:
     """Call a native Python function"""
     arg_code = flatten(compile_node(arg).code for arg in node.args)
     num_args = len(node.args)
-    waits = [m.Wait() for _ in range(num_args)]
+    waits = [m.Wait(i) for i in range(num_args)]
     return CodeObject(
         [
             # --
@@ -161,7 +168,7 @@ class LinkError(Exception):
     """Something went wrong while linking"""
 
 
-def link(defs, entrypoint_fn="F_main") -> m.Executable:
+def link(defs, entrypoint_fn="F_main", num_args=1, exe_name=None) -> m.Executable:
     """Link a bunch of definitions into a single executable"""
     preamble_length = 1
     defs_code = []
@@ -186,9 +193,10 @@ def link(defs, entrypoint_fn="F_main") -> m.Executable:
         *defs_code,
         # actual entrypoint:
         m.PushV(entrypoint_fn),
-        m.Call(),
-        m.Wait()  # Always wait for the last value to resolve
+        m.Call(num_args),
+        m.Wait(0),  # Always wait for the last value to resolve
+        m.Return(),
         # NOTE -- no Return at the end. Nothing to return to!
     ]
 
-    return m.Executable(locations, code)
+    return m.Executable(locations, code, name=exe_name)

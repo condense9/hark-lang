@@ -19,7 +19,6 @@
 
 # Peripheral
 #   call method
-import time
 
 from dataclasses import dataclass
 from functools import singledispatchmethod
@@ -125,11 +124,13 @@ class Pop(I):
 
 
 class Wait(I):
-    """Wait until the top item on the stack has resolved. May terminate"""
+    """Wait until the Nth item on the stack has resolved. May terminate"""
+
+    op_types = [int]
 
 
 class MFCall(I):
-    """Call a *foreign* function *asynchronously*"""
+    """Call a *foreign* function"""
 
     op_types = [callable, int]
 
@@ -138,15 +139,18 @@ class Return(I):
     """Return to the call site"""
 
 
-class Fork(I):
-    """Like Call, but split the stack and allow a continuation from this point"""
-
-
-# This is the /application/ of a function - first arg must /evaluate to/ a Func,
-# which is the /reference to/ a function.
-# TODO - why is this a Builtin, not a machine Instruction?
+# This is the /application/ of a function - first arg on the stack must
+# /evaluate to/ a Func, which is the /reference to/ a function.
 class Call(I):
     """Call a function (sync)"""
+
+    op_types = [int]
+
+
+class ACall(I):
+    """Call a function (async)"""
+
+    op_types = [int]
 
 
 # I think we'll need a "stream" datatype
@@ -157,7 +161,11 @@ class Call(I):
 
 
 class State:
-    pass  # Implemented per backend. TODO abstracts?
+    """Entirely represent the state of a machine execution."""
+
+
+class Runtime:
+    """Implement the parts of execution that require external interaction"""
 
 
 @dataclass
@@ -169,9 +177,10 @@ class Continuation:
 class Executable:
     locations: dict
     code: list
+    name: str
 
 
-class M:
+class C9Machine:
     """This is the Machine, the CPU.
 
     There is one Machine per compute node. There may be multiple compute nodes.
@@ -186,14 +195,15 @@ class M:
     """
 
     def __init__(
-        self, executable: Executable, state: State, probe=None,
+        self, executable: Executable, state: State, runtime: Runtime, *, probe=None,
     ):
         self.imem = executable.code
         self.locations = executable.locations
         self.state = state
+        self.runtime = runtime
         self.probe = probe
-        self.state.ip = 0
         self._stopped = False
+        # No entrypoint argument - just set the IP in the state
 
     @property
     def stopped(self):
@@ -203,65 +213,33 @@ class M:
     def instruction(self):
         return self.imem[self.state.ip]
 
+    @property
+    def terminated(self):
+        return self.state.ip == len(self.imem)
+
     def step(self):
-        assert self.state.ip < len(self.imem)
+        """Execute the current instruction and increment the IP"""
+        assert self.state.ip <= len(self.imem)
+        if self.terminated:
+            self._stopped = True
+            return
         if self.probe:
             self.probe.step_cb(self)
         instr = self.instruction
         self.state.ip += 1
         self.evali(instr)
-        if self.state.ip == len(self.imem):
-            self._stopped = True
-
-    def print_instructions(self):
-        print(" /")
-        for i, instr in enumerate(self.imem):
-            if i in self.locations.values():
-                funcname = next(
-                    k for k in self.locations.keys() if self.locations[k] == i
-                )
-                print(f" | ;; {funcname}:")
-            print(f" | {i:4} | {instr}")
-        print(" \\")
 
     def run(self):
         while not self.stopped:
             self.step()
+        if self.probe:
+            self.probe.on_stopped(self)
+        self.runtime.on_stopped(self)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
+        """Evaluate instruction"""
         raise NotImplementedError()
-
-    @evali.register
-    def _(self, i: MFCall):
-        func = i.operands[0]
-        argcount = i.operands[1]
-        args = [self.state.ds_pop() for _ in range(argcount)]
-        # TODO convert args to python values???
-        result = self._fcall(func, args)
-        # result = func(*args)
-        self.state.ds_push(result)
-
-    @evali.register
-    def _(self, i: Wait):
-        val = self.state.ds_peek()
-        # TODO per-backend tpyes? How? A separate types module?
-        if self._is_future(val):
-            self._wait_for(val)
-        elif isinstance(val, list):
-            for elt in traverse(val):
-                if self._is_future(elt):
-                    # The programmer is responsible for waiting on VLists
-                    raise Exception("Waiting on a VList that contains futures!")
-        else:
-            # Not an exception. This can happen if a wait is generated for a
-            # normal function call. ie the value already exists.
-            # raise Exception("Waiting on something already used")
-            pass
-
-    @evali.register
-    def _(self, i: Return):
-        self.state.es_return()
 
     @evali.register
     def _(self, i: Bind):
@@ -298,13 +276,70 @@ class M:
         if a == b:
             self.state.ip += distance
 
-    ## "builtins":
+    @evali.register
+    def _(self, i: Return):
+        try:
+            self.state.es_return()
+        except IndexError:
+            self.runtime.on_terminated(self)
+            self._stopped = True
+        # self.state.pop_ds()
+        # self.state.pop_ip()
+        # self.state.pop_bindings()
 
     @evali.register
     def _(self, i: Call):
         # Arguments for the function must already be on the stack
+        num_args = i.operands[0]
         name = self.state.ds_pop()
+        # args = [self.state.ds_pop() for _ in range(num_args)]
+        # self.state.push_ds(args)
+        # self.state.push_ip(self.locations[name])
+        # self.state.push_bindings({})
         self.state.es_enter(self.locations[name])
+
+    @evali.register
+    def _(self, i: ACall):
+        # Arguments for the function must already be on the stack
+        num_args = i.operands[0]
+        name = self.state.ds_pop()
+        args = reversed([self.state.ds_pop() for _ in range(num_args)])
+        result = self.runtime.fork(name, args)
+        self.state.ds_push(result)
+
+    @evali.register
+    def _(self, i: MFCall):
+        func = i.operands[0]
+        num_args = i.operands[1]
+        args = reversed([self.state.ds_pop() for _ in range(num_args)])
+        # TODO convert args to python values???
+        # result = self.runtime.fcall(func, args)
+        result = func(*args)
+        self.state.ds_push(result)
+
+    @evali.register
+    def _(self, i: Wait):
+        offset = i.operands[0]
+        val = self.state.ds_peek(offset)
+
+        if self.runtime.maybe_wait(self, offset):
+            self._stopped = True
+
+        elif isinstance(val, list):
+            for elt in traverse(val):
+                if self.runtime.is_future(elt):
+                    # The programmer is responsible for waiting on all elements
+                    # of lists.
+                    # NOTE - we don't try to detect futures hidden in other
+                    # kinds of structured data, which could cause runtime bugs!
+                    raise Exception("Waiting on a list that contains futures!")
+
+        else:
+            # Not an exception. This can happen if a wait is generated for a
+            # normal function call. ie the value already exists.
+            pass
+
+    ## "builtins":
 
     @evali.register
     def _(self, i: l.Atomp):
@@ -383,136 +418,8 @@ class M:
 # stack, and jump back
 
 
-################################################################################
-## Local Implementation
-
-import concurrent.futures
-from collections import deque
-
-Future = concurrent.futures.Future
-
-
-# "State" must be implemented per backend.
-class LocalState(State):
-    def __init__(self, *values):
-        self._bindings = {}  # ........ current bindings
-        self._bs = deque()  # ......... binding stack
-        self._ds = deque(values)  # ... data stack
-        self._es = deque()  # ......... execution stack
-        self.ip = 0
-
-    def set_bind(self, ptr, value):
-        self._bindings[ptr] = value
-
-    def get_bind(self, ptr):
-        return self._bindings[ptr]
-
-    def ds_push(self, val):
-        self._ds.append(val)
-
-    def ds_pop(self):
-        return self._ds.pop()
-
-    def ds_peek(self):
-        return self._ds[-1]
-
-    def es_enter(self, new_ip):
-        self._es.append(self.ip)
-        self.ip = new_ip
-        self._bs.append(self._bindings)
-        self._bindings = {}
-
-    def es_return(self):
-        self.ip = self._es.pop()
-        self._bindings = self._bs.pop()
-
-    def restore(self, m):
-        self._bindings = m._bindings
-        self._bs = m._bs
-        self._ds = m._ds
-        self._es = m._es
-        self.ip = m.ip
-
-    def show(self):
-        print("Bind: " + ", ".join(f"{k}->{v}" for k, v in self._bindings.items()))
-        print(f"Data: {self._ds}")
-        print(f"Eval: {self._es}")
-
-
-# Ignore builtins for now. Not necessary. MFCall (and maybe Map) is the only one
-# that would need to be implementation-defined.
-#
-# So no custom "microcode" for now. 03/12/20
-
-
-class LocalMachine(M):
-    """The local machine is special, as it can manage concurrency locally
-
-    It has the ability to "pause", while some computation completes.
-
-    """
-
-    def __init__(self, *args, max_workers=2, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
-        self._paused = False
-
-    def _is_future(self, val):
-        return isinstance(val, concurrent.futures.Future)
-
-    def _fcall(self, func, args) -> Future:
-        """Call func(args) asynchronously, returning a future"""
-        return self._executor.submit(func, *args)
-
-    def _wait_for(self, future):
-        c = Continuation(self.state)
-        # When the given future resolves, continue execution from c
-        def cont(_):
-            self.state.restore(c.state)
-            # When future resolves, continue execution from c, but with the
-            # resolved value on the stack
-            fut = self.state.ds_pop()
-            assert fut == future
-            # TODO convert args to python values???
-            self.state.ds_push(fut.result())
-            self._paused = False
-
-        # Pause the local machine - it's waiting for a future to resolve, and
-        # can't do anything else. This is a bit lame, and doesn't use the
-        # ThreadPoolExecutor correctly - there might only be one future pending,
-        # but we still block here.
-        self._paused = True
-        future.add_done_callback(cont)
-
-    def run(self):
-        while not self.stopped:
-            if self._paused:
-                time.sleep(1)
-            else:
-                self.step()
-
-
 class MaxStepsReached(Exception):
     """Max Execution steps limit reached"""
-
-
-class DebugProbe:
-    """A monitoring probe that stops the VM after a number of steps"""
-
-    def __init__(self, *, trace=True, max_steps=300):
-        self._max_steps = max_steps
-        self._trace = trace
-        self._step = 0
-
-    def step_cb(self, m):
-        self._step += 1
-        if self._trace:
-            print(f"*** [step={self._step}, ip={m.state.ip}] {m.instruction}")
-            m.state.show()
-            print("")  # newline
-        if self._step >= self._max_steps:
-            print(f"*** MAX STEPS ({self._max_steps}) REACHED!! ***")
-            raise MaxStepsReached()
 
 
 # Call or MFCall: push values onto stack. Result will be top value on the stack
@@ -546,6 +453,16 @@ class DebugProbe:
 # it's becoming more like a very simple Forth-style stack machine. Be careful,
 # either approach could work - pick one. Forth: very flexible, but more complex.
 # Builtins: less flexible, but simpler.
+
+
+def print_instructions(exe: Executable):
+    print(" /")
+    for i, instr in enumerate(exe.code):
+        if i in exe.locations.values():
+            funcname = next(k for k in exe.locations.keys() if exe.locations[k] == i)
+            print(f" | ;; {funcname}:")
+        print(f" | {i:4} | {instr}")
+    print(" \\")
 
 
 if __name__ == "__main__":

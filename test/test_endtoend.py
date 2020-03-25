@@ -1,11 +1,13 @@
 """Test that programs run correctly - ie test both compiler and machine"""
 
-from compiler import compile_all, link
-from lang import *
-from machine import LocalState, Wait
-from simple_functions import *
-from utils import list_defs, check_exec
-from stdlib import wait_for, Map
+import c9c.machine as m
+from c9c.compiler import compile_all, link
+from c9c.lang import *
+from c9c.runtime.local import LocalState, LocalRuntime, DebugProbe
+from c9c.stdlib import Map, MapResolve, wait_for
+
+from .simple_functions import *
+from .utils import check_data, check_exec, list_defs
 
 
 @Func
@@ -23,13 +25,21 @@ def test_simple():
     def main(a):
         return simple_func2(a)
 
-    data = LocalState(5)
-    expected = LocalState(5)
+    input_val = 5
+    expected_result = 5
     compiled = compile_all(main)
-    check_exec(link(compiled), data, expected)
+    executable = link(compile_all(main), exe_name="test_simple")
+    # m.print_instructions(executable)
+
+    runtime = LocalRuntime(executable, probe=DebugProbe)
+    result = runtime.run(input_val)
+    # for p in runtime.probes:
+    #     p.print_logs()
+    assert result == expected_result
 
 
 ####################
+
 
 @Func
 def xtimes2plus3(x):
@@ -51,16 +61,22 @@ def test_slow_math():
 
     @Func
     def main(a):
-        return Map(wait_for, Map(slow_math, a))
+        return MapResolve(slow_math, a)
 
-    data = LocalState([1, 2, 3, 4, 5])
-    expected = LocalState([5, 7, 9, 11, 13])
-    compiled = compile_all(main)
-    list_defs(compiled)
-    check_exec(link(compiled), data, expected)
+    input_val = [1, 2]
+    expected_result = [5, 7]
+    executable = link(compile_all(main), exe_name="test_slow_math")
+    m.print_instructions(executable)
+
+    runtime = LocalRuntime(executable, probe=DebugProbe)
+    result = runtime.run(input_val)
+    for p in runtime.probes:
+        p.print_logs()
+    assert result == expected_result
 
 
 ####################
+
 
 @Foreign
 def simple_math(x):
@@ -77,11 +93,54 @@ def test_call_foreign():
     def main(x):
         return Map(wait_for, call_foreign(x))
 
-    data = LocalState(5)
-    expected = LocalState([4, 4])
-    compiled = compile_all(main)
-    # list_defs(compiled)
-    check_exec(link(compiled), data, expected)
+    input_val = 5
+    expected_result = [4, 4]
+    executable = link(compile_all(main), exe_name="test_call_foreign")
+    runtime = LocalRuntime(executable, probe=DebugProbe)
+    result = runtime.run(input_val)
+    assert result == expected_result
+
+
+####################
+
+
+def test_series_concurrent():
+    """Designed to stress the concurrency model a bit more"""
+
+    @Foreign
+    def a(x):
+        return x + 1
+
+    @Foreign
+    def b(x):
+        return x * 1000
+
+    @Foreign
+    def c(x):
+        return x - 1
+
+    @Foreign
+    def d(x):
+        return x * 10
+
+    @Foreign
+    def h(u, v):
+        return u - v
+
+    @Func
+    def main(x):
+        return h(b(a(x)), d(c(x)))  # h(x) = (1000 * (x + 1)) - (10 * (x - 1))
+
+    input_val = 5
+    expected_result = 5960  # = 6000 - 40
+    executable = link(compile_all(main), exe_name="series_concurrent")
+    runtime = LocalRuntime(executable, probe=DebugProbe)
+    result = runtime.run(input_val)
+    m.print_instructions(executable)
+    for p in runtime.probes:
+        p.print_logs()
+    assert result == expected_result
+
 
 if __name__ == "__main__":
-    test_slow_math()
+    test_series_concurrent()

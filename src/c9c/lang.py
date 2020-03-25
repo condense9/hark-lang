@@ -15,10 +15,6 @@ from functools import singledispatch, wraps
 from typing import List
 
 
-class CompileError(Exception):
-    pass
-
-
 class Node:
     """The language is built from nodes (it's a DAG)
 
@@ -106,6 +102,8 @@ class Func(Quote):
     NOTE that this is a Quote! That is, a literal value.
     """
 
+    blocking = True
+
     def __init__(self, fn):
         self.label = "F_" + fn.__name__
         sig = inspect.signature(fn)
@@ -115,7 +113,7 @@ class Func(Quote):
 
     def __call__(self, *args):
         """Create a DAG node that calls this function with arguments"""
-        return Funcall(self, *args)
+        return Funcall(self, *args, blocking=self.blocking)
 
     def unquote(self):
         # the "machine representation" of a function is just it's name.
@@ -133,8 +131,14 @@ class Func(Quote):
         return f"<Func {self.label}>"
 
 
+# class AsyncFunc(Func):
+#     blocking = False
+
+
 class Foreign(Func):
     """Represents a foreign (native Python) function"""
+
+    blocking = True
 
     def __init__(self, fn):
         super().__init__(fn)
@@ -210,11 +214,11 @@ class Funcall(Node):
 
     """
 
-    def __init__(self, function, *args, run_async=True):
+    def __init__(self, function, *args, blocking=True):
         if not isinstance(function, (Func, Symbol)):
             raise ValueError(f"{function} is not a Func/Symbol (it's {type(function)})")
         super().__init__(function, *args)
-        self.run_async = run_async
+        self.blocking = blocking
 
 
 class ForeignCall(Node):
