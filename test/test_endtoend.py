@@ -1,5 +1,7 @@
 """Test that programs run correctly - ie test both compiler and machine"""
 
+import time
+import random
 import c9c.machine as m
 from c9c.compiler import compile_all, link
 from c9c.lang import *
@@ -104,23 +106,31 @@ def test_call_foreign():
 ####################
 
 
+def random_sleep():
+    time.sleep(random.random() / 100.0)
+
+
 def test_series_concurrent():
     """Designed to stress the concurrency model a bit more"""
 
     @Foreign
     def a(x):
+        random_sleep()
         return x + 1
 
     @Foreign
     def b(x):
+        random_sleep()
         return x * 1000
 
     @Foreign
     def c(x):
+        random_sleep()
         return x - 1
 
     @Foreign
     def d(x):
+        random_sleep()
         return x * 10
 
     @Foreign
@@ -134,11 +144,15 @@ def test_series_concurrent():
     input_val = 5
     expected_result = 5960  # = 6000 - 40
     executable = link(compile_all(main), exe_name="series_concurrent")
+    m.C9Machine.count = 0
     runtime = LocalRuntime(executable, probe=DebugProbe)
-    result = runtime.run(input_val)
-    m.print_instructions(executable)
-    for p in runtime.probes:
-        p.print_logs()
+    try:
+        result = runtime.run(input_val)
+    finally:
+        pass
+        m.print_instructions(executable)
+        for p in runtime.probes:
+            p.print_logs()
     assert result == expected_result
 
 

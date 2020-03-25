@@ -194,20 +194,23 @@ class C9Machine:
 
     """
 
+    count = 0
+
     def __init__(
         self, executable: Executable, state: State, runtime: Runtime, *, probe=None,
     ):
+        C9Machine.count += 1
+        self.m_id = C9Machine.count
         self.imem = executable.code
         self.locations = executable.locations
         self.state = state
         self.runtime = runtime
         self.probe = probe
-        self._stopped = False
         # No entrypoint argument - just set the IP in the state
 
     @property
     def stopped(self):
-        return self._stopped
+        return self.state.stopped
 
     @property
     def instruction(self):
@@ -221,7 +224,7 @@ class C9Machine:
         """Execute the current instruction and increment the IP"""
         assert self.state.ip <= len(self.imem)
         if self.terminated:
-            self._stopped = True
+            self.state.stopped = True
             return
         if self.probe:
             self.probe.step_cb(self)
@@ -282,7 +285,7 @@ class C9Machine:
             self.state.es_return()
         except IndexError:
             self.runtime.on_terminated(self)
-            self._stopped = True
+            self.state.stopped = True
         # self.state.pop_ds()
         # self.state.pop_ip()
         # self.state.pop_bindings()
@@ -304,7 +307,7 @@ class C9Machine:
         num_args = i.operands[0]
         name = self.state.ds_pop()
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
-        result = self.runtime.fork(name, args)
+        result = self.runtime.fork(self, name, args)
         self.state.ds_push(result)
 
     @evali.register
@@ -323,7 +326,7 @@ class C9Machine:
         val = self.state.ds_peek(offset)
 
         if self.runtime.maybe_wait(self, offset):
-            self._stopped = True
+            self.state.stopped = True
 
         elif isinstance(val, list):
             for elt in traverse(val):
@@ -376,6 +379,9 @@ class C9Machine:
         a = self.state.ds_pop()
         b = self.state.ds_pop()
         self.state.ds_push(a == b)
+
+    def __repr__(self):
+        return f"<Machine M{self.m_id}>"
 
 
 # Foreign function calls produce futures. This allows evaluation to continue. We

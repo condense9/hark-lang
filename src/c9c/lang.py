@@ -138,7 +138,7 @@ class Func(Quote):
 class Foreign(Func):
     """Represents a foreign (native Python) function"""
 
-    blocking = True
+    blocking = False
 
     def __init__(self, fn):
         super().__init__(fn)

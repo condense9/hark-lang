@@ -3,6 +3,7 @@
 import concurrent.futures
 import copy
 import logging
+import sys
 import threading
 import time
 import warnings
@@ -22,6 +23,7 @@ class LocalState(State):
         self._ds = deque(values)  # ... data stack
         self._es = deque()  # ......... execution stack
         self.ip = 0
+        self.stopped = False
 
     def set_bind(self, ptr, value):
         self._bindings[ptr] = value
@@ -166,80 +168,98 @@ class LocalRuntime(Runtime):
     def __init__(self, executable, *, probe=DummyProbe):
         self.sleep_interval = 0.01
         self.executable = executable
-        self.thread_machine = {}
+        self.machine_thread = {}
         self.machine_future = {}
         self.probe_cls = probe
         self.machine_probe = {}
         self.finished = False
         self.lock = threading.Lock()
-        # self.final_state = None
         self.result = None
+        self.exception = None
+        self.to_join = deque()
+        threading.excepthook = self.threading_excepthook
+
+    def threading_excepthook(self, args):
+        print("argh", args)
+        self.exception = args
 
     @property
     def probes(self):
         return self.machine_probe.values()
 
+    # thread-safe: YES
     def _new_probe(self):
         if self.probe_cls:
-            p = self.probe_cls(name=f"P{len(self.probes)}")
+            p = self.probe_cls(name=f"P{len(self.probes)+1}")
             return p
         else:
             return None
 
-    def _start_machine(self, state, future, probe, logprefix):
+    # thread-safe: NO
+    def _run_machine(self, m):
+        thread = threading.Thread(target=m.run)
+        self.machine_thread[m] = thread
+        thread.start()
+
+    # context: RUNTIME, THREAD
+    # thread-safe: YES
+    def _make_new_machine(self, state, future, probe):
         """Start a machine to resolve the given future"""
         m = C9Machine(self.executable, state, self, probe=probe)
         self.machine_future[m] = future
         self.machine_probe[m] = probe
-        probe.log(f"{logprefix} => {future}")
-        thread = threading.Thread(target=m.run)
-        # Start first to avoid race conditions with is_alive below
-        thread.start()
-        self.thread_machine[thread] = m
+        return m
 
     def is_future(self, val):
         return isinstance(val, Future)
 
-    def fork(self, fn_name, args):
+    # context: THREAD
+    # thread-safe: YES
+    def fork(self, from_machine, fn_name, args):
         # Call a function in a new machine, returning a future
         state = LocalState(*args)
         state.ip = self.executable.locations[fn_name]
         future = Future()
         probe = self._new_probe()
-        self._start_machine(state, future, probe, "Fork")
+        m = self._make_new_machine(state, future, probe)
+        probe.log(f"Fork {from_machine} to {m} => {future}")
+        with self.lock:
+            self._run_machine(m)
         return future
 
+    # context: THREAD
+    # thread-safe: YES
     def maybe_wait(self, machine, offset):
-        future = machine.state.ds_peek(offset)
         probe = self.machine_probe[machine]
+        future = machine.state.ds_peek(offset)
         if isinstance(future, Future):
-            with self.lock:
-                if future.resolved:
-                    machine.state.ds_set(offset, future.value)
-                    return False
-                future.add_callback(self._make_continuation(machine, offset))
-                probe.log(f"Waiting on {future}")
-                return True
+            if future.resolved:
+                machine.state.ds_set(offset, future.value)
+                return False
+            future.add_callback(self._make_continuation(machine, offset))
+            probe.log(f"Waiting on {future}")
+            return True
         return False
 
+    # context: RUNTIME
     def _make_continuation(self, machine, offset):
         """Continue the given machine, updating the value in the stack"""
-        state = machine.state.copy()
-        original_future = self.machine_future[machine]
 
         def _cont(future, value):
-            state.ds_set(offset, value)
+            machine.state.ds_set(offset, value)
+            machine.state.stopped = False
             probe = self.machine_probe[machine]
-            self._start_machine(
-                state, original_future, probe, f"{id(future)} resolved, Continuing"
-            )
+            probe.log(f"{future} resolved, continuing {machine}")
+            self._run_machine(machine)
 
         return _cont
 
+    # context: THREAD
     def on_stopped(self, machine):
-        # return from top-level OR waiting
-        pass
+        self.to_join.append(self.machine_thread[machine])
+        self.machine_probe[machine].log(f"Stopped {machine}")
 
+    # context: THREAD
     def on_terminated(self, machine):
         # return from top-level
         future = self.machine_future[machine]
@@ -252,27 +272,33 @@ class LocalRuntime(Runtime):
             probe.log(f"Chained {future} to {value}")
 
     def _finish(self, _, value):
-        self.result = value
-        self.finished = True
+        with self.lock:
+            self.result = value
+            self.finished = True
 
     def run(self, *args):
         initial_state = LocalState(*args)
+        top_future = Future()
+        top_future.add_callback(self._finish)
+        probe = self._new_probe()
 
         with self.lock:
-            top_future = Future()
-            top_future.add_callback(self._finish)
-            probe = self._new_probe()
-            self._start_machine(initial_state, top_future, probe, "Top Level")
+            m = self._make_new_machine(initial_state, top_future, probe)
+            probe.log(f"Top Level {m} => {top_future}")
+            self._run_machine(m)
 
         while not self.finished:
-            for t, m in self.thread_machine.items():
-                # NOTE there's no race condition here - m.stopped must be set
-                # True before a thread dies, if it has ended correctly
-                if not t.is_alive() and not m.stopped:
-                    raise Exception(f"Thread {t} died prematurely")
             time.sleep(self.sleep_interval)
+            while self.to_join:
+                self.to_join.pop().join()
 
-        if not all(m.stopped for m in self.machine_future.keys()):
+            for m, t in self.machine_thread.items():
+                if self.machine_probe[m].early_stop:
+                    raise Exception(f"{m} early stop")
+
+        # FIXME - this sleep is horrendous hack - synchronise things properly
+        time.sleep(0.01)
+        if not all(m.stopped for m in self.machine_thread.keys()):
             raise Exception("Terminated, but not all machines stopped")
 
         return self.result
