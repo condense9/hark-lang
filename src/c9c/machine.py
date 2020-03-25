@@ -325,8 +325,8 @@ class C9Machine:
         offset = i.operands[0]
         val = self.state.ds_peek(offset)
 
-        if self.runtime.maybe_wait(self, offset):
-            self.state.stopped = True
+        if self.runtime.is_future(val):
+            self.state.stopped = self.runtime.maybe_wait(self, offset)
 
         elif isinstance(val, list):
             for elt in traverse(val):

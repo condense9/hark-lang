@@ -229,17 +229,16 @@ class LocalRuntime(Runtime):
 
     # context: THREAD
     # thread-safe: YES
-    def maybe_wait(self, machine, offset):
+    def maybe_wait(self, machine, offset) -> bool:
         probe = self.machine_probe[machine]
         future = machine.state.ds_peek(offset)
-        if isinstance(future, Future):
-            if future.resolved:
-                machine.state.ds_set(offset, future.value)
-                return False
-            future.add_callback(self._make_continuation(machine, offset))
-            probe.log(f"Waiting on {future}")
-            return True
-        return False
+        assert isinstance(future, Future)
+        if future.resolved:
+            machine.state.ds_set(offset, future.value)
+            return False
+        future.add_callback(self._make_continuation(machine, offset))
+        probe.log(f"Waiting on {future}")
+        return True
 
     # context: RUNTIME
     def _make_continuation(self, machine, offset):
