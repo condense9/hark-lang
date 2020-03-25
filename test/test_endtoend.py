@@ -12,64 +12,62 @@ from .simple_functions import *
 from .utils import check_data, check_exec, list_defs
 
 
-@Func
-def simple_func(a, b):
-    return a
+def random_sleep():
+    time.sleep(random.random() / 100.0)
 
 
-@Func
-def simple_func2(a):
-    return simple_func(a, a)
+def test_all_calls():
+    """Test all kinds of call - normal, foreign, and async"""
 
+    @Foreign
+    def do_sleep(x):
+        random_sleep()
+        return x
 
-def test_simple():
+    @Func
+    def level2(a, b):
+        return do_sleep(a)
+
+    @AsyncFunc
+    def level1(a):
+        return level2(a, a)
+
     @Func
     def main(a):
-        return simple_func2(a)
+        return level1(a)
 
     input_val = 5
     expected_result = 5
     compiled = compile_all(main)
-    executable = link(compile_all(main), exe_name="test_simple")
-    # m.print_instructions(executable)
+    executable = link(compile_all(main), exe_name="all_calls")
 
     runtime = LocalRuntime(executable, probe=DebugProbe)
     result = runtime.run(input_val)
-    # for p in runtime.probes:
-    #     p.print_logs()
+    m.print_instructions(executable)
+    for p in runtime.probes:
+        p.print_logs()
     assert result == expected_result
 
 
 ####################
 
 
-@Func
-def xtimes2plus3(x):
-    return ForeignCall(lambda x: (2 * x) + 3, x)
+def test_mapping():
+    """Test that mapping works in the presence of random delays"""
 
-
-@Func
-def slow_math(x):
-    return ForeignCall(random_sleep_math, x)
-
-
-@Func
-def f_func(*args):
-    return ForeignCall(f, *args)
-
-
-def test_slow_math():
-    """Test that execution works in the presence of random delays"""
+    @Foreign
+    def random_sleep_math(x):
+        random_sleep()
+        return (2 * x) + 3
 
     @Func
     def main(a):
-        return MapResolve(slow_math, a)
+        return MapResolve(random_sleep_math, a)
 
     input_val = [1, 2]
     expected_result = [5, 7]
     executable = link(compile_all(main), exe_name="test_slow_math")
     m.print_instructions(executable)
-
     runtime = LocalRuntime(executable, probe=DebugProbe)
     result = runtime.run(input_val)
     for p in runtime.probes:
@@ -80,34 +78,40 @@ def test_slow_math():
 ####################
 
 
-@Foreign
-def simple_math(x):
-    return x - 1
-
-
-@Func
-def call_foreign(x):
-    return Cons(simple_math(x), simple_math(x))
-
-
 def test_call_foreign():
+    """More foreign call tests"""
+
+    @Foreign
+    def simple_math(x):
+        return x - 1
+
+    @Func
+    def call_foreign(x):
+        return Cons(simple_math(x), simple_math(x))
+
     @Func
     def main(x):
+        # The rules:
+        # - main will wait on the value returned
+        # - you cannot wait on a list that contains futures
+        # - the programmer must wait on all elements
+        # SO this is illegal:
+        #   return call_foreign(x)
+        # ...because call_foreign returns a Cons of futures
         return Map(wait_for, call_foreign(x))
 
     input_val = 5
     expected_result = [4, 4]
     executable = link(compile_all(main), exe_name="test_call_foreign")
+    m.print_instructions(executable)
     runtime = LocalRuntime(executable, probe=DebugProbe)
     result = runtime.run(input_val)
+    for p in runtime.probes:
+        p.print_logs()
     assert result == expected_result
 
 
 ####################
-
-
-def random_sleep():
-    time.sleep(random.random() / 100.0)
 
 
 def test_series_concurrent():
@@ -154,6 +158,7 @@ def test_series_concurrent():
         for p in runtime.probes:
             p.print_logs()
     assert result == expected_result
+    assert False
 
 
 if __name__ == "__main__":

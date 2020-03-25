@@ -25,11 +25,6 @@ def printit(arg):
     print(arg)
 
 
-def random_sleep_math(x):
-    time.sleep(random.random() / 100.0)
-    return (2 * x) + 3
-
-
 class Buf:
     def __init__(self):
         self.output = ""

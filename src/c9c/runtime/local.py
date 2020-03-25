@@ -173,21 +173,19 @@ class LocalRuntime(Runtime):
         self.probe_cls = probe
         self.machine_probe = {}
         self.finished = False
-        self.lock = threading.Lock()
+        # self.lock = threading.Lock()  # FIXME
         self.result = None
         self.exception = None
         self.to_join = deque()
         threading.excepthook = self.threading_excepthook
 
     def threading_excepthook(self, args):
-        print("argh", args)
         self.exception = args
 
     @property
     def probes(self):
         return self.machine_probe.values()
 
-    # thread-safe: YES
     def _new_probe(self):
         if self.probe_cls:
             p = self.probe_cls(name=f"P{len(self.probes)+1}")
@@ -195,14 +193,12 @@ class LocalRuntime(Runtime):
         else:
             return None
 
-    # thread-safe: NO
     def _run_machine(self, m):
         thread = threading.Thread(target=m.run)
         self.machine_thread[m] = thread
         thread.start()
 
     # context: RUNTIME, THREAD
-    # thread-safe: YES
     def _make_new_machine(self, state, future, probe):
         """Start a machine to resolve the given future"""
         m = C9Machine(self.executable, state, self, probe=probe)
@@ -214,7 +210,6 @@ class LocalRuntime(Runtime):
         return isinstance(val, Future)
 
     # context: THREAD
-    # thread-safe: YES
     def fork(self, from_machine, fn_name, args):
         # Call a function in a new machine, returning a future
         state = LocalState(*args)
@@ -223,8 +218,7 @@ class LocalRuntime(Runtime):
         probe = self._new_probe()
         m = self._make_new_machine(state, future, probe)
         probe.log(f"Fork {from_machine} to {m} => {future}")
-        with self.lock:
-            self._run_machine(m)
+        self._run_machine(m)
         return future
 
     # context: THREAD
@@ -271,9 +265,8 @@ class LocalRuntime(Runtime):
             probe.log(f"Chained {future} to {value}")
 
     def _finish(self, _, value):
-        with self.lock:
-            self.result = value
-            self.finished = True
+        self.result = value
+        self.finished = True
 
     def run(self, *args):
         initial_state = LocalState(*args)
@@ -281,10 +274,9 @@ class LocalRuntime(Runtime):
         top_future.add_callback(self._finish)
         probe = self._new_probe()
 
-        with self.lock:
-            m = self._make_new_machine(initial_state, top_future, probe)
-            probe.log(f"Top Level {m} => {top_future}")
-            self._run_machine(m)
+        m = self._make_new_machine(initial_state, top_future, probe)
+        probe.log(f"Top Level {m} => {top_future}")
+        self._run_machine(m)
 
         while not self.finished:
             time.sleep(self.sleep_interval)
@@ -294,6 +286,9 @@ class LocalRuntime(Runtime):
             for m, t in self.machine_thread.items():
                 if self.machine_probe[m].early_stop:
                     raise Exception(f"{m} early stop")
+
+            if self.exception:
+                raise Exception("A thread died") from self.exception.exc_value
 
         # FIXME - this sleep is horrendous hack - synchronise things properly
         time.sleep(0.01)
@@ -319,7 +314,6 @@ class DebugProbe:
     def step_cb(self, m):
         self._step += 1
         self.log(f"[step={self._step}, ip={m.state.ip}] {m.instruction}")
-        # self.logs.append(m.state.to_table())
         self.logs.append("Data: " + str(tuple(m.state._ds)))
         if self._step >= self._max_steps:
             self.log(f"MAX STEPS ({self._max_steps}) REACHED!! ***")

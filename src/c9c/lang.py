@@ -131,8 +131,8 @@ class Func(Quote):
         return f"<Func {self.label}>"
 
 
-# class AsyncFunc(Func):
-#     blocking = False
+class AsyncFunc(Func):
+    blocking = False
 
 
 class Foreign(Func):
