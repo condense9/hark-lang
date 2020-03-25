@@ -159,7 +159,6 @@ def test_series_concurrent():
     input_val = 5
     expected_result = 5960  # = 6000 - 40
     executable = link(compile_all(main), exe_name="series_concurrent")
-    m.C9Machine.count = 0
     runtime = LocalRuntime(executable, probe=DebugProbe)
     try:
         result = runtime.run(input_val)

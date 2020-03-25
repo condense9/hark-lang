@@ -286,19 +286,12 @@ class C9Machine:
         except IndexError:
             self.state.stopped = True
             self.runtime.on_terminated(self)
-        # self.state.pop_ds()
-        # self.state.pop_ip()
-        # self.state.pop_bindings()
 
     @evali.register
     def _(self, i: Call):
         # Arguments for the function must already be on the stack
         num_args = i.operands[0]
         name = self.state.ds_pop()
-        # args = [self.state.ds_pop() for _ in range(num_args)]
-        # self.state.push_ds(args)
-        # self.state.push_ip(self.locations[name])
-        # self.state.push_bindings({})
         self.state.es_enter(self.locations[name])
 
     @evali.register
@@ -316,7 +309,6 @@ class C9Machine:
         num_args = i.operands[1]
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
         # TODO convert args to python values???
-        # result = self.runtime.fcall(func, args)
         result = func(*args)
         self.state.ds_push(result)
 
