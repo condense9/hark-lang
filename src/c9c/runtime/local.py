@@ -291,7 +291,6 @@ class LocalRuntime(Runtime):
                 raise Exception("A thread died") from self.exception.exc_value
 
         # FIXME - this sleep is horrendous hack - synchronise things properly
-        time.sleep(0.01)
         if not all(m.stopped for m in self.machine_thread.keys()):
             raise Exception("Terminated, but not all machines stopped")
 

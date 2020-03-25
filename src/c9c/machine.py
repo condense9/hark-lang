@@ -284,8 +284,8 @@ class C9Machine:
         try:
             self.state.es_return()
         except IndexError:
-            self.runtime.on_terminated(self)
             self.state.stopped = True
+            self.runtime.on_terminated(self)
         # self.state.pop_ds()
         # self.state.pop_ip()
         # self.state.pop_bindings()

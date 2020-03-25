@@ -18,6 +18,10 @@ def random_sleep():
 
 def test_all_calls():
     """Test all kinds of call - normal, foreign, and async"""
+    # seed = random.randint(0, 1000000)
+    seed = 720204
+    random.seed(seed)
+    print("Seed", seed)
 
     @Foreign
     def do_sleep(x):
@@ -42,10 +46,12 @@ def test_all_calls():
     executable = link(compile_all(main), exe_name="all_calls")
 
     runtime = LocalRuntime(executable, probe=DebugProbe)
-    result = runtime.run(input_val)
-    m.print_instructions(executable)
-    for p in runtime.probes:
-        p.print_logs()
+    try:
+        result = runtime.run(input_val)
+    finally:
+        m.print_instructions(executable)
+        for p in runtime.probes:
+            p.print_logs()
     assert result == expected_result
 
 
@@ -117,6 +123,11 @@ def test_call_foreign():
 def test_series_concurrent():
     """Designed to stress the concurrency model a bit more"""
 
+    # seed = random.randint(0, 100000)
+    seed = 96492
+    random.seed(seed)
+    print("Seed", seed)
+
     @Foreign
     def a(x):
         random_sleep()
@@ -158,7 +169,6 @@ def test_series_concurrent():
         for p in runtime.probes:
             p.print_logs()
     assert result == expected_result
-    assert False
 
 
 if __name__ == "__main__":
