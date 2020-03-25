@@ -97,9 +97,21 @@ class Future:
         self.value = None
         self.callbacks = []
         self.chain = None
+        self.lock = threading.Lock()
+        self.continuations = []
 
     def add_callback(self, cb):
         self.callbacks.append(cb)
+
+    def add_continuation(self, machine, offset):
+        # self.continuations.append((machine, offset))
+        def _cont(_, value):
+            machine.state.ds_set(offset, value)
+            machine.state.stopped = False
+            machine.probe.log(f"{self} resolved, continuing {machine}")
+            machine.runtime.executor.run_machine(machine)
+
+        self.add_callback(_cont)
 
     def resolve(self, value):
         # value: Either Future or not
@@ -110,6 +122,7 @@ class Future:
                 value.chain = self
         else:
             self._do_resolve(value)
+        return self.resolved
 
     def _do_resolve(self, value):
         self.resolved = True
@@ -141,19 +154,35 @@ class DummyProbe:
 
 
 class Executor:
-    def __init__(self):
+    def __init__(self, executable):
+        self.executable = executable
         self.machine_thread = {}
+        self.machine_future = {}
         self.to_join = deque()
         threading.excepthook = self.threading_excepthook
         self.exception = None
+
+    @property
+    def machines(self):
+        return self.machine_future.keys()
 
     def threading_excepthook(self, args):
         self.exception = args
 
     def run_machine(self, m):
+        assert m in self.machine_future
         thread = threading.Thread(target=m.run)
         self.machine_thread[m] = thread
         thread.start()
+
+    def new_machine(self, runtime, args, *, probe=None, entrypoint_fn=None):
+        future = Future()
+        state = LocalState(*args)
+        if entrypoint_fn:
+            state.ip = self.executable.locations[entrypoint_fn]
+        machine = C9Machine(self.executable, state, runtime, probe=probe)
+        self.machine_future[machine] = future
+        return machine, future
 
     def stop(self, m):
         self.to_join.append(self.machine_thread[m])
@@ -162,121 +191,86 @@ class Executor:
         while self.to_join:
             self.to_join.pop().join()
 
+    def get_future(self, m):
+        return self.machine_future[m]
+
 
 class LocalRuntime(Runtime):
-    """The local runtime is special, as it can manage concurrency locally"""
-
-    def __init__(self, executable, *, probe=DummyProbe):
+    def __init__(self, executor, *, probe_cls=DummyProbe):
         C9Machine.count = 0
-        self.sleep_interval = 0.01
-        self.executable = executable
-        self.probe_cls = probe
-        self.machine_future = {}
+        self.probe_cls = probe_cls
         self.finished = False
         self.result = None
-        self.executor = Executor()
-
-    @property
-    def machines(self):
-        return self.machine_future.keys()
+        self.executor = executor
+        self.future_type = Future
+        self.top_level = None
 
     @property
     def probes(self):
-        return [m.probe for m in self.machines]
+        return [m.probe for m in self.executor.machines]
 
     def _new_probe(self):
         if self.probe_cls:
-            # FIXME probe should handle count
+            # FIXME probe_cls should handle count
             p = self.probe_cls(name=f"P{len(self.probes)+1}")
             return p
         else:
             return None
 
-    def _new_machine(self, state, future, probe):
-        """Start a machine to resolve the given future"""
-        m = C9Machine(self.executable, state, self, probe=probe)
-        self.machine_future[m] = future
-        return m
-
-    def is_future(self, val):
-        return isinstance(val, Future)
+    def start_first_machine(self, args):
+        probe = self._new_probe()
+        m, f = self.executor.new_machine(self, args, probe=probe)
+        m.probe.log(f"Top Level {m} => {f}")
+        self.top_level = m
+        self.executor.run_machine(m)
 
     def fork(self, from_machine, fn_name, args):
         # Call a function in a new machine, returning a future
-        state = LocalState(*args)
-        state.ip = self.executable.locations[fn_name]
-        future = Future()
         probe = self._new_probe()
-        m = self._new_machine(state, future, probe)
-        probe.log(f"Fork {from_machine} to {m} => {future}")
+        m, f = self.executor.new_machine(self, args, entrypoint_fn=fn_name, probe=probe)
+        m.probe.log(f"Fork {from_machine} to {m} => {f}")
         self.executor.run_machine(m)
-        return future
-
-    def maybe_wait(self, machine, offset) -> bool:
-        future = machine.state.ds_peek(offset)
-        assert isinstance(future, Future)
-        if future.resolved:
-            machine.state.ds_set(offset, future.value)
-            return False
-        machine.probe.log(f"Waiting on {future}")
-        future.add_callback(self._make_continuation(machine, offset))
-        return True
-
-    # context: RUNTIME
-    def _make_continuation(self, machine, offset):
-        """Continue the given machine, updating the value in the stack"""
-
-        def _cont(future, value):
-            machine.state.ds_set(offset, value)
-            machine.state.stopped = False
-            machine.probe.log(f"{future} resolved, continuing {machine}")
-            self.executor.run_machine(machine)
-
-        return _cont
+        return f
 
     def on_stopped(self, machine):
         self.executor.stop(machine)
-        machine.probe.log(f"Stopped {machine}")
 
-    def on_terminated(self, machine):
-        # return from top-level
-        future = self.machine_future[machine]
-        value = machine.state.ds_pop()
-        future.resolve(value)
-        if future.resolved:
+    def on_return(self, machine, result):
+        # machine returned from top-level (i.e. not a Wait)
+        future = self.executor.get_future(machine)
+        with future.lock:
+            resolved = future.resolve(result)
+        if resolved:
             machine.probe.log(f"Resolved {future}")
         else:
-            machine.probe.log(f"Chained {future} to {value}")
+            assert machine is not self.top_level
+            machine.probe.log(f"Chained {future} to {result}")
+        if machine == self.top_level and machine.terminated:
+            self.finished = True
+            self.result = result
 
-    def _finish(self, _, value):
-        self.result = value
-        self.finished = True
 
-    def run(self, *args):
-        initial_state = LocalState(*args)
-        top_future = Future()
-        top_future.add_callback(self._finish)
-        probe = self._new_probe()
+def run(executable, *args, probe_cls=None, sleep_interval=0.01):
+    executor = Executor(executable)
+    runtime = LocalRuntime(executor, probe_cls=probe_cls)
 
-        m = self._new_machine(initial_state, top_future, probe)
-        probe.log(f"Top Level {m} => {top_future}")
-        self.executor.run_machine(m)
+    runtime.start_first_machine(args)
 
-        while not self.finished:
-            time.sleep(self.sleep_interval)
-            self.executor.cleanup()
+    while not runtime.finished:
+        time.sleep(sleep_interval)
+        runtime.executor.cleanup()
 
-            for m in self.machines:
-                if m.probe.early_stop:
-                    raise Exception(f"{m} early stop")
+        for m in runtime.executor.machines:
+            if m.probe.early_stop:
+                raise Exception(f"{m} early stop")
 
-            if self.executor.exception:
-                raise Exception("A thread died") from self.executor.exception.exc_value
+        if runtime.executor.exception:
+            raise Exception("A thread died") from runtime.executor.exception.exc_value
 
-        if not all(m.stopped for m in self.machines):
-            raise Exception("Terminated, but not all machines stopped!")
+    if not all(m.stopped for m in runtime.executor.machines):
+        raise Exception("Terminated, but not all machines stopped!")
 
-        return self.result
+    return runtime
 
 
 class DebugProbe:

@@ -213,24 +213,24 @@ class C9Machine:
         return self.state.stopped
 
     @property
+    def terminated(self):
+        """Run out of instructions to execute"""
+        return self.state.ip == len(self.imem)
+
+    @property
     def instruction(self):
         return self.imem[self.state.ip]
 
-    @property
-    def terminated(self):
-        return self.state.ip == len(self.imem)
-
     def step(self):
         """Execute the current instruction and increment the IP"""
-        assert self.state.ip <= len(self.imem)
-        if self.terminated:
-            self.state.stopped = True
-            return
+        assert self.state.ip < len(self.imem)
         if self.probe:
             self.probe.step_cb(self)
         instr = self.instruction
         self.state.ip += 1
         self.evali(instr)
+        if self.terminated:
+            self.state.stopped = True
 
     def run(self):
         while not self.stopped:
@@ -285,7 +285,8 @@ class C9Machine:
             self.state.es_return()
         except IndexError:
             self.state.stopped = True
-            self.runtime.on_terminated(self)
+            value = self.state.ds_pop()
+            self.runtime.on_return(self, value)
 
     @evali.register
     def _(self, i: Call):
@@ -317,17 +318,22 @@ class C9Machine:
         offset = i.operands[0]
         val = self.state.ds_peek(offset)
 
-        if self.runtime.is_future(val):
-            self.state.stopped = self.runtime.maybe_wait(self, offset)
+        if isinstance(val, self.runtime.future_type):
+            with val.lock:
+                if val.resolved:
+                    self.state.ds_set(offset, val.value)
+                else:
+                    self.state.stopped = True
+                    val.add_continuation(self, offset)
 
-        elif isinstance(val, list):
-            for elt in traverse(val):
-                if self.runtime.is_future(elt):
-                    # The programmer is responsible for waiting on all elements
-                    # of lists.
-                    # NOTE - we don't try to detect futures hidden in other
-                    # kinds of structured data, which could cause runtime bugs!
-                    raise Exception("Waiting on a list that contains futures!")
+        elif isinstance(val, list) and any(
+            isinstance(elt, self.runtime.future_type) for elt in traverse(val)
+        ):
+            # The programmer is responsible for waiting on all elements
+            # of lists.
+            # NOTE - we don't try to detect futures hidden in other
+            # kinds of structured data, which could cause runtime bugs!
+            raise Exception("Waiting on a list that contains futures!")
 
         else:
             # Not an exception. This can happen if a wait is generated for a

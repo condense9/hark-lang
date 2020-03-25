@@ -1,15 +1,24 @@
 """Test that programs run correctly - ie test both compiler and machine"""
 
-import time
 import random
+import time
+
+import pytest
+
 import c9c.machine as m
 from c9c.compiler import compile_all, link
 from c9c.lang import *
-from c9c.runtime.local import LocalState, LocalRuntime, DebugProbe
+from c9c.runtime.local import DebugProbe, LocalRuntime, LocalState
+import c9c.runtime.local as local
 from c9c.stdlib import Map, MapResolve, wait_for
 
 from .simple_functions import *
 from .utils import check_data, check_exec, list_defs
+
+
+SEED = random.randint(0, 100000)
+random.seed(SEED)
+print("Random seed", SEED)
 
 
 def random_sleep():
@@ -18,10 +27,6 @@ def random_sleep():
 
 def test_all_calls():
     """Test all kinds of call - normal, foreign, and async"""
-    # seed = random.randint(0, 1000000)
-    seed = 720204
-    random.seed(seed)
-    print("Seed", seed)
 
     @Foreign
     def do_sleep(x):
@@ -44,14 +49,14 @@ def test_all_calls():
     expected_result = 5
     compiled = compile_all(main)
     executable = link(compile_all(main), exe_name="all_calls")
-
-    runtime = LocalRuntime(executable, probe=DebugProbe)
     try:
-        result = runtime.run(input_val)
+        runtime = local.run(executable, input_val, probe_cls=DebugProbe)
     finally:
-        m.print_instructions(executable)
-        for p in runtime.probes:
-            p.print_logs()
+        pass
+        # m.print_instructions(executable)
+        # for p in runtime.probes:
+        #     p.print_logs()
+    result = runtime.result
     assert result == expected_result
 
 
@@ -73,11 +78,14 @@ def test_mapping():
     input_val = [1, 2]
     expected_result = [5, 7]
     executable = link(compile_all(main), exe_name="test_slow_math")
-    m.print_instructions(executable)
-    runtime = LocalRuntime(executable, probe=DebugProbe)
-    result = runtime.run(input_val)
-    for p in runtime.probes:
-        p.print_logs()
+    try:
+        runtime = local.run(executable, input_val, probe_cls=DebugProbe)
+    finally:
+        pass
+        # m.print_instructions(executable)
+        # for p in runtime.probes:
+        #     p.print_logs()
+    result = runtime.result
     assert result == expected_result
 
 
@@ -109,24 +117,23 @@ def test_call_foreign():
     input_val = 5
     expected_result = [4, 4]
     executable = link(compile_all(main), exe_name="test_call_foreign")
-    m.print_instructions(executable)
-    runtime = LocalRuntime(executable, probe=DebugProbe)
-    result = runtime.run(input_val)
-    for p in runtime.probes:
-        p.print_logs()
+    try:
+        runtime = local.run(executable, input_val, probe_cls=DebugProbe)
+    finally:
+        pass
+        # m.print_instructions(executable)
+        # for p in runtime.probes:
+        #     p.print_logs()
+    result = runtime.result
     assert result == expected_result
 
 
 ####################
 
-
+# Test more:
+# env PYTHONPATH=src pytest -vv -x --count 5 test/test_endtoend.py
 def test_series_concurrent():
     """Designed to stress the concurrency model a bit more"""
-
-    # seed = random.randint(0, 100000)
-    seed = 96492
-    random.seed(seed)
-    print("Seed", seed)
 
     @Foreign
     def a(x):
@@ -159,14 +166,14 @@ def test_series_concurrent():
     input_val = 5
     expected_result = 5960  # = 6000 - 40
     executable = link(compile_all(main), exe_name="series_concurrent")
-    runtime = LocalRuntime(executable, probe=DebugProbe)
     try:
-        result = runtime.run(input_val)
+        runtime = local.run(executable, input_val, probe_cls=DebugProbe)
     finally:
         pass
-        m.print_instructions(executable)
-        for p in runtime.probes:
-            p.print_logs()
+        # m.print_instructions(executable)
+        # for p in runtime.probes:
+        #     p.print_logs()
+    result = runtime.result
     assert result == expected_result
 
 
