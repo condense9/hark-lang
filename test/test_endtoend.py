@@ -19,8 +19,21 @@ random.seed(SEED)
 print("Random seed", SEED)
 
 
-def random_sleep():
-    time.sleep(random.random() / 100.0)
+def random_sleep(max_ms=10):
+    time.sleep(max_ms * random.random() / 1000.0)
+
+
+def check_result(main, input_val, expected_result, exe_name, verbose=True):
+    """Run main with input_val, check that result is expected_result"""
+    executable = link(compile_all(main), exe_name=exe_name)
+    try:
+        storage = local.run(executable, input_val, do_probe=True)
+    finally:
+        if verbose:
+            m.print_instructions(executable)
+            for p in storage.probes:
+                p.print_logs()
+    assert storage.result == expected_result
 
 
 def test_all_calls():
@@ -43,16 +56,7 @@ def test_all_calls():
     def main(a):
         return level1(a)
 
-    input_val = 5
-    expected_result = 5
-    compiled = compile_all(main)
-    executable = link(compile_all(main), exe_name="all_calls")
-    try:
-        storage = local.run(executable, input_val, do_probe=True)
-    finally:
-        m.print_instructions(executable)
-    result = storage.result
-    assert result == expected_result
+    check_result(main, 5, 5, "all_calls")
 
 
 ####################
@@ -70,17 +74,7 @@ def test_mapping():
     def main(a):
         return MapResolve(random_sleep_math, a)
 
-    input_val = [1, 2]
-    expected_result = [5, 7]
-    executable = link(compile_all(main), exe_name="test_slow_math")
-    try:
-        storage = local.run(executable, input_val, do_probe=True)
-    finally:
-        m.print_instructions(executable)
-        for p in storage.probes:
-            p.print_logs()
-    result = storage.result
-    assert result == expected_result
+    check_result(main, [1, 2], [5, 7], "slow_math")
 
 
 ####################
@@ -108,17 +102,7 @@ def test_call_foreign():
         # ...because call_foreign returns a Cons of futures
         return Map(wait_for, call_foreign(x))
 
-    input_val = 5
-    expected_result = [4, 4]
-    executable = link(compile_all(main), exe_name="test_call_foreign")
-    try:
-        storage = local.run(executable, input_val, do_probe=True)
-    finally:
-        m.print_instructions(executable)
-        for p in storage.probes:
-            p.print_logs()
-    result = storage.result
-    assert result == expected_result
+    check_result(main, 5, [4, 4], "call_foreign")
 
 
 ####################
@@ -158,15 +142,7 @@ def test_series_concurrent():
 
     input_val = 5
     expected_result = 5960  # = 6000 - 40
-    executable = link(compile_all(main), exe_name="series_concurrent")
-    try:
-        storage = local.run(executable, input_val, do_probe=True)
-    finally:
-        m.print_instructions(executable)
-        for p in storage.probes:
-            p.print_logs()
-    result = storage.result
-    assert result == expected_result
+    check_result(main, input_val, expected_result, "series_concurrent")
 
 
 if __name__ == "__main__":
