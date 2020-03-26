@@ -6,7 +6,6 @@ from typing import Dict, List
 import c9c.compiler as compiler
 import c9c.lang as l
 import c9c.machine as m
-from c9c.runtime.local import LocalRuntime, LocalState
 
 
 def listing(code):
@@ -17,31 +16,6 @@ def list_defs(defs):
     for n, c in defs.items():
         print(f"{n}:")
         listing(c)
-
-
-def run_dbg_local(executable, data, *, trace=True):
-    """Run the machine locally and print lots of state"""
-    probe = m.DebugProbe(trace=trace)
-    machine = m.C9Machine(executable, data, LocalRuntime(), probe=probe)
-    if trace:
-        m.print_instructions(executable)
-    machine.run()
-    if trace:
-        print("*** FINISHED")
-        machine.state.show()
-
-
-def check_data(data: LocalState, expected: LocalState):
-    """Check that machine state matches expectation"""
-    assert len(expected._ds) == len(data._ds)
-    for i, (a, b) in enumerate(zip(expected._ds, data._ds)):
-        assert i >= 0 and a == b
-
-
-def check_exec(executable, data: LocalState, expected: LocalState, *, trace=False):
-    """Run a program to termination, and check that the data stack is as expected"""
-    run_dbg_local(executable, data, trace=trace)
-    check_data(data, expected)
 
 
 def check_compile_node(node, expected):

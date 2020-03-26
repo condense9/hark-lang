@@ -11,6 +11,7 @@ md-tangle = "*"
 click = "*"
 sphinx = "*"
 pyyaml = "*"
+pytest-repeat = "*"
 
 [requires]
 python_version = "3.8"

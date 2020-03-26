@@ -17,4 +17,9 @@ test:  ## Run unit tests
 
 .PHONY: testx
 testx:  ## Run unit tests, stopping after first failure
-	PYTHONPATH=src pytest -x -v
+	PYTHONPATH=src pytest -x -vv
+
+
+.PHONY: stress
+stress:  ## Run unit tests lots of times
+	PYTHONPATH=src pytest -vv --count 20

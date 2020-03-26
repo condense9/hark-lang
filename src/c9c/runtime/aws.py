@@ -34,7 +34,7 @@ class AwsRuntime(m.Runtime):
 
     Run machine: push the new machine onto the queue.
     - At a fork
-    - When a promise resolves
+    - When a future resolves
 
     Stop: pop something from the queue and Start it
 
@@ -49,12 +49,6 @@ class AwsRuntime(m.Runtime):
         self._executable = executable
         self.storage = AwsStorage()
         self._do_probe = do_probe
-
-    def _run_here(m):
-        state = self.storage.get_state(m)
-        probe = self.storage.get_probe(m)
-        machine = C9Machine(self._executable, state, self, probe=probe)
-        return machine.run()
 
     def start_top_level(self, args):
         state = AwsState(*args)
@@ -75,24 +69,6 @@ class AwsRuntime(m.Runtime):
         self.storage.set_future(machine, future)
         # -> stores the state, probe and future in a DB
         return machine, future
-
-    def _run_machine(self, m):
-        self.storage.push_machine_to_run(m)
-
-    ## Interface:
-
-    def on_stopped(self, m):
-        if storage.pop_machine_to_run():
-            self._run_here(m)
-
-    def on_finished(self, result):
-        self.storage.finish(result)
-
-    def get_future(self, m):
-        return self.storage.get_future(m)
-
-    def is_top_level(self, machine):
-        return self.storage.is_top_level(m)
 
 
 def run(executable, *args, do_probe=True):

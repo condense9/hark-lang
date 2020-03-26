@@ -9,7 +9,7 @@ import time
 import warnings
 from collections import deque
 
-from ..machine import C9Machine, Runtime, State, NoMoreFrames, Future, Probe
+from ..machine import C9Machine, State, Future, Probe, Storage, Executor
 from .runtime_utils import maybe_create
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
@@ -23,8 +23,16 @@ class LocalState(State):
         self._bs = deque()  # ......... binding stack
         self._ds = deque(values)  # ... data stack
         self._es = deque()  # ......... execution stack
-        self.ip = 0
+        self._ip = 0
         self.stopped = False
+
+    @property
+    def ip(self):
+        return self._ip
+
+    @ip.setter
+    def ip(self, new_ip):
+        self._ip = new_ip
 
     def set_bind(self, ptr, value):
         self._bindings[ptr] = value
@@ -52,9 +60,10 @@ class LocalState(State):
         self._bs.append(self._bindings)
         self._bindings = {}
 
+    def can_return(self):
+        return len(self._es) > 0
+
     def es_return(self):
-        if not self._es:
-            raise NoMoreFrames
         self.ip = self._es.pop()
         self._bindings = self._bs.pop()
 
@@ -107,7 +116,8 @@ class LocalProbe(Probe):
 class LocalFuture(Future):
     """A chainable future"""
 
-    def __init__(self):
+    def __init__(self, storage):
+        self.storage = storage
         self.resolved = False
         self.value = None
         self.chain = None
@@ -115,27 +125,77 @@ class LocalFuture(Future):
         self.continuations = []
 
     def add_continuation(self, machine, offset):
-        self.continuations.append((machine, offset))
+        self.continuations.append((machine.m_id, offset))
 
     def __repr__(self):
         return f"<LocalFuture {id(self)} {self.resolved} ({self.value})>"
 
 
-class LocalRuntime(Runtime):
-    """Execute and manage machines running locally using the threading module"""
+class MRef(int):
+    pass
 
+
+class LocalStorage(Storage):
     future_type = LocalFuture
 
-    def __init__(self, executable, do_probe=True):
-        self.exception = None
-        self.finished = False
-        self.result = None
-        self.top_level = None
+    def __init__(self, executable, executor, do_probe=False):
         self._machine_future = {}
-        self._do_probe = do_probe
-        self._executable = executable
-        self._to_join = deque()
-        threading.excepthook = self._threading_excepthook
+        self._machine_state = {}
+        self._machine_probe = {}
+        self._machine_idx = 0
+        self._executor = executor
+        self.executable = executable
+        self.top_level = None
+        self.result = None
+        self.finished = False
+        self.do_probe = do_probe
+
+    def finish(self, result):
+        self.result = result
+        self.finished = True
+
+    def is_top_level(self, machine):
+        assert isinstance(machine, MRef)
+        return machine == self.top_level
+
+    def new_machine(self, args, top_level=False) -> MRef:
+        m = MRef(self._machine_idx)
+        self._machine_idx += 1
+        state = LocalState(*args)
+        future = LocalFuture(self)
+        probe = maybe_create(LocalProbe, self.do_probe)
+        self._machine_future[m] = future
+        self._machine_state[m] = state
+        self._machine_probe[m] = probe
+        if top_level:
+            if self.top_level:
+                raise Exception("Already got a top level!")
+            self.top_level = m
+        return m
+
+    def probe_log(self, m, msg):
+        assert isinstance(m, MRef)
+        if self._machine_probe[m]:
+            self._machine_probe[m].log(msg)
+
+    def get_future(self, m):
+        assert isinstance(m, MRef)
+        return self._machine_future[m]
+
+    def get_state(self, m):
+        assert isinstance(m, MRef)
+        return self._machine_state[m]
+
+    def get_probe(self, m):
+        assert isinstance(m, MRef)
+        return self._machine_probe[m]
+
+    def push_machine_to_run(self, m):
+        assert isinstance(m, MRef)
+        self._executor.run(self, m)
+
+    def pop_machine_to_run(self):
+        return None
 
     @property
     def machines(self):
@@ -143,67 +203,52 @@ class LocalRuntime(Runtime):
 
     @property
     def probes(self):
-        return [m.probe for m in self.machines]
+        return [self.get_probe(m) for m in self.machines]
+
+
+class LocalExecutor(Executor):
+    """Execute and manage machines running locally using the threading module"""
+
+    future_type = LocalFuture
+
+    def __init__(self):
+        self.exception = None
+        threading.excepthook = self._threading_excepthook
 
     def _threading_excepthook(self, args):
         self.exception = args
 
-    def _run_machine(self, m):
-        """Run a machine"""
-        if m not in self.machines:
-            raise Exception("Starting a machine this runtime doesn't know about")
+    def run(self, storage, machine):
+        state = storage.get_state(machine)
+        probe = storage.get_probe(machine)
+        m = C9Machine(machine, storage)
         thread = threading.Thread(target=m.run)
         thread.start()
 
-    def _make_fork(self, fn_name, args):
-        """Make a machine fork - starting from the given fn_name"""
-        state = LocalState(*args)
-        state.ip = self._executable.locations[fn_name]
-        future = LocalFuture()
-        probe = maybe_create(LocalProbe, self._do_probe)
-        machine = C9Machine(self._executable, state, self, probe=probe)
-        self._machine_future[machine] = future
-        return machine, future
-
-    def start_top_level(self, args):
-        state = LocalState(*args)
-        probe = maybe_create(LocalProbe, self._do_probe)
-        m = C9Machine(self._executable, state, self, probe=probe)
-        m.probe.log(f"Top Level {m}")
-        self.top_level = m
-        self._run_machine(m)
-
-    ## Runtime Interface:
-
-    def is_top_level(self, machine):
-        return machine == self.top_level
-
-    def on_finished(self, result):
-        """Top level machine returned a result"""
-        self.result = result
-        self.finished = True
-
-    def get_future(self, m):
-        return self._machine_future[m]
-
 
 def run(executable, *args, do_probe=True, sleep_interval=0.01):
-    C9Machine.count = 0
+    # C9Machine.count = 0
     LocalProbe.count = 0
-    runtime = LocalRuntime(executable, do_probe=do_probe)
-    runtime.start_top_level(args)
 
-    while not runtime.finished:
-        time.sleep(sleep_interval)
+    executor = LocalExecutor()
+    storage = LocalStorage(executable, executor, do_probe=do_probe)
+    machine = storage.new_machine(args, top_level=True)
 
-        for m in runtime.machines:
-            if m.probe.early_stop:
-                raise Exception(f"{m} early stop")
+    storage.probe_log(machine, f"Top Level {machine}")
+    executor.run(storage, machine)
 
-        if runtime.exception:
-            raise Exception("A thread died") from runtime.exception.exc_value
+    try:
+        while not storage.finished:
+            time.sleep(sleep_interval)
 
-    if not all(m.stopped for m in runtime.machines):
-        raise Exception("Terminated, but not all machines stopped!")
+            for probe in storage.probes:
+                if probe.early_stop:
+                    raise Exception(f"{m} early stop")
 
-    return runtime
+            if executor.exception:
+                raise Exception("A thread died") from executor.exception.exc_value
+
+        if not all(storage.get_state(m).stopped for m in storage.machines):
+            raise Exception("Terminated, but not all machines stopped!")
+    finally:
+        return storage

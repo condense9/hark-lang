@@ -20,6 +20,7 @@
 # Peripheral
 #   call method
 
+import warnings
 from dataclasses import dataclass
 from functools import singledispatchmethod
 from typing import Any, Dict, List
@@ -168,42 +169,24 @@ class State:
     """Entirely represent the state of a machine execution."""
 
 
-class Runtime:
-    """Implement the parts of execution that require external interaction"""
+class Probe:
+    """A machine debug probe"""
 
-    def _make_fork(self, fn_name, args):
+
+class Storage:
+    pass
+
+
+class Executor:
+    def run(self, storage, machine):
         raise NotImplementedError
 
-    def _run_machine(machine):
-        """Run the given machine in its given state"""
-        raise NotImplementedError
 
-    def continue_running(self, m, offset, value):
-        """Continue running the machine, with a future resolved"""
-        m.probe.log(f"{self} resolved, continuing {m}")
-        m.state.ds_set(offset, value)
-        m.state.stopped = False
-        self._run_machine(m)
-
-    def fork(self, from_m, fn_name, args):
-        """Start a new machine, returning a future to its completion"""
-        machine, future = self._make_fork(fn_name, args)
-        from_m.probe.log(f"Fork {from_m} to {machine} => {future}")
-        self._run_machine(machine)
-        return future
-
-    def on_stopped(self, m):
-        pass
-
-    def is_top_level(self, machine):
-        raise NotImplementedError
-
-    def on_finished(self, result):
-        """Top level machine returned a result"""
-        raise NotImplementedError
-
-    def get_future(self, m):
-        raise NotImplementedError
+@dataclass
+class Executable:
+    locations: dict
+    code: list
+    name: str
 
 
 # Partial implementation
@@ -232,18 +215,12 @@ class Future:
         if self.chain:
             self.chain.resolve(value)
         for machine, offset in self.continuations:
-            machine.runtime.continue_running(machine, offset, value)
-
-
-class Probe:
-    """A machine debug probe"""
-
-
-@dataclass
-class Executable:
-    locations: dict
-    code: list
-    name: str
+            state = self.storage.get_state(machine)
+            probe = self.storage.get_probe(machine)
+            state.ds_set(offset, value)
+            state.stopped = False
+            probe.log(f"{self} resolved, continuing {machine}")
+            self.storage.push_machine_to_run(machine)
 
 
 class C9Machine:
@@ -260,18 +237,14 @@ class C9Machine:
 
     """
 
-    count = 0
-
-    def __init__(
-        self, executable: Executable, state: State, runtime: Runtime, *, probe=None,
-    ):
-        C9Machine.count += 1
-        self.m_id = C9Machine.count
+    def __init__(self, machine_id, storage: Storage):
+        self.m_id = machine_id
+        executable = storage.executable
         self.imem = executable.code
         self.locations = executable.locations
-        self.state = state
-        self.runtime = runtime
-        self.probe = probe
+        self.state = storage.get_state(machine_id)
+        self.probe = storage.get_probe(machine_id)
+        self.storage = storage
         # No entrypoint argument - just set the IP in the state
 
     def probe_log(self, message):
@@ -306,7 +279,6 @@ class C9Machine:
             self.step()
         if self.probe:
             self.probe.on_stopped(self)
-        self.runtime.on_stopped(self)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -350,26 +322,29 @@ class C9Machine:
 
     @evali.register
     def _(self, i: Return):
-        try:
+        if self.state.can_return():
             self.state.es_return()
-        except NoMoreFrames:
+        else:
             self.state.stopped = True
             value = self.state.ds_pop()
 
-            if self.runtime.is_top_level(self):
+            if self.storage.is_top_level(self.m_id):
                 if not self.terminated:
                     raise Exception("Top level ran out of frames without terminating")
-                self.runtime.on_finished(value)
+                self.storage.finish(value)
 
             else:
-                future = self.runtime.get_future(self)
+                future = self.storage.get_future(self.m_id)
 
                 with future.lock:
                     resolved = future.resolve(value)
 
-                self.probe_log(
-                    f"Resolved {future}" if resolved else f"Chained {future} to {value}"
-                )
+                if self.probe:
+                    self.probe.log(
+                        f"Resolved {future}"
+                        if resolved
+                        else f"Chained {future} to {value}"
+                    )
 
     @evali.register
     def _(self, i: Call):
@@ -384,8 +359,15 @@ class C9Machine:
         num_args = i.operands[0]
         fn_name = self.state.ds_pop()
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
-        future = self.runtime.fork(self, fn_name, args)
+
+        machine = self.storage.new_machine(args)
+        state = self.storage.get_state(machine)
+        future = self.storage.get_future(machine)
+        state.ip = self.locations[fn_name]
+        if self.probe:
+            self.probe.log(f"Fork {self.m_id} to {machine} => {future}")
         self.state.ds_push(future)
+        self.storage.push_machine_to_run(machine)
 
     @evali.register
     def _(self, i: MFCall):
@@ -401,7 +383,7 @@ class C9Machine:
         offset = i.operands[0]
         val = self.state.ds_peek(offset)
 
-        if isinstance(val, self.runtime.future_type):
+        if isinstance(val, self.storage.future_type):
             with val.lock:
                 if val.resolved:
                     self.state.ds_set(offset, val.value)
@@ -410,7 +392,7 @@ class C9Machine:
                     val.add_continuation(self, offset)
 
         elif isinstance(val, list) and any(
-            isinstance(elt, self.runtime.future_type) for elt in traverse(val)
+            isinstance(elt, self.storage.future_type) for elt in traverse(val)
         ):
             # The programmer is responsible for waiting on all elements
             # of lists.
