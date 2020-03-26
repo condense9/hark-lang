@@ -171,9 +171,68 @@ class State:
 class Runtime:
     """Implement the parts of execution that require external interaction"""
 
+    def _make_fork(self, fn_name, args):
+        raise NotImplementedError
 
+    def _run_machine(machine):
+        """Run the given machine in its given state"""
+        raise NotImplementedError
+
+    def continue_running(self, m, offset, value):
+        """Continue running the machine, with a future resolved"""
+        m.probe.log(f"{self} resolved, continuing {m}")
+        m.state.ds_set(offset, value)
+        m.state.stopped = False
+        self._run_machine(m)
+
+    def fork(self, from_m, fn_name, args):
+        """Start a new machine, returning a future to its completion"""
+        machine, future = self._make_fork(fn_name, args)
+        from_m.probe.log(f"Fork {from_m} to {machine} => {future}")
+        self._run_machine(machine)
+        return future
+
+    def on_stopped(self, m):
+        pass
+
+    def is_top_level(self, machine):
+        raise NotImplementedError
+
+    def on_finished(self, result):
+        """Top level machine returned a result"""
+        raise NotImplementedError
+
+    def get_future(self, m):
+        raise NotImplementedError
+
+
+# Partial implementation
 class Future:
     """A chainable future"""
+
+    # Also implement continuations and chain
+
+    def add_continuation(self, machine, offset):
+        raise NotImplementedError
+
+    def resolve(self, value):
+        # value: Either Future or not
+        if isinstance(value, Future):
+            if value.resolved:
+                self._do_resolve(value.value)
+            else:
+                value.chain = self
+        else:
+            self._do_resolve(value)
+        return self.resolved
+
+    def _do_resolve(self, value):
+        self.resolved = True
+        self.value = value
+        if self.chain:
+            self.chain.resolve(value)
+        for machine, offset in self.continuations:
+            machine.runtime.continue_running(machine, offset, value)
 
 
 class Probe:
@@ -297,7 +356,7 @@ class C9Machine:
             self.state.stopped = True
             value = self.state.ds_pop()
 
-            if self.state.is_top_level:
+            if self.runtime.is_top_level(self):
                 if not self.terminated:
                     raise Exception("Top level ran out of frames without terminating")
                 self.runtime.on_finished(value)
@@ -308,10 +367,9 @@ class C9Machine:
                 with future.lock:
                     resolved = future.resolve(value)
 
-                if resolved:
-                    self.probe_log(f"Resolved {future}")
-                else:
-                    self.probe_log(f"Chained {future} to {value}")
+                self.probe_log(
+                    f"Resolved {future}" if resolved else f"Chained {future} to {value}"
+                )
 
     @evali.register
     def _(self, i: Call):
@@ -326,10 +384,8 @@ class C9Machine:
         num_args = i.operands[0]
         fn_name = self.state.ds_pop()
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
-        machine, future = self.runtime.make_fork(fn_name, args)
-        self.probe.log(f"Fork {self} to {machine} => {future}")
+        future = self.runtime.fork(self, fn_name, args)
         self.state.ds_push(future)
-        self.runtime.run_machine(machine)
 
     @evali.register
     def _(self, i: MFCall):

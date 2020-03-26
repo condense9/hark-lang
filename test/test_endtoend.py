@@ -8,7 +8,7 @@ import pytest
 import c9c.machine as m
 from c9c.compiler import compile_all, link
 from c9c.lang import *
-from c9c.runtime.local import DebugProbe, LocalRuntime, LocalState
+from c9c.runtime.local import LocalRuntime, LocalState
 import c9c.runtime.local as local
 from c9c.stdlib import Map, MapResolve, wait_for
 
@@ -50,7 +50,7 @@ def test_all_calls():
     compiled = compile_all(main)
     executable = link(compile_all(main), exe_name="all_calls")
     try:
-        runtime = local.run(executable, input_val, probe_cls=DebugProbe)
+        runtime = local.run(executable, input_val, do_probe=True)
     finally:
         m.print_instructions(executable)
         for p in runtime.probes:
@@ -78,7 +78,7 @@ def test_mapping():
     expected_result = [5, 7]
     executable = link(compile_all(main), exe_name="test_slow_math")
     try:
-        runtime = local.run(executable, input_val, probe_cls=DebugProbe)
+        runtime = local.run(executable, input_val, do_probe=True)
     finally:
         m.print_instructions(executable)
         for p in runtime.probes:
@@ -116,7 +116,7 @@ def test_call_foreign():
     expected_result = [4, 4]
     executable = link(compile_all(main), exe_name="test_call_foreign")
     try:
-        runtime = local.run(executable, input_val, probe_cls=DebugProbe)
+        runtime = local.run(executable, input_val, do_probe=True)
     finally:
         m.print_instructions(executable)
         for p in runtime.probes:
@@ -164,7 +164,7 @@ def test_series_concurrent():
     expected_result = 5960  # = 6000 - 40
     executable = link(compile_all(main), exe_name="series_concurrent")
     try:
-        runtime = local.run(executable, input_val, probe_cls=DebugProbe)
+        runtime = local.run(executable, input_val, do_probe=True)
     finally:
         m.print_instructions(executable)
         for p in runtime.probes:

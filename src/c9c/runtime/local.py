@@ -18,13 +18,12 @@ logging.basicConfig()
 
 
 class LocalState(State):
-    def __init__(self, *values, top_level=False):
+    def __init__(self, *values):
         self._bindings = {}  # ........ current bindings
         self._bs = deque()  # ......... binding stack
         self._ds = deque(values)  # ... data stack
         self._es = deque()  # ......... execution stack
         self.ip = 0
-        self.is_top_level = top_level
         self.stopped = False
 
     def set_bind(self, ptr, value):
@@ -115,33 +114,8 @@ class LocalFuture(Future):
         self.lock = threading.Lock()
         self.continuations = []
 
-    def add_callback(self, cb):
-        self.callbacks.append(cb)
-
     def add_continuation(self, machine, offset):
         self.continuations.append((machine, offset))
-
-    def resolve(self, value):
-        # value: Either LocalFuture or not
-        if isinstance(value, LocalFuture):
-            if value.resolved:
-                self._do_resolve(value.value)
-            else:
-                value.chain = self
-        else:
-            self._do_resolve(value)
-        return self.resolved
-
-    def _do_resolve(self, value):
-        self.resolved = True
-        self.value = value
-        if self.chain:
-            self.chain.resolve(value)
-        for machine, offset in self.continuations:
-            machine.probe.log(f"{self} resolved, continuing {machine}")
-            machine.state.ds_set(offset, value)
-            machine.state.stopped = False
-            machine.runtime.run_machine(machine)
 
     def __repr__(self):
         return f"<LocalFuture {id(self)} {self.resolved} ({self.value})>"
@@ -174,23 +148,14 @@ class LocalRuntime(Runtime):
     def _threading_excepthook(self, args):
         self.exception = args
 
-    def start_first_machine(self, args):
-        state = LocalState(*args, top_level=True)
-        probe = maybe_create(LocalProbe, self._do_probe)
-        m = C9Machine(self._executable, state, self, probe=probe)
-        m.probe.log(f"Top Level {m} => ")
-        self.top_level = m
-        self.run_machine(m)
-
-    ## Runtime Interface:
-
-    def run_machine(self, m):
+    def _run_machine(self, m):
+        """Run a machine"""
         if m not in self.machines:
             raise Exception("Starting a machine this runtime doesn't know about")
         thread = threading.Thread(target=m.run)
         thread.start()
 
-    def make_fork(self, fn_name, args):
+    def _make_fork(self, fn_name, args):
         """Make a machine fork - starting from the given fn_name"""
         state = LocalState(*args)
         state.ip = self._executable.locations[fn_name]
@@ -200,8 +165,18 @@ class LocalRuntime(Runtime):
         self._machine_future[machine] = future
         return machine, future
 
-    def on_stopped(self, m):
-        pass
+    def start_top_level(self, args):
+        state = LocalState(*args)
+        probe = maybe_create(LocalProbe, self._do_probe)
+        m = C9Machine(self._executable, state, self, probe=probe)
+        m.probe.log(f"Top Level {m}")
+        self.top_level = m
+        self._run_machine(m)
+
+    ## Runtime Interface:
+
+    def is_top_level(self, machine):
+        return machine == self.top_level
 
     def on_finished(self, result):
         """Top level machine returned a result"""
@@ -216,7 +191,7 @@ def run(executable, *args, do_probe=True, sleep_interval=0.01):
     C9Machine.count = 0
     LocalProbe.count = 0
     runtime = LocalRuntime(executable, do_probe=do_probe)
-    runtime.start_first_machine(args)
+    runtime.start_top_level(args)
 
     while not runtime.finished:
         time.sleep(sleep_interval)

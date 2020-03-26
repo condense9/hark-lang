@@ -18,23 +18,81 @@ class AwsFuture(Future):
     pass
 
 
+@dataclass
+class MachineRefs:
+    state: int
+    future: int
+
+
 class AwsRuntime(m.Runtime):
     """AWS (lambda / ECS) runtime
 
     In AWS, there will be one Machine executing in the current context, and
     others executing elsewhere.
 
+    There's a queue of "runnable machines".
+
+    Run machine: push the new machine onto the queue.
+    - At a fork
+    - When a promise resolves
+
+    Stop: pop something from the queue and Start it
+
+    Start top level: make a new machine and run it
+    Start existing (fork or cont): take an existing stopped machine and run it
+
     """
 
     future_type = AwsFuture
 
-    # def __init__
+    def __init__(self, executable, do_probe=False):
+        self._executable = executable
+        self.storage = AwsStorage()
+        self._do_probe = do_probe
 
-    # def run_machine(self, m):
-    # def make_fork(self, fn_name, args):
-    # def on_stopped(self, m):
-    # def on_finished(self, result):
-    # def get_future(self, m):
+    def _run_here(m):
+        state = self.storage.get_state(m)
+        probe = self.storage.get_probe(m)
+        machine = C9Machine(self._executable, state, self, probe=probe)
+        return machine.run()
+
+    def start_top_level(self, args):
+        state = AwsState(*args)
+        machine = self.storage.new_machine(state, probe)
+        machine.probe.log(f"Top Level {machine}")
+        self.storage.set_top_level(machine)
+        return self._run_here(machine)
+
+    def start_existing(self, machine):
+        return self._run_here(machine)
+
+    def _make_fork(self, fn_name, args):
+        state = AwsState(*args)
+        state.ip = self._executable.locations[fn_name]
+        future = AwsFuture()
+        probe = maybe_create(AwsProbe, self._do_probe)
+        machine = self.storage.new_machine(state, probe)
+        self.storage.set_future(machine, future)
+        # -> stores the state, probe and future in a DB
+        return machine, future
+
+    def _run_machine(self, m):
+        self.storage.push_machine_to_run(m)
+
+    ## Interface:
+
+    def on_stopped(self, m):
+        if storage.pop_machine_to_run():
+            self._run_here(m)
+
+    def on_finished(self, result):
+        self.storage.finish(result)
+
+    def get_future(self, m):
+        return self.storage.get_future(m)
+
+    def is_top_level(self, machine):
+        return self.storage.is_top_level(m)
 
 
 def run(executable, *args, do_probe=True):
