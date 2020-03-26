@@ -37,6 +37,10 @@ def traverse(o, tree_types=(list, tuple)):
         yield o
 
 
+class NoMoreFrames(Exception):
+    pass
+
+
 class Instruction:
     op_types = []
     check_op_types = True
@@ -168,9 +172,8 @@ class Runtime:
     """Implement the parts of execution that require external interaction"""
 
 
-@dataclass
-class Continuation:
-    state: State
+class Future:
+    """A chainable future"""
 
 
 @dataclass
@@ -207,6 +210,9 @@ class C9Machine:
         self.runtime = runtime
         self.probe = probe
         # No entrypoint argument - just set the IP in the state
+
+    def probe_log(self, message):
+        self.probe.log(message)
 
     @property
     def stopped(self):
@@ -283,10 +289,24 @@ class C9Machine:
     def _(self, i: Return):
         try:
             self.state.es_return()
-        except IndexError:
+        except NoMoreFrames:
             self.state.stopped = True
             value = self.state.ds_pop()
-            self.runtime.on_return(self, value)
+            future = self.runtime.get_future(self)
+
+            with future.lock:
+                resolved = future.resolve(value)
+
+            if resolved:
+                self.probe_log(f"Resolved {future}")
+            else:
+                self.probe_log(f"Chained {future} to {value}")
+
+            if self.runtime.is_top_level(self):
+                if not future.resolved:
+                    raise Exception("Top level machine returned unresolved future")
+                elif self.terminated:
+                    self.runtime.on_finished(value)
 
     @evali.register
     def _(self, i: Call):
@@ -299,10 +319,12 @@ class C9Machine:
     def _(self, i: ACall):
         # Arguments for the function must already be on the stack
         num_args = i.operands[0]
-        name = self.state.ds_pop()
+        fn_name = self.state.ds_pop()
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
-        result = self.runtime.fork(self, name, args)
-        self.state.ds_push(result)
+        machine, future = self.runtime.make_fork(fn_name, args)
+        self.probe.log(f"Fork {self} to {machine} => {future}")
+        self.state.ds_push(future)
+        self.runtime.run_machine(machine)
 
     @evali.register
     def _(self, i: MFCall):
@@ -318,7 +340,7 @@ class C9Machine:
         offset = i.operands[0]
         val = self.state.ds_peek(offset)
 
-        if isinstance(val, self.runtime.future_type):
+        if self.runtime.is_future(val):
             with val.lock:
                 if val.resolved:
                     self.state.ds_set(offset, val.value)
@@ -327,7 +349,7 @@ class C9Machine:
                     val.add_continuation(self, offset)
 
         elif isinstance(val, list) and any(
-            isinstance(elt, self.runtime.future_type) for elt in traverse(val)
+            self.runtime.is_future(elt) for elt in traverse(val)
         ):
             # The programmer is responsible for waiting on all elements
             # of lists.
