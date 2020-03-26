@@ -176,6 +176,10 @@ class Future:
     """A chainable future"""
 
 
+class Probe:
+    """A machine debug probe"""
+
+
 @dataclass
 class Executable:
     locations: dict
@@ -292,21 +296,22 @@ class C9Machine:
         except NoMoreFrames:
             self.state.stopped = True
             value = self.state.ds_pop()
-            future = self.runtime.get_future(self)
 
-            with future.lock:
-                resolved = future.resolve(value)
+            if self.state.is_top_level:
+                if not self.terminated:
+                    raise Exception("Top level ran out of frames without terminating")
+                self.runtime.on_finished(value)
 
-            if resolved:
-                self.probe_log(f"Resolved {future}")
             else:
-                self.probe_log(f"Chained {future} to {value}")
+                future = self.runtime.get_future(self)
 
-            if self.runtime.is_top_level(self):
-                if not future.resolved:
-                    raise Exception("Top level machine returned unresolved future")
-                elif self.terminated:
-                    self.runtime.on_finished(value)
+                with future.lock:
+                    resolved = future.resolve(value)
+
+                if resolved:
+                    self.probe_log(f"Resolved {future}")
+                else:
+                    self.probe_log(f"Chained {future} to {value}")
 
     @evali.register
     def _(self, i: Call):
@@ -340,7 +345,7 @@ class C9Machine:
         offset = i.operands[0]
         val = self.state.ds_peek(offset)
 
-        if self.runtime.is_future(val):
+        if isinstance(val, self.runtime.future_type):
             with val.lock:
                 if val.resolved:
                     self.state.ds_set(offset, val.value)
@@ -349,7 +354,7 @@ class C9Machine:
                     val.add_continuation(self, offset)
 
         elif isinstance(val, list) and any(
-            self.runtime.is_future(elt) for elt in traverse(val)
+            isinstance(elt, self.runtime.future_type) for elt in traverse(val)
         ):
             # The programmer is responsible for waiting on all elements
             # of lists.
