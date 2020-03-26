@@ -270,7 +270,7 @@ def test_foreign():
                 m.Bind(0),
                 m.PushB(0),
                 m.PushV("FF_simple_math"),
-                m.Call(1),
+                m.ACall(1),
                 m.Return()
                 # --
             ],
