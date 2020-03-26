@@ -185,8 +185,8 @@ class LocalRuntime(Runtime):
     ## Runtime Interface:
 
     def run_machine(self, m):
-        if m not in self._machine_future and not m.state.is_top_level:
-            raise Exception("Starting a machine before its future exists")
+        if m not in self.machines:
+            raise Exception("Starting a machine this runtime doesn't know about")
         thread = threading.Thread(target=m.run)
         thread.start()
 
