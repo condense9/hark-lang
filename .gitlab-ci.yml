@@ -33,7 +33,7 @@ before_script:
 test:
   stage: test
   script:
-    - export PYTHONPATH=$PWD/src/c9c:$PYTHONPATH
+    - export PYTHONPATH=$PWD/src:$PYTHONPATH
     - pytest test
 
 pages:
