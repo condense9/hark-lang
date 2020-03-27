@@ -254,7 +254,12 @@ class Executable:
 class Future:
     """A chainable future"""
 
-    # Also implement continuations and chain
+    def __init__(self, storage):
+        self.storage = storage
+        self.resolved = False
+        self.value = None
+        self.chain = None
+        # Derived must implement continuations and lock
 
     def add_continuation(self, machine, offset):
         raise NotImplementedError
@@ -282,6 +287,9 @@ class Future:
             state.stopped = False
             probe.log(f"{self} resolved, continuing {machine}")
             self.storage.push_machine_to_run(machine)
+
+    def __repr__(self):
+        return f"<Future {id(self)} {self.resolved} ({self.value})>"
 
 
 class C9Machine:

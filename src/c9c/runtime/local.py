@@ -54,18 +54,12 @@ class LocalFuture(Future):
     """A chainable future"""
 
     def __init__(self, storage):
-        self.storage = storage
-        self.resolved = False
-        self.value = None
-        self.chain = None
+        super().__init__(storage)
         self.lock = threading.Lock()
         self.continuations = []
 
     def add_continuation(self, m_id, offset):
         self.continuations.append((m_id, offset))
-
-    def __repr__(self):
-        return f"<LocalFuture {id(self)} {self.resolved} ({self.value})>"
 
 
 class MRef(int):
@@ -149,8 +143,6 @@ class LocalStorage(Storage):
 
 class LocalExecutor(Executor):
     """Execute and manage machines running locally using the threading module"""
-
-    future_type = LocalFuture
 
     def __init__(self):
         self.exception = None
