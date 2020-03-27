@@ -12,6 +12,9 @@ click = "*"
 sphinx = "*"
 pyyaml = "*"
 pytest-repeat = "*"
+localstack = "*"
+boto3 = "*"
+dokklib-db = "*"
 
 [requires]
 python_version = "3.8"
