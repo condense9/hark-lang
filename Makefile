@@ -12,14 +12,14 @@ init:  ## Set up development environment
 
 .PHONY: test
 test:  ## Run unit tests
-	PYTHONPATH=src pytest -v
+	pipenv run pytest -v
 
 
 .PHONY: testx
 testx:  ## Run unit tests, stopping after first failure
-	PYTHONPATH=src pytest -x -vv
+	pipenv run pytest -x -vv
 
 
 .PHONY: stress
 stress:  ## Run unit tests lots of times
-	PYTHONPATH=src pytest -vv --count 20
+	pipenv run pytest -vv --count 20
