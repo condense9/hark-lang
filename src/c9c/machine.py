@@ -251,13 +251,6 @@ class Future:
 
     def __init__(self, controller):
         self.controller = controller
-        self.resolved = False
-        self.value = None
-        self.chain = None
-        # Derived must implement continuations and lock
-
-    def add_continuation(self, machine, offset):
-        raise NotImplementedError
 
     def resolve(self, value):
         # value: Either Future or not
@@ -450,7 +443,6 @@ class C9Machine:
                 else:
                     self.state.stopped = True
                     val.add_continuation(self.mref, offset)
-                    # self.controller.wait_for(self, val, offset)
 
         elif isinstance(val, list) and any(
             isinstance(elt, self.controller.future_type) for elt in traverse(val)

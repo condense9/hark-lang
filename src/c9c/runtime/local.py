@@ -58,9 +58,13 @@ class LocalFuture(Future):
         super().__init__(controller)
         self.lock = threading.Lock()
         self.continuations = []
+        self.chain = None
+        self.resolved = False
+        self.value = None
 
     def add_continuation(self, machine_reference, offset):
         self.continuations.append((machine_reference, offset))
+        # could alert self.controller here
 
 
 class MRef(int):
