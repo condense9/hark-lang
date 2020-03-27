@@ -30,49 +30,16 @@ YAML files..
 You can also build triggers - these are decorators have infrastructure, and can
 be applied to Func.
 
-
-class http_post:
-    def __call__():
-        return Func...
-
 """
 
+from os import makedirs
+from os.path import abspath, basename, dirname, join, splitext
+from shutil import copy, copytree, rmtree
 from typing import List
 
 from . import infrastructure as inf
 from . import lang as l
 from .compiler_utils import flatten, traverse_dag
-
-
-################################################################################
-## Entrypoints
-
-
-# def synthesise_all(handlers: List[l.Handler]) -> List[l.Infrastructure]:
-#     # TODO
-#     apis = {}
-#     databases = []
-#     buckets = []
-
-
-def get_all_inf(fn: l.Handler) -> List[l.Infrastructure]:
-    """Generate infrastructure for FN and all of its dependencies"""
-    all_inf = []
-
-    for elt in fn.infrastructure:
-        if isinstance(elt, HttpEndpoint):
-            all_inf.append(Function())
-            components.append(Function(elt.name, code_dir, handler_for()))
-
-    for n in traverse_dag(fn):
-        # Explicit infrastructure - data stores, etc
-        if isinstance(n, inf.Infrastructure):
-            all_inf.append(n)
-
-    # Remove duplicates - some infrastructure may be referenced in multiple
-    # places in the program.
-    return list(set(all_inf))
-
 
 # Synthesis:
 # - take a handler
@@ -141,11 +108,6 @@ def synthesise(service, region, code_dir):
     return implicit + list(explicit.values())
 
 
-from os.path import abspath, join, basename, splitext, dirname
-from shutil import copy, copytree, rmtree
-from os import makedirs
-
-
 # TODO break up this function
 def generate(service, build_dir):
     # Call this from the top-level file
@@ -169,9 +131,8 @@ def generate(service, build_dir):
     copy(top_level_file, join(build_dir, code_dir, "src"))
     # if extra_source: TODO copy extra dirs to handlers/src
 
-    components = synthesise(service, region, code_dir)
-
     # -- build_dir/serverless.yml
+    components = synthesise(service, region, code_dir)
     with open(join(build_dir, "serverless.yml"), "w") as fp:
         fp.write(f"name: {service.name}\n")
         for c in components:
@@ -188,7 +149,7 @@ def generate(service, build_dir):
             fp.write(f"from src.{top_level_module} import {implementation}\n")
             # Entrypoints to different runtimes could be implemented, and used
             # depending on constraints. For now, always use awslambda.
-            fp.write(f"{entrypoint} = awslambda.run_from({implementation})\n")
+            fp.write(f"{entrypoint} = awslambda.get_entrypoint({implementation})\n")
 
     # -- build_dir/code_dir/c9c
     copytree(dirname(__file__), join(build_dir, code_dir, "c9c"))
