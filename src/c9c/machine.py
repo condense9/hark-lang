@@ -276,12 +276,9 @@ class Future:
         if self.chain:
             self.chain.resolve(value)
         for machine, offset in self.continuations:
-            state = self.controller.get_state(machine)
             probe = self.controller.get_probe(machine)
-            state.ds_set(offset, value)
-            state.stopped = False
             probe.log(f"{self} resolved, continuing {machine}")
-            self.controller.run_machine(machine)
+            self.controller.run_waiting_machine(machine, offset, value)
 
     def __repr__(self):
         return f"<Future {id(self)} {self.resolved} ({self.value})>"
@@ -425,13 +422,11 @@ class C9Machine:
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
 
         machine = self.controller.new_machine(args)
-        state = self.controller.get_state(machine)
         future = self.controller.get_future(machine)
-        state.ip = self.locations[fn_name]
         if self.probe:
             self.probe.log(f"Fork {self.mref} to {machine} => {future}")
         self.state.ds_push(future)
-        self.controller.run_machine(machine)
+        self.controller.run_forked_machine(machine, self.locations[fn_name])
 
     @evali.register
     def _(self, i: MFCall):
@@ -448,12 +443,14 @@ class C9Machine:
         val = self.state.ds_peek(offset)
 
         if isinstance(val, self.controller.future_type):
+            # prevent race between resolution and adding the continuation
             with val.lock:
                 if val.resolved:
                     self.state.ds_set(offset, val.value)
                 else:
                     self.state.stopped = True
                     val.add_continuation(self.mref, offset)
+                    # self.controller.wait_for(self, val, offset)
 
         elif isinstance(val, list) and any(
             isinstance(elt, self.controller.future_type) for elt in traverse(val)

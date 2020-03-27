@@ -130,13 +130,29 @@ class LocalController(Controller):
         assert isinstance(m, MRef)
         return self._machine_probe[m]
 
-    def run_machine(self, m):
+    def _run_machine(self, m):
         assert isinstance(m, MRef)
         state = self.get_state(m)
         probe = self.get_probe(m)
         machine = C9Machine(m, self)
         thread = threading.Thread(target=machine.run)
         thread.start()
+
+    def run_forked_machine(self, m, new_ip):
+        state = self.get_state(m)
+        state.ip = new_ip
+        self._run_machine(m)
+
+    def run_waiting_machine(self, m, offset, value):
+        state = self.get_state(m)
+        state.ds_set(offset, value)
+        state.stopped = False
+        self._run_machine(m)
+
+    def run_top_level(self, args):
+        m = self.new_machine(args, top_level=True)
+        self.probe_log(m, f"Top Level {m}")
+        self._run_machine(m)
 
     @property
     def machines(self):
@@ -152,14 +168,10 @@ class ThreadDied(Exception):
 
 
 def run(executable, *args, do_probe=True, sleep_interval=0.01):
-    # C9Machine.count = 0
     LocalProbe.count = 0
 
     controller = LocalController(executable, do_probe=do_probe)
-    machine = controller.new_machine(args, top_level=True)
-
-    controller.probe_log(machine, f"Top Level {machine}")
-    controller.run_machine(machine)
+    controller.run_top_level(args)
 
     try:
         while not controller.finished:
