@@ -2,19 +2,19 @@
 
 import random
 import time
+import warnings
 
 import pytest
 
 import c9c.machine as m
+import c9c.runtime.local
 from c9c.compiler import compile_all, link
 from c9c.lang import *
-import c9c.runtime.local
 
 # import c9c.runtime.aws
 from c9c.stdlib import Map, MapResolve, wait_for
 
 from .simple_functions import *
-
 
 SEED = random.randint(0, 100000)
 random.seed(SEED)
@@ -35,13 +35,15 @@ def check_result(runtime, main, input_val, expected_result, exe_name, verbose=Tr
     """Run main with input_val, check that result is expected_result"""
     executable = link(compile_all(main), exe_name=exe_name)
     try:
-        storage = runtime.run(executable, input_val, do_probe=True)
+        controller = runtime.run(executable, input_val, do_probe=True)
     finally:
         if verbose:
             m.print_instructions(executable)
-            for p in storage.probes:
+            for p in controller.probes:
                 p.print_logs()
-    assert storage.result == expected_result
+    if not controller.finished:
+        warnings.warn("Controller did not finish - this will fail")
+    assert controller.result == expected_result
 
 
 @pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())

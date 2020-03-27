@@ -6,9 +6,10 @@ import logging
 import sys
 import threading
 import time
+import traceback
 import warnings
 
-from ..machine import C9Machine, State, Future, Probe, Storage, Executor
+from ..machine import C9Machine, Controller, Future, Probe, State
 from .runtime_utils import maybe_create
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
@@ -53,8 +54,8 @@ class LocalProbe(Probe):
 class LocalFuture(Future):
     """A chainable future"""
 
-    def __init__(self, storage):
-        super().__init__(storage)
+    def __init__(self, controller):
+        super().__init__(controller)
         self.lock = threading.Lock()
         self.continuations = []
 
@@ -66,20 +67,24 @@ class MRef(int):
     pass
 
 
-class LocalStorage(Storage):
+class LocalController(Controller):
     future_type = LocalFuture
 
-    def __init__(self, executable, executor, do_probe=False):
+    def __init__(self, executable, do_probe=False):
         self._machine_future = {}
         self._machine_state = {}
         self._machine_probe = {}
         self._machine_idx = 0
-        self._executor = executor
         self.executable = executable
         self.top_level = None
         self.result = None
         self.finished = False
         self.do_probe = do_probe
+        self.exception = None
+        threading.excepthook = self._threading_excepthook
+
+    def _threading_excepthook(self, args):
+        self.exception = args
 
     def finish(self, result):
         self.result = result
@@ -125,12 +130,13 @@ class LocalStorage(Storage):
         assert isinstance(m, MRef)
         return self._machine_probe[m]
 
-    def push_machine_to_run(self, m):
+    def run_machine(self, m):
         assert isinstance(m, MRef)
-        self._executor.run(self, m)
-
-    def pop_machine_to_run(self):
-        return None
+        state = self.get_state(m)
+        probe = self.get_probe(m)
+        machine = C9Machine(m, self)
+        thread = threading.Thread(target=machine.run)
+        thread.start()
 
     @property
     def machines(self):
@@ -141,49 +147,39 @@ class LocalStorage(Storage):
         return [self.get_probe(m) for m in self.machines]
 
 
-class LocalExecutor(Executor):
-    """Execute and manage machines running locally using the threading module"""
-
-    def __init__(self):
-        self.exception = None
-        threading.excepthook = self._threading_excepthook
-
-    def _threading_excepthook(self, args):
-        self.exception = args
-
-    def run(self, storage, machine):
-        state = storage.get_state(machine)
-        probe = storage.get_probe(machine)
-        m = C9Machine(machine, storage)
-        thread = threading.Thread(target=m.run)
-        thread.start()
+class ThreadDied(Exception):
+    """A thread died"""
 
 
 def run(executable, *args, do_probe=True, sleep_interval=0.01):
     # C9Machine.count = 0
     LocalProbe.count = 0
 
-    executor = LocalExecutor()
-    storage = LocalStorage(executable, executor, do_probe=do_probe)
-    machine = storage.new_machine(args, top_level=True)
+    controller = LocalController(executable, do_probe=do_probe)
+    machine = controller.new_machine(args, top_level=True)
 
-    storage.probe_log(machine, f"Top Level {machine}")
-    executor.run(storage, machine)
+    controller.probe_log(machine, f"Top Level {machine}")
+    controller.run_machine(machine)
 
     try:
-        while not storage.finished:
+        while not controller.finished:
             time.sleep(sleep_interval)
 
-            for probe in storage.probes:
+            for probe in controller.probes:
                 if probe.early_stop:
                     raise Exception(f"{m} early stop")
 
-            if executor.exception:
-                raise Exception("A thread died") from executor.exception.exc_value
+            if controller.exception:
+                raise ThreadDied from controller.exception.exc_value
 
-        if not all(storage.get_state(m).stopped for m in storage.machines):
+        if not all(controller.get_state(m).stopped for m in controller.machines):
             raise Exception("Terminated, but not all machines stopped!")
 
-    # Always return storage, so it can be inspected
-    finally:
-        return storage
+    except ThreadDied:
+        raise
+
+    except Exception as e:
+        warnings.warn("Unexpected Exception!! Returning controller for analysis")
+        traceback.print_exc()
+
+    return controller

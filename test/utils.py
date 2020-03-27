@@ -31,9 +31,6 @@ def check_compile_node(node, expected):
 def check_compile_all(fn: l.Func, expected: Dict, allow_custom_validation=False):
     """Check that some function definitions are correct"""
     defs = compiler.compile_all(fn)
-    for k in defs.keys():
-        if k not in expected:
-            warnings.warn(f"Skipping {k} - Expected output not given")
     for k in expected.keys():
         assert k in defs
         assert len(defs[k]) == len(expected[k])

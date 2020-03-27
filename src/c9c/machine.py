@@ -1,5 +1,5 @@
 # Machine
-# - Storage
+# - Controller
 # - Evaluation
 #
 # Push/pop values (by name)
@@ -234,13 +234,8 @@ class Probe:
     """A machine debug probe"""
 
 
-class Storage:
+class Controller:
     pass
-
-
-class Executor:
-    def run(self, storage, machine):
-        raise NotImplementedError
 
 
 @dataclass
@@ -254,8 +249,8 @@ class Executable:
 class Future:
     """A chainable future"""
 
-    def __init__(self, storage):
-        self.storage = storage
+    def __init__(self, controller):
+        self.controller = controller
         self.resolved = False
         self.value = None
         self.chain = None
@@ -281,12 +276,12 @@ class Future:
         if self.chain:
             self.chain.resolve(value)
         for machine, offset in self.continuations:
-            state = self.storage.get_state(machine)
-            probe = self.storage.get_probe(machine)
+            state = self.controller.get_state(machine)
+            probe = self.controller.get_probe(machine)
             state.ds_set(offset, value)
             state.stopped = False
             probe.log(f"{self} resolved, continuing {machine}")
-            self.storage.push_machine_to_run(machine)
+            self.controller.run_machine(machine)
 
     def __repr__(self):
         return f"<Future {id(self)} {self.resolved} ({self.value})>"
@@ -295,25 +290,24 @@ class Future:
 class C9Machine:
     """This is the Machine, the CPU.
 
-    There is one Machine per compute node. There may be multiple compute nodes.
+    The machine operates in the context of a Controller. There may be multiple
+    machines connected to the same controller.
 
-    The stacks are nested deques. This only matters for async stuff - the async
-    bit gets entirely new memory (with args on the stack) and a Continuation.
-    The continuation contains a pointer to the old memory (state), and the IP.
+    There is one Machine per compute node. There may be multiple compute nodes.
 
     When run normally, the Machine starts executing instructions from the
     beginning until the instruction pointer reaches the end.
 
     """
 
-    def __init__(self, machine_reference, storage: Storage):
+    def __init__(self, machine_reference, controller: Controller):
         self.mref = machine_reference
-        executable = storage.executable
+        executable = controller.executable
         self.imem = executable.code
         self.locations = executable.locations
-        self.state = storage.get_state(self.mref)
-        self.probe = storage.get_probe(self.mref)
-        self.storage = storage
+        self.state = controller.get_state(self.mref)
+        self.probe = controller.get_probe(self.mref)
+        self.controller = controller
         # No entrypoint argument - just set the IP in the state
 
     def probe_log(self, message):
@@ -348,7 +342,7 @@ class C9Machine:
             self.step()
         if self.probe:
             self.probe.on_stopped(self)
-        self.storage.stop(self.mref)
+        self.controller.stop(self.mref)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -398,13 +392,13 @@ class C9Machine:
             self.state.stopped = True
             value = self.state.ds_pop()
 
-            if self.storage.is_top_level(self.mref):
+            if self.controller.is_top_level(self.mref):
                 if not self.terminated:
                     raise Exception("Top level ran out of frames without terminating")
-                self.storage.finish(value)
+                self.controller.finish(value)
 
             else:
-                future = self.storage.get_future(self.mref)
+                future = self.controller.get_future(self.mref)
 
                 with future.lock:
                     resolved = future.resolve(value)
@@ -430,14 +424,14 @@ class C9Machine:
         fn_name = self.state.ds_pop()
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
 
-        machine = self.storage.new_machine(args)
-        state = self.storage.get_state(machine)
-        future = self.storage.get_future(machine)
+        machine = self.controller.new_machine(args)
+        state = self.controller.get_state(machine)
+        future = self.controller.get_future(machine)
         state.ip = self.locations[fn_name]
         if self.probe:
             self.probe.log(f"Fork {self.mref} to {machine} => {future}")
         self.state.ds_push(future)
-        self.storage.push_machine_to_run(machine)
+        self.controller.run_machine(machine)
 
     @evali.register
     def _(self, i: MFCall):
@@ -453,7 +447,7 @@ class C9Machine:
         offset = i.operands[0]
         val = self.state.ds_peek(offset)
 
-        if isinstance(val, self.storage.future_type):
+        if isinstance(val, self.controller.future_type):
             with val.lock:
                 if val.resolved:
                     self.state.ds_set(offset, val.value)
@@ -462,7 +456,7 @@ class C9Machine:
                     val.add_continuation(self.mref, offset)
 
         elif isinstance(val, list) and any(
-            isinstance(elt, self.storage.future_type) for elt in traverse(val)
+            isinstance(elt, self.controller.future_type) for elt in traverse(val)
         ):
             # The programmer is responsible for waiting on all elements
             # of lists.
