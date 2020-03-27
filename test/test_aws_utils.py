@@ -1,11 +1,18 @@
 """Test the AWS test utilities - these may become core libraries eventually"""
 
-
+import os
 import os.path
 from os.path import join
 
+import pytest
+
 import utils.db_utils as db_utils
 import utils.lambda_utils as lambda_utils
+
+pytestmark = pytest.mark.skipif(
+    "CI_JOB_ID" in os.environ, reason="Gitlab not supported yet"
+)
+
 
 TABLE_NAME = "TestAwsSingleTable"
 THIS_DIR = os.path.dirname(__file__)
