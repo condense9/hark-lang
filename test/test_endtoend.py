@@ -8,7 +8,9 @@ import pytest
 import c9c.machine as m
 from c9c.compiler import compile_all, link
 from c9c.lang import *
-import c9c.runtime.local as local
+import c9c.runtime.local
+
+# import c9c.runtime.aws
 from c9c.stdlib import Map, MapResolve, wait_for
 
 from .simple_functions import *
@@ -19,15 +21,21 @@ random.seed(SEED)
 print("Random seed", SEED)
 
 
+RUNTIMES = {
+    "local": c9c.runtime.local,
+    # "aws": c9c.runtime.aws
+}
+
+
 def random_sleep(max_ms=10):
     time.sleep(max_ms * random.random() / 1000.0)
 
 
-def check_result(main, input_val, expected_result, exe_name, verbose=True):
+def check_result(runtime, main, input_val, expected_result, exe_name, verbose=True):
     """Run main with input_val, check that result is expected_result"""
     executable = link(compile_all(main), exe_name=exe_name)
     try:
-        storage = local.run(executable, input_val, do_probe=True)
+        storage = runtime.run(executable, input_val, do_probe=True)
     finally:
         if verbose:
             m.print_instructions(executable)
@@ -36,7 +44,8 @@ def check_result(main, input_val, expected_result, exe_name, verbose=True):
     assert storage.result == expected_result
 
 
-def test_all_calls():
+@pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
+def test_all_calls(runtime):
     """Test all kinds of call - normal, foreign, and async"""
 
     @Foreign
@@ -56,13 +65,14 @@ def test_all_calls():
     def main(a):
         return level1(a)
 
-    check_result(main, 5, 5, "all_calls")
+    check_result(runtime, main, 5, 5, "all_calls")
 
 
 ####################
 
 
-def test_mapping():
+@pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
+def test_mapping(runtime):
     """Test that mapping works in the presence of random delays"""
 
     @Foreign
@@ -74,13 +84,14 @@ def test_mapping():
     def main(a):
         return MapResolve(random_sleep_math, a)
 
-    check_result(main, [1, 2], [5, 7], "slow_math")
+    check_result(runtime, main, [1, 2], [5, 7], "slow_math")
 
 
 ####################
 
 
-def test_call_foreign():
+@pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
+def test_call_foreign(runtime):
     """More foreign call tests"""
 
     @Foreign
@@ -102,14 +113,15 @@ def test_call_foreign():
         # ...because call_foreign returns a Cons of futures
         return Map(wait_for, call_foreign(x))
 
-    check_result(main, 5, [4, 4], "call_foreign")
+    check_result(runtime, main, 5, [4, 4], "call_foreign")
 
 
 ####################
 
 # Test more:
 # env PYTHONPATH=src pytest -vv -x --count 5 test/test_endtoend.py
-def test_series_concurrent():
+@pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
+def test_series_concurrent(runtime):
     """Designed to stress the concurrency model a bit more"""
 
     @Foreign
@@ -142,8 +154,4 @@ def test_series_concurrent():
 
     input_val = 5
     expected_result = 5960  # = 6000 - 40
-    check_result(main, input_val, expected_result, "series_concurrent")
-
-
-if __name__ == "__main__":
-    test_series_concurrent()
+    check_result(runtime, main, input_val, expected_result, "series_concurrent")

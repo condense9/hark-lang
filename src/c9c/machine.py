@@ -306,13 +306,13 @@ class C9Machine:
 
     """
 
-    def __init__(self, machine_id, storage: Storage):
-        self.m_id = machine_id
+    def __init__(self, machine_reference, storage: Storage):
+        self.mref = machine_reference
         executable = storage.executable
         self.imem = executable.code
         self.locations = executable.locations
-        self.state = storage.get_state(self.m_id)
-        self.probe = storage.get_probe(self.m_id)
+        self.state = storage.get_state(self.mref)
+        self.probe = storage.get_probe(self.mref)
         self.storage = storage
         # No entrypoint argument - just set the IP in the state
 
@@ -348,7 +348,7 @@ class C9Machine:
             self.step()
         if self.probe:
             self.probe.on_stopped(self)
-        self.storage.stop(self.m_id)
+        self.storage.stop(self.mref)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -398,13 +398,13 @@ class C9Machine:
             self.state.stopped = True
             value = self.state.ds_pop()
 
-            if self.storage.is_top_level(self.m_id):
+            if self.storage.is_top_level(self.mref):
                 if not self.terminated:
                     raise Exception("Top level ran out of frames without terminating")
                 self.storage.finish(value)
 
             else:
-                future = self.storage.get_future(self.m_id)
+                future = self.storage.get_future(self.mref)
 
                 with future.lock:
                     resolved = future.resolve(value)
@@ -435,7 +435,7 @@ class C9Machine:
         future = self.storage.get_future(machine)
         state.ip = self.locations[fn_name]
         if self.probe:
-            self.probe.log(f"Fork {self.m_id} to {machine} => {future}")
+            self.probe.log(f"Fork {self.mref} to {machine} => {future}")
         self.state.ds_push(future)
         self.storage.push_machine_to_run(machine)
 
@@ -459,7 +459,7 @@ class C9Machine:
                     self.state.ds_set(offset, val.value)
                 else:
                     self.state.stopped = True
-                    val.add_continuation(self.m_id, offset)
+                    val.add_continuation(self.mref, offset)
 
         elif isinstance(val, list) and any(
             isinstance(elt, self.storage.future_type) for elt in traverse(val)
@@ -514,7 +514,7 @@ class C9Machine:
         self.state.ds_push(a == b)
 
     def __repr__(self):
-        return f"<Machine M{self.m_id}>"
+        return f"<Machine M{self.mref}>"
 
 
 # Foreign function calls produce futures. This allows evaluation to continue. We

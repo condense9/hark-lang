@@ -58,8 +58,8 @@ class LocalFuture(Future):
         self.lock = threading.Lock()
         self.continuations = []
 
-    def add_continuation(self, m_id, offset):
-        self.continuations.append((m_id, offset))
+    def add_continuation(self, machine_reference, offset):
+        self.continuations.append((machine_reference, offset))
 
 
 class MRef(int):

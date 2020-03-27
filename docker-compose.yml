@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  localstack:
+    image: localstack/localstack
+    container_name: localstack
+    ports:
+      - "4567-4599:4567-4599"
+    environment:
+      - SERVICES=serverless
+      - LAMBDA_EXECUTOR=local
+      - LAMBDA_REMOVE_CONTAINERS=false
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DEFAULT_REGION=eu-west-2
+    volumes:
+      - "${TMPDIR}:/tmp/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
