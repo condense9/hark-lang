@@ -64,7 +64,6 @@ class LocalFuture(Future):
 
     def add_continuation(self, machine_reference, offset):
         self.continuations.append((machine_reference, offset))
-        # could alert self.controller here
 
 
 class MRef(int):
@@ -157,6 +156,7 @@ class LocalController(Controller):
         m = self.new_machine(args, top_level=True)
         self.probe_log(m, f"Top Level {m}")
         self._run_machine(m)
+        return m
 
     @property
     def machines(self):

@@ -441,6 +441,10 @@ class C9Machine:
                 if val.resolved:
                     self.state.ds_set(offset, val.value)
                 else:
+                    # could do "controller.wait_for(self.mref, val, offset)"
+                    #
+                    # but it's confusing - the locked future is being accessed
+                    # in multiple places.
                     self.state.stopped = True
                     val.add_continuation(self.mref, offset)
 

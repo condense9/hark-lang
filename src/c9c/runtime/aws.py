@@ -16,29 +16,63 @@ Start existing (fork or cont): take an existing stopped machine and run it
 
 """
 
+from typing import List, Tuple
 from functools import wraps
 
 from .. import compiler
-from .. import machine as m
+from ..machine import Future, Probe, State, Controller
 
 
-class AwsProbe(m.Probe):
+class AwsProbe(Probe):
     pass
-
-
-class AwsFuture(m.Future):
-    def __init__(self, storage):
-        super().__init__()
-        # self.lock = threading.Lock()
-        # self.continuations = []
-        # todo
-
-    def add_continuation(self, machine_reference, offset):
-        pass  # todo
 
 
 class MRef(int):
     pass
+
+
+class AwsFuture(Future):
+    def __init__(self, storage):
+        super().__init__()
+        # self._chain
+        # self._continuations
+        # self._value
+        # self._resolved
+
+    @property
+    def lock(self):
+        raise NotImplementedError
+
+    @property
+    def chain(self) -> AwsFuture:
+        raise NotImplementedError
+
+    @chain.setter
+    def chain(self, future: AwsFuture):
+        raise NotImplementedError
+
+    @property
+    def value(self):
+        raise NotImplementedError
+
+    @value.setter
+    def value(self, val):
+        raise NotImplementedError
+
+    @property
+    def resolved(self) -> bool:
+        raise NotImplementedError
+
+    @resolved.setter
+    def resolved(self, value: bool):
+        raise NotImplementedError
+
+    @property
+    def continuations(self) -> List[Tuple[MRef, int]]:
+        raise NotImplementedError
+
+    def add_continuation(self, m: MRef, offset: int):
+        pass  # todo
 
 
 # TODO - what do I actually need to do with the DB?
@@ -49,64 +83,71 @@ class MRef(int):
 # (threads) may exist in the session.
 #
 # Data per session:
-# - machine state
-# - probe logs
-# - futures
+# - machine state (State)
+# - probe data
+# - futures (id, resolved, value, chain, continuations)
 #
 # Data exchange points:
-# - new session (create session id and top level machine)
-# - new machine started (create state, probe)
-# - machine continued (Controller retrieve state, probe)
-# - machine forks (Controller uploads state, future, probe)
-# - machine waits (Future adds continuation, something needs to sync)
-# - top level machine finishes (Controller updates result)
-# - future resolves (update state, run machine)
-# - machine stops (sync state ?)
+# - machine forks (State of new machine set to point at the fork IP)
+# - machine waits on future (continuation added to that future)
+# - future resolves (must refresh list of continuations)
+# - top level machine finishes (Controller sets session result)
+# - machine stops (upload the State)
+# - machine continues (download the State)
 
 
-class AwsController(m.Controller):
+# NOTE - some handlers cannot terminate early, because they have to maintain a
+# connection to a client. This is a "hardware" restriction. So if an HTTP
+# handler calls something async, it has to wait for it. Anything /that/ function
+# calls can be properly async. But the top level has to stay alive. That isn't
+# true of all kinds of Handlers!!
+#
+# ONLY THE ONES THAT HAVE TO SEND A RESULT BACK
+#
+# So actually that gets abstracted into some kind of controller interface - the
+# top level "run" function. For HTTP handlers, it has to block until the
+# Controller finishes. For others, it can just return. No Controller logic
+# changes necessary. Just the entrypoint / wrapper.
+
+
+class AwsController(Controller):
     future_type = LocalFuture
 
-    def __init__(self, executable, executor, do_probe=False):
+    def __init__(self, executable, do_probe=False):
         super().__init__()
-        self._machine_future = {}
-        self._machine_state = {}
-        self._machine_probe = {}
-        self._machine_idx = 0
-        self._executor = executor
-        self.executable = executable
-        self.top_level = None
-        self.result = None
-        self.finished = False
-        self.do_probe = do_probe
+        self.top_level  # todo
 
     def finish(self, result):
         pass  # todo
 
-    def stop(self, machine):
-        assert isinstance(machine, MRef)
+    def stop(self, m: MRef):
         pass  # todo Could do something like sync the machine's state
 
-    def is_top_level(self, machine):
-        assert isinstance(machine, MRef)
-        return machine == self.top_level
+    def is_top_level(self, m: MRef):
+        return m == self.top_level
 
-    def new_machine(self, args, top_level=False) -> MRef:
+    def new_machine(self, args: list, top_level=False) -> MRef:
         pass  # todo
 
-    def probe_log(self, m: MRef, msg):
+    def probe_log(self, m: MRef, msg: str):
         pass  # todo
 
-    def get_future(self, m: MRef):
+    def get_future(self, m: MRef) -> AwsFuture:
         pass  # todo
 
-    def get_state(self, m: MRef):
+    def get_state(self, m: MRef) -> State:
         pass  # todo
 
-    def get_probe(self, m: MRef):
+    def get_probe(self, m: MRef) -> AwsProbe:
         return AwsProbe(self.session_id,)
 
-    def push_machine_to_run(self, m: MRef):
+    def run_forked_machine(self, m: MRef, new_ip: int):
+        pass  # todo
+
+    def run_waiting_machine(self, m: MRef, offset: int, value):
+        pass  # todo
+
+    def run_top_level(self, args: list) -> MRef:
         pass  # todo
 
     @property
