@@ -60,7 +60,15 @@ class LocalFuture(Future):
         self.continuations = []
         self.chain = None
         self.resolved = False
-        self.value = None
+        self._value = None
+
+    @property
+    def value(self):
+        return self._value
+
+    def set_value(self, value):
+        self.resolved = True
+        self._value = value
 
     def add_continuation(self, machine_reference, offset):
         self.continuations.append((machine_reference, offset))

@@ -264,8 +264,7 @@ class Future:
         return self.resolved
 
     def _do_resolve(self, value):
-        self.resolved = True
-        self.value = value
+        self.set_value(value)
         if self.chain:
             self.chain.resolve(value)
         for machine, offset in self.continuations:
