@@ -1,4 +1,4 @@
-"""Imageboard yay"""
+"""A very simple imageboard"""
 
 import c9c.events as e
 import c9c.services as s
@@ -56,12 +56,12 @@ def view_image(_, image_id):
 @e.http.POST("/image/<id>/comments")
 def post_comment(request, image_id):
     comment = request.comment
-    db_insert(image_id, comment)
+    db_insert_comment(image_id, comment)
     return view_image(None, image_id)
 
 
 @e.http.POST("/upload")
-@to_object_store(BUCKET, "uploads", field_name="image")  # :: Func
+@BUCKET.capture_post("uploads", field_name="image")  # :: Func
 def on_upload(request, obj):
     # handle both events at the same time (hence two arguments)
     validation = validate_upload(obj)
@@ -86,7 +86,13 @@ def save_image_in_db(obj) -> ImageId:
     pass
 
 
+class ImgBoard(c9c.Service):
+    options = {}
+    export_methods = []
+    outputs = [BUCKET]
+
+
 if __name__ == "__main__":
     import c9c
 
-    c9.compiler_cli()
+    c9c.compiler_cli(ImgBoard)
