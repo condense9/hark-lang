@@ -5,7 +5,7 @@ image: python:3.8
 
 stages:
   - test
-  - package
+  # - package
 
 # Change pip's cache directory to be inside the project directory since we can
 # only cache local items.
@@ -36,14 +36,14 @@ test:
     - export PYTHONPATH=$PWD/src:$PYTHONPATH
     - pytest test
 
-pages:
-  stage: package
-  script:
-    - pip install sphinx sphinx-rtd-theme
-    - cd doc ; make html
-    - mv build/html/ ../public/
-  artifacts:
-    paths:
-      - public
-  only:
-    - master
+# pages:
+#   stage: package
+#   script:
+#     - pip install sphinx sphinx-rtd-theme
+#     - cd doc ; make html
+#     - mv build/html/ ../public/
+#   artifacts:
+#     paths:
+#       - public
+#   only:
+#     - master
