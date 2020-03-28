@@ -34,7 +34,7 @@ test:
   stage: test
   script:
     - export PYTHONPATH=$PWD/src:$PYTHONPATH
-    - pytest pytest -vv
+    - pytest -vv
     - pytest -vv --count 10 test/test_endtoend.py
 
 # pages:
