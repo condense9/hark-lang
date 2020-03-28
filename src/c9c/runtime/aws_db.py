@@ -55,23 +55,25 @@ class StateAttribute(JSONAttribute):
         return State.from_dict(super().deserialize(value))
 
 
-class MachineMap(MapAttribute):
+class ContinuationAttribute(Attribute):
     machine_id = NumberAttribute()
-    state = StateAttribute()
-    logs = ListAttribute(default=[])
+    offset = NumberAttribute()
 
 
 class FutureMap(MapAttribute):
     future_id = NumberAttribute()
     resolved = BooleanAttribute(default=False)
-    value = PickleAttribute(null=True)  # Will start null
+    chain = NumberAttribute(null=True)
+    value = PickleAttribute(null=True)
     continuations = ListAttribute(default=[])  # of ContinuationAttribute
-    # TODO add a version attribute to optimise reloading data
 
 
-class ContinuationAttribute(Attribute):
+class MachineMap(MapAttribute):
     machine_id = NumberAttribute()
-    offset = NumberAttribute()
+    future_fk = NumberAttribute()  # FK -> FutureAttribue
+    is_top_level = BooleanAttribute()
+    state = StateAttribute()
+    probe_logs = ListAttribute(default=[])
 
 
 class BaseSessionModel(Model):
@@ -94,8 +96,10 @@ class BaseSessionModel(Model):
     result = JSONAttribute(null=True)  # JSON? Really?
     num_futures = NumberAttribute(default=0)
     num_machines = NumberAttribute(default=0)
-    futures = ListAttribute(of=FutureMap, default=[])
-    machines = ListAttribute(of=MachineMap, default=[])
+    # NOTE!! Big gotcha - be careful what you pass in as default; pynamodb
+    # saves a reference. So don't use a literal "[]"!
+    futures = ListAttribute(of=FutureMap, default=list)
+    machines = ListAttribute(of=MachineMap, default=list)
 
 
 class LocalSessionModel(BaseSessionModel):
@@ -113,14 +117,39 @@ else:
 
 def new_session() -> Session:
     sid = str(uuid.uuid4())
-    s = Session(sid, created_at=datetime.now(), updated_at=datetime.now())
-    return s
+    return Session(sid, created_at=datetime.now(), updated_at=datetime.now())
 
 
-def new_machine(session):
+def new_future(session) -> FutureMap:
+    f = FutureMap(future_id=session.num_futures, resolved=False)
+    session.futures.append(f)
+    session.num_futures += 1
+    return f
+
+
+def new_machine(session, args, is_top_level=False) -> MachineMap:
     count = session.num_machines
-    state = State()
-    m = MachineMap(machine_id=count, state=state)
+    state = State(args)
+    f = new_future(session)
+    m = MachineMap(
+        # --
+        machine_id=count,
+        future_fk=f.future_id,
+        state=state,
+        is_top_level=is_top_level,
+    )
     session.machines.append(m)
     session.num_machines += 1
     return m
+
+
+def get_machine(session, machine_id):
+    return next(m for m in session.machines if m.machine_id == machine_id)
+
+
+def get_future(session, future_id):
+    return next(f for f in session.futures if m.future_id == future_id)
+
+
+# @contextmgr
+# def lock_and_save(session):

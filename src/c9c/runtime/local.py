@@ -103,7 +103,7 @@ class LocalController(Controller):
     def is_top_level(self, machine):
         return machine == self.top_level
 
-    def new_machine(self, args, top_level=False) -> C9Machine:
+    def new_machine(self, args, top_level=False):
         m = C9Machine(self)
         self._machine_idx += 1
         state = State(*args)

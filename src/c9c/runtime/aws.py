@@ -144,46 +144,68 @@ class DB:
     # def probe_log(self, probe_id: int, message):
 
 
+# Ugh. Need to have futures separately so that chaining is simpler. So put them
+# in a separate table with their own IDs.
+
+
 class AwsFuture(Future):
-    def __init__(self, controller):
+    def __init__(self, controller, db_item: db.FutureMap):
         super().__init__(controller)
-        self._value = None
-        self._resolved = False
+        self.db_item = db_item
 
     @property
     def lock(self):
-        return self.controller.db.with_lock_future(self)
+        # TODO make this a contextmgr
+        yield self.controller.get_db_lock()
+        self.controller.save_session()
 
     @property
     def chain(self) -> AwsFuture:
-        return self.controller.db.get_future_chain(self)
+        return self.db_item.chain
 
     @chain.setter
     def chain(self, future: AwsFuture):
-        self.controller.db.set_future_chain(self, future)
+        self.db_item.chain = future.db_item.future_id
 
     @property
     def resolved(self) -> bool:
-        self._resolved, self._value = self.controller.db.get_future_state(self)
-        return self._resolved
+        self.controller.refresh_session()
+        return self.db_item.resolved
 
     @property
     def value(self):
         # Assume this is only called if resolved is True, after which, the value
         # never changes, so no need to get_future_state again here
-        return self._value
+        return self.db_item.value
 
     def set_value(self, value):
-        self._value = value
-        self.controller.db.resolve_future(self, value)
+        self.db_item.resolved = True
+        self.db_item.value = value
 
-    @property
-    def continuations(self) -> List[Tuple[MRef, int]]:
-        # todo massage into proper format?
-        return self.controller.db.get_future_continuations(self)
+    def add_continuation(self, m: C9Machine, offset: int):
+        m = self.controller.this_machine_db_item
+        self.db_item.continuations.append(m.machine_id, offset)
 
-    def add_continuation(self, m: MRef, offset: int):
-        self.controller.db.add_future_continuation(self, m, offset)
+    # Probably not needed:
+    def to_dict(self):
+        return dict(
+            resolved=self.resolved,
+            chain=self.chain,
+            continuations=self.continuations,
+            value=self.value,
+        )
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        f = cls()
+        f.resolved = d["resolved"]
+        f.chain = d["chain"]
+        f.continuations = d["continuations"]
+        f.value = d["value"]
+        return f
+
+    def __eq__(self, other):
+        return self.to_dict() == other.to_dict()
 
 
 # NOTE - some handlers cannot terminate early, because they have to maintain a
@@ -201,73 +223,83 @@ class AwsFuture(Future):
 
 
 class AwsController(Controller):
-    future_type = LocalFuture
+    future_type = AwsFuture
 
-    def __init__(self, executable, db: DB, do_probe=False):
+    def __init__(self, executable, session, do_probe=False):
         super().__init__()
-        self.db = db
-        self.top_level = self.db.get_top_level_machine()
-        self.finished = False
-        self.result = None
+        self.executable = executable
+        self._session = session
+        self.do_probe = do_probe
+        self.this_is_top_level = False
+
+    @property
+    def result(self):
+        return self._session.result
+
+    @property
+    def finished(self):
+        return self._session.finished
 
     def finish(self, result):
-        self.db.finish(result)
-        self.finished = True
-        self.result = result
+        self._session.finished = True
+        self._session.result = result
+        # self._session.save()
 
-    # C9Machine should have to carry around its own ID. The controller should
-    # deal with that. It should pass itself to the controller, as-is.
-    def stop(self, m: C9Machine):
-        self.db.set_state(self.refs[m], m.state)
+    # @atomic_update("_session")
+    def stop(self, _: C9Machine):
+        self.this_machine_db_item.stopped = True
+        self._session.save()
 
-    def is_top_level(self, m: MRef):
-        return m == self.top_level
+    def is_top_level(self, _: C9Machine):
+        # Is the currently executing machine the top level?
+        return self.this_is_top_level
 
-    def new_machine(self, args: list, top_level=False) -> MRef:
-        m, f = self.db.new_machine(args, top_level)
-        probe = maybe_create(AwsProbe, self.do_probe)
-        self.db.set_probe(m, probe)
-        if top_level:
-            self.top_level = m
+    def new_machine(self, args: list, top_level=False) -> db.MachineMap:
+        m = db.new_machine(self._session, args, top_level=top_level)
+        self._session.save()
         return m
 
-    def probe_log(self, m: MRef, msg: str):
-        self.db.probe_log(m, msg)
+    def get_future(self, m) -> AwsFuture:
+        # Only one C9Machine is ever running in a controller in AWS at a time
+        if isinstance(m, C9Machine):
+            return self.this_machine_future
+        else:
+            assert isinstance(m, db.MachineMap)
+            return AwsFuture(self, db.get_future(self._session, m.future_fk))
 
-    def get_future(self, m: MRef) -> AwsFuture:
-        return self.db.get_future(m)
+    def get_state(self, m: C9Machine) -> State:
+        assert m == self.this_machine
+        return self.this_machine_db_item.state
 
-    def get_state(self, m: MRef) -> State:
-        return self.db.get_state(m)
-
-    def get_probe(self, m: MRef) -> AwsProbe:
-        return self.db.get_probe(m)
+    def get_probe(self, m: C9Machine) -> AwsProbe:
+        assert m == self.this_machine
+        return self.probe
 
     def run_forked_machine(self, m: MRef, new_ip: int):
-        self.db.update_machine_ip(m, new_ip)
-        self._run_machine(m)
+        db_m = db.get_machine(self._session, m)
+        db_m.state.ip = new_ip
+        self._session.save()
+        self._run_machine_async(m)
 
     def run_waiting_machine(self, m: MRef, offset: int, value):
-        self.db.restart_machine(m, offset, value)
-        self._run_machine(m)
+        db_m = db.get_machine(self._session, m)
+        db_m.state.ds_set(offset, value)
+        db_m.state.stopped = False
+        self._session.save()
+        self._run_machine_async(m)
 
-    def run_top_level(self, args: list) -> MRef:
-        m = self.new_machine(args, top_level=True)
-        self.probe_log(m, f"Top Level {m}")
-        self._run_machine(m)
-        # TODO??
+    def run_top_level(self, args: list) -> C9Machine:
+        m = self.new_machine(self._session, args, top_level=True)
+        self.this_machine_probe = probe
+        self.run_machine(m)
+        return self.this_machine
 
-    def _run_machine(self):
-        pass
-        # TODO
-
-    @property
-    def machines(self):
-        pass  # todo
-
-    @property
-    def probes(self):
-        return [self.get_probe(m) for m in self.machines]
+    def run_machine(self, m: db.MachineMap):
+        self.this_machine_db_item = m
+        self.this_machine = C9Machine(self)
+        self.probe = AwsProbe(m) if self.do_probe else Probe()
+        self.this_is_top_level = m.is_top_level
+        self.this_machine.run()
 
 
 def run(executable, *args, do_probe=True):
