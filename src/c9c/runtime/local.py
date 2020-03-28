@@ -64,13 +64,14 @@ class LocalFuture:
 
     def resolve(self, value):
         # value: Either Future or not
-        if isinstance(value, LocalFuture):
-            if value.resolved:
-                self._do_resolve(value.value)
+        with self.lock:
+            if isinstance(value, LocalFuture):
+                if value.resolved:
+                    self._do_resolve(value.value)
+                else:
+                    value.chain = self
             else:
-                value.chain = self
-        else:
-            self._do_resolve(value)
+                self._do_resolve(value)
         return self.resolved
 
     def _do_resolve(self, value):
@@ -170,8 +171,7 @@ class LocalController(Controller):
 
     def resolve_future(self, m, value):
         future = self.get_future(m)
-        with future.lock:
-            resolved = future.resolve(value)
+        resolved = future.resolve(value)
         self.probe_log(
             m, f"Resolved {future}" if resolved else f"Chained {future} to {value}"
         )
