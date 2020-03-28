@@ -11,16 +11,8 @@ class State:
         self._bs = deque()  # ......... binding stack
         self._ds = deque(values)  # ... data stack
         self._es = deque()  # ......... execution stack
-        self._ip = 0
+        self.ip = 0
         self.stopped = False
-
-    @property
-    def ip(self):
-        return self._ip
-
-    @ip.setter
-    def ip(self, new_ip):
-        self._ip = new_ip
 
     def set_bind(self, ptr, value):
         self._bindings[ptr] = value
@@ -68,7 +60,7 @@ class State:
 
     def to_dict(self):
         return dict(
-            ip=self._ip,
+            ip=self.ip,
             stopped=self.stopped,
             es=list(self._es),
             ds=list(self._ds),
@@ -76,4 +68,19 @@ class State:
             bindings=self._bindings,
         )
 
-    # def from_dict(self):
+    @classmethod
+    def from_dict(cls, value: dict):
+        s = cls()
+        s.ip = value["ip"]
+        s._stopped = value["stopped"]
+        s._es = deque(value["es"])
+        s._ds = deque(value["ds"])
+        s._bs = deque(value["bs"])
+        s._bindings = value["bindings"]
+        return s
+
+    def __eq__(self, other):
+        return self.to_dict() == other.to_dict()
+
+    def __repr__(self):
+        return f"<State {id(self)} ip={self.ip}>"

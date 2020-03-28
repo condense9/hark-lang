@@ -14,7 +14,7 @@ pyyaml = "*"
 pytest-repeat = "*"
 localstack = "*"
 boto3 = "*"
-dokklib-db = "*"
+pynamodb = "*"
 
 [requires]
 python_version = "3.8"

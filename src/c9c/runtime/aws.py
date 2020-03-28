@@ -16,30 +16,28 @@ Start top level: make a new machine and run it
 Start existing (fork or cont): take an existing stopped machine and run it
 
 
-# A session is created when a handler is first called. Multiple machines
-# (threads) may exist in the session.
-#
-# Data per session:
-# - futures (resolved, value, chain, continuations - machine, offset)
-# - machines (probe logs, state - ip, stopped flag, stacks, and bindings)
-#
-# We could lock it to a single object:
-# - session (controller info, futures, machines)
-#
-# Data exchange points:
-# - machine forks (State of new machine set to point at the fork IP)
-# - machine waits on future (continuation added to that future)
-# - machine checks whether future is resolved
-# - future resolves (must refresh list of continuations)
-# - top level machine finishes (Controller sets session result)
-# - machine stops (upload the State)
-# - machine continues (download the State)
+A session is created when a handler is first called. Multiple machines
+(threads) may exist in the session.
+
+Data per session:
+- futures (resolved, value, chain, continuations - machine, offset)
+- machines (probe logs, state - ip, stopped flag, stacks, and bindings)
+
+We could lock it to a single object:
+- session (controller info, futures, machines)
+
+Data exchange points:
+- machine forks (State of new machine set to point at the fork IP)
+- machine waits on future (continuation added to that future)
+- machine checks whether future is resolved
+- future resolves (must refresh list of continuations)
+- top level machine finishes (Controller sets session result)
+- machine stops (upload the State)
+- machine continues (download the State)
 
 """
 
-import decimal
 import json
-import pickle
 import uuid
 from functools import wraps
 from typing import List, Tuple
@@ -47,7 +45,10 @@ from typing import List, Tuple
 import boto3
 
 from .. import compiler
-from ..machine import Controller, Future, Probe, State
+from ..machine import Controller, Future, Probe
+from ..state import State
+
+# from .aws_db import
 
 
 class MRef(int):
@@ -57,14 +58,6 @@ class MRef(int):
 class AwsProbe(Probe):
     # def __init__(self, controller)
     pass
-
-
-# This is a workaround for: http://bugs.python.org/issue16535
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, decimal.Decimal):
-            return int(obj)
-        return super(DecimalEncoder, self).default(obj)
 
 
 class DB:
