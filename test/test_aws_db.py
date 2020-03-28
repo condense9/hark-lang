@@ -1,8 +1,4 @@
-from datetime import datetime
-import uuid
-
 from c9c.runtime.aws_db import *
-from c9c.state import State
 
 
 def setup_module(module):
@@ -15,30 +11,27 @@ def test_table_exists():
     assert Session.exists()
 
 
-def test_create_session():
-    sid = str(uuid.uuid4())
-    s = Session(sid, created_at=datetime.now(), updated_at=datetime.now(),)
+def test_new_session():
+    s = new_session()
+    sid = s.session_id
+    assert len(list(Session.query(sid))) == 0
     s.save()
     assert len(list(Session.query(sid))) == 1
 
 
-def test_add_machine():
-    sid = str(uuid.uuid4())
-    s = Session(sid, created_at=datetime.now(), updated_at=datetime.now(),)
+def test_new_machine():
+    s = new_session()
+    sid = s.session_id
     count = s.num_machines
-    state = State()
-    s.machines.append(MachineMap(machine_id=count, state=state))
-    s.num_machines += 1
+    m = new_machine(s)
     s.save()
     retrieved = Session.get(sid)
     assert retrieved.num_machines == count + 1
-    assert retrieved.machines[0].machine_id == count
-    assert retrieved.machines[0].state == state
 
 
 def test_add_future():
-    sid = str(uuid.uuid4())
-    s = Session(sid, created_at=datetime.now(), updated_at=datetime.now(),)
+    s = new_session()
+    sid = s.session_id
     value = {"some": ["complex", {"thing": 1}]}
     s.futures.append(FutureMap(future_id=0, resolved=True, value=value))
     s.save()

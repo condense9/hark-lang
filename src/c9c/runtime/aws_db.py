@@ -1,8 +1,10 @@
 """DB interaction layer for AWS"""
 
+import base64
 import os
 import pickle
-import base64
+import uuid
+from datetime import datetime
 
 from pynamodb.attributes import (
     Attribute,
@@ -41,6 +43,7 @@ class PickleAttribute(Attribute):
         # NOTE - there's an extra level of b64 encoding happening somewhere, and
         # I'm not sure where (either DynamoDB or PynamoDB). But the value we get
         # here must be decoded first!
+        # https://github.com/pynamodb/PynamoDB/blob/master/pynamodb/attributes.py#L323
         return pickle.loads(base64.b64decode(value))
 
 
@@ -63,6 +66,7 @@ class FutureMap(MapAttribute):
     resolved = BooleanAttribute(default=False)
     value = PickleAttribute(null=True)  # Will start null
     continuations = ListAttribute(default=[])  # of ContinuationAttribute
+    # TODO add a version attribute to optimise reloading data
 
 
 class ContinuationAttribute(Attribute):
@@ -105,3 +109,18 @@ if "C9_IN_AWS" in os.environ:
     Session = BaseSessionModel
 else:
     Session = LocalSessionModel
+
+
+def new_session() -> Session:
+    sid = str(uuid.uuid4())
+    s = Session(sid, created_at=datetime.now(), updated_at=datetime.now())
+    return s
+
+
+def new_machine(session):
+    count = session.num_machines
+    state = State()
+    m = MachineMap(machine_id=count, state=state)
+    session.machines.append(m)
+    session.num_machines += 1
+    return m
