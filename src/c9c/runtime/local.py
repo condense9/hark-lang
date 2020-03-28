@@ -74,10 +74,6 @@ class LocalFuture(Future):
         self.continuations.append((machine_reference, offset))
 
 
-class MRef(int):
-    pass
-
-
 class LocalController(Controller):
     future_type = LocalFuture
 
@@ -102,15 +98,13 @@ class LocalController(Controller):
         self.finished = True
 
     def stop(self, machine):
-        assert isinstance(machine, MRef)
         pass  # Could do something like sync the machine's state
 
     def is_top_level(self, machine):
-        assert isinstance(machine, MRef)
         return machine == self.top_level
 
-    def new_machine(self, args, top_level=False) -> MRef:
-        m = MRef(self._machine_idx)
+    def new_machine(self, args, top_level=False) -> C9Machine:
+        m = C9Machine(self)
         self._machine_idx += 1
         state = State(*args)
         future = LocalFuture(self)
@@ -125,28 +119,22 @@ class LocalController(Controller):
         return m
 
     def probe_log(self, m, msg):
-        assert isinstance(m, MRef)
         if self._machine_probe[m]:
             self._machine_probe[m].log(msg)
 
     def get_future(self, m):
-        assert isinstance(m, MRef)
         return self._machine_future[m]
 
     def get_state(self, m):
-        assert isinstance(m, MRef)
         return self._machine_state[m]
 
     def get_probe(self, m):
-        assert isinstance(m, MRef)
         return self._machine_probe[m]
 
     def _run_machine(self, m):
-        assert isinstance(m, MRef)
         state = self.get_state(m)
         probe = self.get_probe(m)
-        machine = C9Machine(m, self)
-        thread = threading.Thread(target=machine.run)
+        thread = threading.Thread(target=m.run)
         thread.start()
 
     def run_forked_machine(self, m, new_ip):

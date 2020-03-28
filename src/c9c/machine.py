@@ -175,6 +175,9 @@ class Probe:
     def on_step(self, m):
         pass
 
+    def on_run(self, m):
+        pass
+
     def on_stopped(self, m):
         pass
 
@@ -240,14 +243,11 @@ class C9Machine:
 
     """
 
-    def __init__(self, machine_reference, controller: Controller):
-        self.mref = machine_reference
+    def __init__(self, controller: Controller):
+        self.controller = controller
         executable = controller.executable
         self.imem = executable.code
         self.locations = executable.locations
-        self.state = controller.get_state(self.mref)
-        self.probe = controller.get_probe(self.mref)
-        self.controller = controller
         # No entrypoint argument - just set the IP in the state
 
     @property
@@ -274,10 +274,13 @@ class C9Machine:
             self.state.stopped = True
 
     def run(self):
+        self.state = self.controller.get_state(self)
+        self.probe = self.controller.get_probe(self)
+        self.probe.on_run(self)
         while not self.stopped:
             self.step()
         self.probe.on_stopped(self)
-        self.controller.stop(self.mref)
+        self.controller.stop(self)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -328,13 +331,13 @@ class C9Machine:
             self.state.stopped = True
             value = self.state.ds_pop()
 
-            if self.controller.is_top_level(self.mref):
+            if self.controller.is_top_level(self):
                 if not self.terminated:
                     raise Exception("Top level ran out of frames without terminating")
                 self.controller.finish(value)
 
             else:
-                future = self.controller.get_future(self.mref)
+                future = self.controller.get_future(self)
 
                 with future.lock:
                     resolved = future.resolve(value)
@@ -360,7 +363,7 @@ class C9Machine:
 
         machine = self.controller.new_machine(args)
         future = self.controller.get_future(machine)
-        self.probe.log(f"Fork {self.mref} to {machine} => {future}")
+        self.probe.log(f"Fork {self} to {machine} => {future}")
         self.state.ds_push(future)
         self.controller.run_forked_machine(machine, self.locations[fn_name])
 
@@ -384,12 +387,12 @@ class C9Machine:
                 if val.resolved:
                     self.state.ds_set(offset, val.value)
                 else:
-                    # could do "controller.wait_for(self.mref, val, offset)"
+                    # could do "controller.wait_for(self, val, offset)"
                     #
                     # but it's confusing - the locked future is being accessed
                     # in multiple places.
                     self.state.stopped = True
-                    val.add_continuation(self.mref, offset)
+                    val.add_continuation(self, offset)
 
         elif isinstance(val, list) and any(
             isinstance(elt, self.controller.future_type) for elt in traverse(val)
@@ -444,7 +447,7 @@ class C9Machine:
         self.state.ds_push(a == b)
 
     def __repr__(self):
-        return f"<Machine M{self.mref}>"
+        return f"<Machine {id(self)}>"
 
 
 # Foreign function calls produce futures. This allows evaluation to continue. We
