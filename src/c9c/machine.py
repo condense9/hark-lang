@@ -199,37 +199,6 @@ class Executable:
     name: str
 
 
-# Partial implementation
-class Future:
-    """A chainable future"""
-
-    def __init__(self, controller):
-        self.controller = controller
-
-    def resolve(self, value):
-        # value: Either Future or not
-        if isinstance(value, Future):
-            if value.resolved:
-                self._do_resolve(value.value)
-            else:
-                value.chain = self
-        else:
-            self._do_resolve(value)
-        return self.resolved
-
-    def _do_resolve(self, value):
-        self.set_value(value)
-        if self.chain:
-            self.chain.resolve(value)
-        for machine, offset in self.continuations:
-            probe = self.controller.get_probe(machine)
-            probe.log(f"{self} resolved, continuing {machine}")
-            self.controller.run_waiting_machine(machine, offset, value)
-
-    def __repr__(self):
-        return f"<Future {id(self)} {self.resolved} ({self.value})>"
-
-
 class C9Machine:
     """This is the Machine, the CPU.
 
@@ -330,21 +299,12 @@ class C9Machine:
         else:
             self.state.stopped = True
             value = self.state.ds_pop()
+            self.controller.resolve_future(self, value)
 
             if self.controller.is_top_level(self):
                 if not self.terminated:
                     raise Exception("Top level ran out of frames without terminating")
                 self.controller.finish(value)
-
-            else:
-                future = self.controller.get_future(self)
-
-                with future.lock:
-                    resolved = future.resolve(value)
-
-                self.probe.log(
-                    f"Resolved {future}" if resolved else f"Chained {future} to {value}"
-                )
 
     @evali.register
     def _(self, i: Call):
@@ -381,21 +341,15 @@ class C9Machine:
         offset = i.operands[0]
         val = self.state.ds_peek(offset)
 
-        if isinstance(val, self.controller.future_type):
-            # prevent race between resolution and adding the continuation
-            with val.lock:
-                if val.resolved:
-                    self.state.ds_set(offset, val.value)
-                else:
-                    # could do "controller.wait_for(self, val, offset)"
-                    #
-                    # but it's confusing - the locked future is being accessed
-                    # in multiple places.
-                    self.state.stopped = True
-                    val.add_continuation(self, offset)
+        if self.controller.is_future(val):
+            resolved, result = self.controller.get_or_wait(self, val, offset)
+            if resolved:
+                self.state.ds_set(offset, result)
+            else:
+                self.state.stopped = True
 
         elif isinstance(val, list) and any(
-            isinstance(elt, self.controller.future_type) for elt in traverse(val)
+            self.controller.is_future(elt) for elt in traverse(val)
         ):
             # The programmer is responsible for waiting on all elements
             # of lists.

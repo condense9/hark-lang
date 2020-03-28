@@ -9,7 +9,7 @@ import time
 import traceback
 import warnings
 
-from ..machine import C9Machine, Controller, Future, Probe
+from ..machine import C9Machine, Controller, Probe
 from ..state import State
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
@@ -51,32 +51,46 @@ class LocalProbe(Probe):
         print("\n".join(self.logs))
 
 
-class LocalFuture(Future):
+class LocalFuture:
     """A chainable future"""
 
     def __init__(self, controller):
-        super().__init__(controller)
         self.lock = threading.Lock()
         self.continuations = []
         self.chain = None
         self.resolved = False
-        self._value = None
+        self.value = None
+        self.controller = controller
 
-    @property
-    def value(self):
-        return self._value
+    def resolve(self, value):
+        # value: Either Future or not
+        if isinstance(value, LocalFuture):
+            if value.resolved:
+                self._do_resolve(value.value)
+            else:
+                value.chain = self
+        else:
+            self._do_resolve(value)
+        return self.resolved
 
-    def set_value(self, value):
+    def _do_resolve(self, value):
         self.resolved = True
-        self._value = value
+        self.value = value
+        if self.chain:
+            self.chain.resolve(value)
+        for machine, offset in self.continuations:
+            probe = self.controller.get_probe(machine)
+            probe.log(f"{self} resolved, continuing {machine}")
+            self.controller.run_waiting_machine(machine, offset, value)
 
     def add_continuation(self, machine_reference, offset):
         self.continuations.append((machine_reference, offset))
 
+    def __repr__(self):
+        return f"<Future {id(self)} {self.resolved} ({self.value})>"
+
 
 class LocalController(Controller):
-    future_type = LocalFuture
-
     def __init__(self, executable, do_probe=False):
         self._machine_future = {}
         self._machine_state = {}
@@ -153,6 +167,28 @@ class LocalController(Controller):
         self.probe_log(m, f"Top Level {m}")
         self._run_machine(m)
         return m
+
+    def resolve_future(self, m, value):
+        future = self.get_future(m)
+        with future.lock:
+            resolved = future.resolve(value)
+        self.probe_log(
+            m, f"Resolved {future}" if resolved else f"Chained {future} to {value}"
+        )
+
+    def get_or_wait(self, m, future, offset):
+        # prevent race between resolution and adding the continuation
+        with future.lock:
+            resolved = future.resolved
+            if resolved:
+                value = future.value
+            else:
+                future.add_continuation(m, offset)
+                value = None
+        return resolved, value
+
+    def is_future(self, val):
+        return isinstance(val, LocalFuture)
 
     @property
     def machines(self):
