@@ -9,7 +9,8 @@ import time
 import traceback
 import warnings
 
-from ..machine import C9Machine, Controller, Future, Probe, State
+from ..machine import C9Machine, Controller, Future, Probe
+from ..state import State
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
 LOGGER = logging.getLogger()
