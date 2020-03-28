@@ -10,7 +10,6 @@ import traceback
 import warnings
 
 from ..machine import C9Machine, Controller, Future, Probe, State
-from .runtime_utils import maybe_create
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
 LOGGER = logging.getLogger()
@@ -33,7 +32,7 @@ class LocalProbe(Probe):
     def log(self, text):
         self.logs.append(f"*** <{self._name}> {text}")
 
-    def step_cb(self, m):
+    def on_step(self, m):
         self._step += 1
         self.log(f"[step={self._step}, ip={m.state.ip}] {m.instruction}")
         self.logs.append("Data: " + str(tuple(m.state._ds)))
@@ -114,7 +113,7 @@ class LocalController(Controller):
         self._machine_idx += 1
         state = State(*args)
         future = LocalFuture(self)
-        probe = maybe_create(LocalProbe, self.do_probe)
+        probe = LocalProbe() if self.do_probe else Probe()
         self._machine_future[m] = future
         self._machine_state[m] = state
         self._machine_probe[m] = probe

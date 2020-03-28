@@ -233,6 +233,21 @@ class State:
 class Probe:
     """A machine debug probe"""
 
+    def log(self, msg):
+        pass
+
+    def on_step(self, m):
+        pass
+
+    def on_stopped(self, m):
+        pass
+
+    def on_return(self, m):
+        pass
+
+    def on_enter(self, m, fn_name: str):
+        pass
+
 
 class Controller:
     pass
@@ -299,9 +314,6 @@ class C9Machine:
         self.controller = controller
         # No entrypoint argument - just set the IP in the state
 
-    def probe_log(self, message):
-        self.probe.log(message)
-
     @property
     def stopped(self):
         return self.state.stopped
@@ -318,8 +330,7 @@ class C9Machine:
     def step(self):
         """Execute the current instruction and increment the IP"""
         assert self.state.ip < len(self.imem)
-        if self.probe:
-            self.probe.step_cb(self)
+        self.probe.on_step(self)
         instr = self.instruction
         self.state.ip += 1
         self.evali(instr)
@@ -329,8 +340,7 @@ class C9Machine:
     def run(self):
         while not self.stopped:
             self.step()
-        if self.probe:
-            self.probe.on_stopped(self)
+        self.probe.on_stopped(self)
         self.controller.stop(self.mref)
 
     @singledispatchmethod
@@ -376,6 +386,7 @@ class C9Machine:
     @evali.register
     def _(self, i: Return):
         if self.state.can_return():
+            self.probe.on_return(self)
             self.state.es_return()
         else:
             self.state.stopped = True
@@ -392,18 +403,16 @@ class C9Machine:
                 with future.lock:
                     resolved = future.resolve(value)
 
-                if self.probe:
-                    self.probe.log(
-                        f"Resolved {future}"
-                        if resolved
-                        else f"Chained {future} to {value}"
-                    )
+                self.probe.log(
+                    f"Resolved {future}" if resolved else f"Chained {future} to {value}"
+                )
 
     @evali.register
     def _(self, i: Call):
         # Arguments for the function must already be on the stack
         num_args = i.operands[0]
         name = self.state.ds_pop()
+        self.probe.on_enter(self, name)
         self.state.es_enter(self.locations[name])
 
     @evali.register
@@ -415,8 +424,7 @@ class C9Machine:
 
         machine = self.controller.new_machine(args)
         future = self.controller.get_future(machine)
-        if self.probe:
-            self.probe.log(f"Fork {self.mref} to {machine} => {future}")
+        self.probe.log(f"Fork {self.mref} to {machine} => {future}")
         self.state.ds_push(future)
         self.controller.run_forked_machine(machine, self.locations[fn_name])
 
