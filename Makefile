@@ -15,11 +15,16 @@ test:  ## Run unit tests
 	pipenv run pytest -v
 
 
-.PHONY: testx
-testx:  ## Run unit tests, stopping after first failure
-	pipenv run pytest -x -vv
+.PHONY: test-local
+test-local:  ## Run local end-to-end tests
+	pipenv run pytest -x -v -k [local] test/test_endtoend.py
+
+
+.PHONY: test-aws
+test-aws:  ## Run AWS end-to-end tests (using localstack)
+	pipenv run pytest -x -v -k [aws] test/test_endtoend.py
 
 
 .PHONY: stress
-stress:  ## Run unit tests lots of times
+stress:  ## Run local unit tests lots of times
 	pipenv run pytest -vv --count 20

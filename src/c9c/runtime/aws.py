@@ -35,181 +35,66 @@ Data exchange points:
 - machine stops (upload the State)
 - machine continues (download the State)
 
+
+# NOTE - some handlers cannot terminate early, because they have to maintain a
+# connection to a client. This is a "hardware" restriction. So if an HTTP
+# handler calls something async, it has to wait for it. Anything /that/ function
+# calls can be properly async. But the top level has to stay alive. That isn't
+# true of all kinds of Handlers!!
+#
+# ONLY THE ONES THAT HAVE TO SEND A RESULT BACK
+#
+# So actually that gets abstracted into some kind of controller interface - the
+# top level "run" function. For HTTP handlers, it has to block until the
+# Controller finishes. For others, it can just return. No Controller logic
+# changes necessary. Just the entrypoint / wrapper.
+
+
+
 """
 
 import json
 import uuid
+import warnings
 from functools import wraps
 from typing import List, Tuple
 
 import boto3
 
 from .. import compiler
-from ..machine import Controller, Future, Probe
+from ..machine import C9Machine, ChainedFuture, Controller, Probe
 from ..state import State
+from . import aws_db as db
 
-# from .aws_db import
-
-
-class MRef(int):
-    pass
+from .aws_db import FutureMap, MachineMap, ContinuationMap
 
 
 class AwsProbe(Probe):
-    # def __init__(self, controller)
-    pass
+    def __init__(self, m: MachineMap):
+        self.m = m
+        self._logs = []
 
-
-class DB:
-    # PK: session_id
-    # SK: item_id
-    def __init__(self, session_id: str, table="c9data", region="eu-west-2"):
-        self.sid = session_id
-        dynamodb = boto3.resource("dynamodb", region=region)
-        self._table = dynamodb.Table(table_name)
-
-    def _get_item(self, item_id):
-        result = self.table.get_item(Key={"id": event["pathParameters"]["id"]})
-        return result["Item"]
-
-    def _put_item(self, attributes):
-        timestamp = str(time.time())
-        item = {
-            "session_id": self.sid,
-            "item_id": str(uuid.uuid1()),
-            "createdAt": timestamp,
-            "updatedAt": timestamp,
-        }.update(attributes)
-        self.table.put_item(Item=item)
-        return item
-
-    def _update_ip(self, item_id: str, new_ip):
-        timestamp = str(time.time())
-        result = self.table.update_item(
-            Key={"session_id": self.sid, "item_id": item_id},
-            ExpressionAttributeNames={"#ip": "ip"},
-            ExpressionAttributeValues={":ip": new_ip, ":updatedAt": timestamp},
-            UpdateExpression="SET #ip=:ip, updatedAt=:updatedAt",
-            ReturnValues="ALL_NEW",
-        )
-        return result["Attributes"]
-
-    def _update_ds_value(self, item_id: str, offset, value):
-        timestamp = str(time.time())
-        result = self.table.update_item(
-            Key={"session_id": self.sid, "item_id": item_id,},
-            # TODO
-            # ExpressionAttributeNames={"#ip": "ip"},
-            # ExpressionAttributeValues={":ip": new_ip, ":updatedAt": timestamp,},
-            # UpdateExpression="SET #ip=:ip, updatedAt=:updatedAt",
-            ReturnValues="ALL_NEW",
-        )
-        return result["Attributes"]
-
-    def new_machine(self, args: list, top_level=False) -> Tuple[MRef, AwsFuture]:
-        pass  # TODO
-
-    def finish(self, result):
-        pass  # TODO
-
-    def update_machine_ip(self, m: MRef, new_ip: int):
-        # TODO assert it is stopped
-        pass
-
-    def restart_machine(self, m: MRef, offset: int, value):
-        # TODO assert it is stopped
-        pass
-
-    def set_state(self, m: MRef, state: State):
-        blob = pickle.dumps(state)
-        # TODO
-
-    def get_state(self, m: MRef) -> State:
-        # TODO
-        return pickle.loads(blob)
-
-    ## FUTURES
-
-    # def with_lock_future(self, f: AwsFuture):
-    # def get_future_chain(self, f: AwsFuture) -> AwsFuture:
-    # def set_future_chain(self, a: AwsFuture, b: AwsFuture):
-    # def get_future_state(self, f: AwsFuture) -> Tuple[bool, Any]:
-    # def resolve_future(self, f: AwsFuture, value):
-    # def add_future_continuation(self, f: AwsFuture, m: MRef, offset: int):
-    # def get_future_continuations(self, f: AwsFuture) -> List[Tuple[MRef, int]]:
-    # def get_future(self, m: MRef) -> AwsFuture:
-
-    ## PROBES
-
-
-# Ugh. Need to have futures separately so that chaining is simpler. So put them
-# in a separate table with their own IDs.
-
-
-class AwsFutureOld(Future):
-    def __init__(self, controller, db_item: db.FutureMap):
-        super().__init__(controller)
-        self.db_item = db_item
+    def log(self, msg):
+        self._logs.append(msg)
 
     @property
-    def lock(self):
-        # TODO make this a contextmgr
-        yield self.controller.get_db_lock()
-        self.controller.save_session()
-
-    @property
-    def chain(self) -> AwsFuture:
-        return self.db_item.chain
-
-    @chain.setter
-    def chain(self, future: AwsFuture):
-        self.db_item.chain = future.db_item.future_id
-
-    @property
-    def resolved(self) -> bool:
-        self.controller.refresh_session()
-        return self.db_item.resolved
-
-    @property
-    def value(self):
-        # Assume this is only called if resolved is True, after which, the value
-        # never changes, so no need to get_future_state again here
-        return self.db_item.value
-
-    def set_value(self, value):
-        self.db_item.resolved = True
-        self.db_item.value = value
-
-    def add_continuation(self, m: C9Machine, offset: int):
-        m = self.controller.this_machine_db_item
-        self.db_item.continuations.append(m.machine_id, offset)
-
-    # Probably not needed:
-    def to_dict(self):
-        return dict(
-            resolved=self.resolved,
-            chain=self.chain,
-            continuations=self.continuations,
-            value=self.value,
-        )
-
-    @classmethod
-    def from_dict(cls, d: dict):
-        f = cls()
-        f.resolved = d["resolved"]
-        f.chain = d["chain"]
-        f.continuations = d["continuations"]
-        f.value = d["value"]
-        return f
-
-    def __eq__(self, other):
-        return self.to_dict() == other.to_dict()
+    def logs(self):
+        return list(self._logs)
 
 
 class AwsFuture(ChainedFuture):
-    def __init__(self, data: FutureMap, lock):
+    def __init__(self, session, future_id, lock):
+        # ALL access to this future must be wrapped in a db lock/update, as we
+        # access _data directly here. The user is responsible for this.
         self.lock = lock
-        self._data = data
+        self._session = session
+        self._future_id = future_id
+
+    @property
+    def _data(self):
+        # We can't assign data once at __init__ because the underlying pointer
+        # changes
+        return db.get_future(self._session, self._future_id)
 
     @property
     def resolved(self) -> bool:
@@ -228,31 +113,32 @@ class AwsFuture(ChainedFuture):
         self._data.value = value
 
     @property
-    def chain(self) -> AwsFuture:
-        # Shared, global lock
-        return AwsFuture(self._data.chain, self.lock)
+    def chain(self) -> ChainedFuture:
+        # All futures share the same lock (could optimise later)
+        return AwsFuture(self._session, self._data.chain, self.lock)
 
     @chain.setter
-    def chain(self, other: AwsFuture):
-        self._data.chain = other._data.future_id
+    def chain(self, other: ChainedFuture):
+        self._data.chain = other._future_id
 
     @property
     def continuations(self):
-        return self._data.continuations
+        return [(c.machine_id, c.offset) for c in self._data.continuations]
+
+    def add_continuation(self, machine_id, offset):
+        c = ContinuationMap(machine_id=machine_id, offset=offset)
+        self._data.continuations.append(c)
 
 
-# NOTE - some handlers cannot terminate early, because they have to maintain a
-# connection to a client. This is a "hardware" restriction. So if an HTTP
-# handler calls something async, it has to wait for it. Anything /that/ function
-# calls can be properly async. But the top level has to stay alive. That isn't
-# true of all kinds of Handlers!!
-#
-# ONLY THE ONES THAT HAVE TO SEND A RESULT BACK
-#
-# So actually that gets abstracted into some kind of controller interface - the
-# top level "run" function. For HTTP handlers, it has to block until the
-# Controller finishes. For others, it can just return. No Controller logic
-# changes necessary. Just the entrypoint / wrapper.
+def with_self_lock(inst_method):
+    """Wrap an instance method with self.lock"""
+
+    @wraps(inst_method)
+    def _wrapper(self, *args, **kwargs):
+        with self.lock:
+            return inst_method(self, *args, **kwargs)
+
+    return _wrapper
 
 
 class AwsController(Controller):
@@ -260,73 +146,70 @@ class AwsController(Controller):
         super().__init__()
         self.executable = executable
         self._session = session
+        self.lock = db.SessionLocker(session)
         self.do_probe = do_probe
-        self.this_is_top_level = False
-
-    @property
-    def result(self):
-        return self._session.result
-
-    @property
-    def finished(self):
-        return self._session.finished
+        self.this_machine_is_top_level = False
+        # These can be immediate values as they're only relevant for the current
+        # context
+        self.finished = False
+        self.result = None
 
     def finish(self, result):
-        self._session.finished = True
-        self._session.result = result
-        # self._session.save()
+        self.finished = True
+        self.result = result
+        db.finish_session(self._session, result)
 
-    # @atomic_update("_session")
     def stop(self, m: C9Machine):
         assert m is self.this_machine
-        self.this_machine_db_item.stopped = True
-        self._session.save()
+        with self.lock:
+            m_id = self.this_machine_id
+            self._session.machines[m_id].state = self.this_machine_state
+            self._session.machines[m_id].probe_logs = self.this_machine_probe.logs
 
     def is_top_level(self, m: C9Machine):
         # Is the currently executing machine the top level?
         assert m is self.this_machine
-        return self.this_is_top_level
+        return self.this_machine_is_top_level
 
     def get_state(self, m: C9Machine) -> State:
         assert m is self.this_machine
-        return self.this_machine_db_item.state
+        return self.this_machine_state
 
     def get_probe(self, m: C9Machine) -> AwsProbe:
         assert m is self.this_machine
-        return self.probe
+        return self.this_machine_probe
 
     def probe_log(self, m: C9Machine, message: str):
         assert m is self.this_machine
-        self.probe.log(message)
+        self.this_machine_probe.log(message)
 
     def get_result_future(self, m: C9Machine) -> AwsFuture:
         # Only one C9Machine is ever running in a controller in AWS at a time,
         # so if m is a C9Machine, it must be this_machine.
+        # self._session.
         if isinstance(m, C9Machine):
             assert m is self.this_machine
             return self.this_machine_future
         else:
-            assert isinstance(m, db.MachineMap)
-            return AwsFuture(db.get_future(self._session, m.future_fk), self.lock)
+            assert isinstance(m, MachineMap)
+            return AwsFuture(self._session, m.future_fk, self.lock)
 
     def is_future(self, f):
         return isinstance(f, AwsFuture)
 
+    @with_self_lock
     def get_or_wait(self, m: C9Machine, future: AwsFuture, offset: int):
         # prevent race between resolution and adding the continuation
         assert m is self.this_machine
-        with self.lock:
-            self._session.refresh()
-            resolved = future.resolved
-            if resolved:
-                value = future.value
-            else:
-                future.continuations.append[
-                    (self.this_machine_db_item.machine_id, offset)
-                ]
-                value = None
+        resolved = future.resolved
+        if resolved:
+            value = future.value
+        else:
+            future.add_continuation(self.this_machine_id, offset)
+            value = None
         return resolved, value
 
+    # No need to lock - chain_resolve will do it
     def set_machine_result(self, m: C9Machine, value):
         assert m is self.this_machine
         chain_resolve(
@@ -336,41 +219,51 @@ class AwsController(Controller):
     ## After this point, only deal with MachineMap
 
     def new_machine(self, args: list, top_level=False) -> MachineMap:
-        m = db.new_machine(self._session, args, top_level=top_level)
-        self._session.save()
+        # Called by machine and self
+        with self.lock:
+            m = db.new_machine(self._session, args, top_level=top_level)
         return m
 
-    def run_forked_machine(self, m: MRef, new_ip: int):
-        db_m = db.get_machine(self._session, m)
-        db_m.state.ip = new_ip
-        self._session.save()
+    def run_forked_machine(self, m: MachineMap, new_ip: int):
+        assert isinstance(m, MachineMap)
+        with self.lock:
+            self._session.machines[m.machine_id].state.ip = new_ip
         self._run_machine_async(m)
 
-    def run_waiting_machine(self, m: MRef, offset: int, value):
-        db_m = db.get_machine(self._session, m)
-        db_m.state.ds_set(offset, value)
-        db_m.state.stopped = False
-        self._session.save()
+    def run_waiting_machine(self, machine_id: int, offset: int, value):
+        # This is called from chain_resolve
+        # See self.get_or_wait - the continuation holds machine_id
+        # db_m = db.get_machine(self._session, machine_id)
+        # db_m.state.ds_set(offset, value)
+        # db_m.state.stopped = False
+        # self._session.update()
+        db.resolve_future(self._session, m, offset, value)
         self._run_machine_async(m)
 
-    def run_top_level(self, args: list) -> C9Machine:
-        m = self.new_machine(self._session, args, top_level=True)
-        self.this_machine_probe = probe
-        self.run_machine(m)
-        return self.this_machine
+    def _run_machine_async(self, m):
+        warnings.warn(f"TODO Async {m}")
 
-    def run_machine(self, m: db.MachineMap):
-        self.this_machine_db_item = m
+    def run_machine(self, m: MachineMap):
+        # m must be full initialised (latest data from DB)
+        self.this_machine_id = m.machine_id
+        self.this_machine_state = m.state
+        self.this_machine_probe = AwsProbe(m) if self.do_probe else Probe()
+        self.this_machine_future = AwsFuture(self._session, m.future_fk, self.lock)
+        self.this_machine_is_top_level = m.is_top_level
         self.this_machine = C9Machine(self)
-        future = db.get_future(self._session, m.future_fk)
-        self.this_machine_future = AwsFuture(future, self.lock)
-        self.probe = AwsProbe(m) if self.do_probe else Probe()
-        self.this_is_top_level = m.is_top_level
         self.this_machine.run()
+
+    @property
+    def probes(self):
+        self._session.refresh()
+        return [AwsProbe(m) for m in self._session.machines]
 
 
 def run(executable, *args, do_probe=True):
-    pass
+    session = db.new_session()
+    controller = AwsController(executable, session, do_probe=do_probe)
+    m = controller.new_machine(args, top_level=True)
+    controller.run_machine(m)
 
 
 def continue_from(executable, runtime):

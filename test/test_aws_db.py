@@ -93,6 +93,7 @@ def test_lock_reusable():
 
 
 def test_lock_not_reentrant():
+    """Test that a lock can't be acquired more than once at a time"""
     s1 = new_session()
     lock = SessionLocker(s1, timeout=0.1)
     with lock:

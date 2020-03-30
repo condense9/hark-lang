@@ -7,11 +7,10 @@ import warnings
 import pytest
 
 import c9c.machine as m
+import c9c.runtime.aws
 import c9c.runtime.local
 from c9c.compiler import compile_all, link
 from c9c.lang import *
-
-# import c9c.runtime.aws
 from c9c.stdlib import Map, MapResolve, wait_for
 
 from .simple_functions import *
@@ -22,8 +21,9 @@ print("Random seed", SEED)
 
 
 RUNTIMES = {
+    # --
     "local": c9c.runtime.local,
-    # "aws": c9c.runtime.aws
+    "aws": c9c.runtime.aws,
 }
 
 
@@ -40,7 +40,7 @@ def check_result(runtime, main, input_val, expected_result, exe_name, verbose=Tr
         if verbose:
             m.print_instructions(executable)
             for p in controller.probes:
-                p.print_logs()
+                print("\n".join(p.logs))
     if not controller.finished:
         warnings.warn("Controller did not finish - this will fail")
     assert controller.result == expected_result

@@ -60,7 +60,7 @@ class StateAttribute(JSONAttribute):
         return State.from_dict(super().deserialize(value))
 
 
-class ContinuationAttribute(Attribute):
+class ContinuationMap(MapAttribute):
     machine_id = NumberAttribute()
     offset = NumberAttribute()
 
@@ -70,14 +70,13 @@ class FutureMap(MapAttribute):
     resolved = BooleanAttribute(default=False)
     chain = NumberAttribute(null=True)
     value = PickleAttribute(null=True)
-    continuations = ListAttribute(default=list)  # of ContinuationAttribute
+    continuations = ListAttribute(of=ContinuationMap, default=list)
 
 
 class MachineMap(MapAttribute):
     machine_id = NumberAttribute()
     future_fk = NumberAttribute()  # FK -> FutureAttribue
     is_top_level = BooleanAttribute()
-    # state = StateAttribute()
     state = PickleAttribute()
     probe_logs = ListAttribute(default=list)
 
@@ -216,6 +215,7 @@ class SessionLocker(AbstractContextManager):
         while not try_lock(self.session):
             time.sleep(0.1)
             if time.time() - start > self.timeout:
+                warnings.warn("Timeout getting lock")
                 raise LockTimeout
 
     def __exit__(self, *exc):
