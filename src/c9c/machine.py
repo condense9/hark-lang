@@ -188,6 +188,34 @@ class Probe:
         pass
 
 
+class ChainedFuture:
+    """A chainable future
+
+    TODO document interface. See chain_resolve and LocalFuture for now.
+
+    """
+
+
+def chain_resolve(future: ChainedFuture, value, run_waiting_machine) -> bool:
+    """Resolve a future, and the next in the chain, if any"""
+    actually_resolved = True
+
+    with future.lock:
+        if isinstance(value, ChainedFuture) and not value.resolved:
+            actually_resolved = False
+            value.chain = future
+
+        if actually_resolved:
+            future.resolved = True
+            future.value = value
+            if future.chain:
+                chain_resolve(future.chain, value, run_waiting_machine)
+            for machine, offset in future.continuations:
+                run_waiting_machine(machine, offset, value)
+
+    return actually_resolved
+
+
 class Controller:
     pass
 
@@ -299,7 +327,7 @@ class C9Machine:
         else:
             self.state.stopped = True
             value = self.state.ds_pop()
-            self.controller.resolve_future(self, value)
+            self.controller.set_machine_result(self, value)
 
             if self.controller.is_top_level(self):
                 if not self.terminated:
@@ -322,7 +350,7 @@ class C9Machine:
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
 
         machine = self.controller.new_machine(args)
-        future = self.controller.get_future(machine)
+        future = self.controller.get_result_future(machine)
         self.probe.log(f"Fork {self} to {machine} => {future}")
         self.state.ds_push(future)
         self.controller.run_forked_machine(machine, self.locations[fn_name])

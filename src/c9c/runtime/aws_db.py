@@ -72,7 +72,8 @@ class MachineMap(MapAttribute):
     machine_id = NumberAttribute()
     future_fk = NumberAttribute()  # FK -> FutureAttribue
     is_top_level = BooleanAttribute()
-    state = StateAttribute()
+    # state = StateAttribute()
+    state = PickleAttribute()
     probe_logs = ListAttribute(default=list)
 
 

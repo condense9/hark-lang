@@ -9,7 +9,7 @@ import time
 import traceback
 import warnings
 
-from ..machine import C9Machine, Controller, Probe
+from ..machine import C9Machine, Controller, Probe, ChainedFuture, chain_resolve
 from ..state import State
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
@@ -51,9 +51,7 @@ class LocalProbe(Probe):
         print("\n".join(self.logs))
 
 
-class LocalFuture:
-    """A chainable future"""
-
+class LocalFuture(ChainedFuture):
     def __init__(self, controller):
         self.lock = threading.Lock()
         self.continuations = []
@@ -61,31 +59,6 @@ class LocalFuture:
         self.resolved = False
         self.value = None
         self.controller = controller
-
-    def resolve(self, value):
-        # value: Either Future or not
-        with self.lock:
-            if isinstance(value, LocalFuture):
-                if value.resolved:
-                    self._do_resolve(value.value)
-                else:
-                    value.chain = self
-            else:
-                self._do_resolve(value)
-        return self.resolved
-
-    def _do_resolve(self, value):
-        self.resolved = True
-        self.value = value
-        if self.chain:
-            self.chain.resolve(value)
-        for machine, offset in self.continuations:
-            probe = self.controller.get_probe(machine)
-            probe.log(f"{self} resolved, continuing {machine}")
-            self.controller.run_waiting_machine(machine, offset, value)
-
-    def add_continuation(self, machine_reference, offset):
-        self.continuations.append((machine_reference, offset))
 
     def __repr__(self):
         return f"<Future {id(self)} {self.resolved} ({self.value})>"
@@ -137,7 +110,7 @@ class LocalController(Controller):
         if self._machine_probe[m]:
             self._machine_probe[m].log(msg)
 
-    def get_future(self, m):
+    def get_result_future(self, m):
         return self._machine_future[m]
 
     def get_state(self, m):
@@ -159,8 +132,10 @@ class LocalController(Controller):
 
     def run_waiting_machine(self, m, offset, value):
         state = self.get_state(m)
+        probe = self.get_probe(m)
         state.ds_set(offset, value)
         state.stopped = False
+        probe.log(f"continuing {m}")
         self._run_machine(m)
 
     def run_top_level(self, args):
@@ -169,9 +144,10 @@ class LocalController(Controller):
         self._run_machine(m)
         return m
 
-    def resolve_future(self, m, value):
-        future = self.get_future(m)
-        resolved = future.resolve(value)
+    def set_machine_result(self, m, value):
+        future = self.get_result_future(m)
+        resolved = chain_resolve(future, value, self.run_waiting_machine)
+        assert isinstance(resolved, bool)
         self.probe_log(
             m, f"Resolved {future}" if resolved else f"Chained {future} to {value}"
         )
@@ -183,7 +159,7 @@ class LocalController(Controller):
             if resolved:
                 value = future.value
             else:
-                future.add_continuation(m, offset)
+                future.continuations.append((m, offset))
                 value = None
         return resolved, value
 
