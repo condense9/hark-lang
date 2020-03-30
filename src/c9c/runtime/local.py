@@ -47,9 +47,6 @@ class LocalProbe(Probe):
         self.logs.append(f"*** <{self._name}> {kind} after {self._step} steps. ***")
         self.logs.append(m.state.to_table())
 
-    def print_logs(self):
-        print("\n".join(self.logs))
-
 
 class LocalFuture(ChainedFuture):
     def __init__(self, controller):
@@ -119,7 +116,7 @@ class LocalController(Controller):
     def get_probe(self, m):
         return self._machine_probe[m]
 
-    def _run_machine(self, m):
+    def run_machine(self, m):
         state = self.get_state(m)
         probe = self.get_probe(m)
         thread = threading.Thread(target=m.run)
@@ -128,7 +125,7 @@ class LocalController(Controller):
     def run_forked_machine(self, m, new_ip):
         state = self.get_state(m)
         state.ip = new_ip
-        self._run_machine(m)
+        self.run_machine(m)
 
     def run_waiting_machine(self, m, offset, value):
         state = self.get_state(m)
@@ -136,13 +133,7 @@ class LocalController(Controller):
         state.ds_set(offset, value)
         state.stopped = False
         probe.log(f"continuing {m}")
-        self._run_machine(m)
-
-    def run_top_level(self, args):
-        m = self.new_machine(args, top_level=True)
-        self.probe_log(m, f"Top Level {m}")
-        self._run_machine(m)
-        return m
+        self.run_machine(m)
 
     def set_machine_result(self, m, value):
         future = self.get_result_future(m)
@@ -183,7 +174,9 @@ def run(executable, *args, do_probe=True, sleep_interval=0.01):
     LocalProbe.count = 0
 
     controller = LocalController(executable, do_probe=do_probe)
-    controller.run_top_level(args)
+    m = controller.new_machine(args, top_level=True)
+    controller.probe_log(m, f"Top Level {m}")
+    controller.run_machine(m)
 
     try:
         while not controller.finished:
