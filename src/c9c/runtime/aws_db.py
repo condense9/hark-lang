@@ -65,7 +65,7 @@ class FutureMap(MapAttribute):
     resolved = BooleanAttribute(default=False)
     chain = NumberAttribute(null=True)
     value = PickleAttribute(null=True)
-    continuations = ListAttribute(default=[])  # of ContinuationAttribute
+    continuations = ListAttribute(default=list)  # of ContinuationAttribute
 
 
 class MachineMap(MapAttribute):
@@ -73,7 +73,7 @@ class MachineMap(MapAttribute):
     future_fk = NumberAttribute()  # FK -> FutureAttribue
     is_top_level = BooleanAttribute()
     state = StateAttribute()
-    probe_logs = ListAttribute(default=[])
+    probe_logs = ListAttribute(default=list)
 
 
 class BaseSessionModel(Model):
@@ -128,12 +128,11 @@ def new_future(session) -> FutureMap:
 
 
 def new_machine(session, args, is_top_level=False) -> MachineMap:
-    count = session.num_machines
     state = State(args)
     f = new_future(session)
     m = MachineMap(
         # --
-        machine_id=count,
+        machine_id=session.num_machines,
         future_fk=f.future_id,
         state=state,
         is_top_level=is_top_level,
@@ -144,11 +143,12 @@ def new_machine(session, args, is_top_level=False) -> MachineMap:
 
 
 def get_machine(session, machine_id):
-    return next(m for m in session.machines if m.machine_id == machine_id)
+    return session.machines[machine_id]
 
 
 def get_future(session, future_id):
-    return next(f for f in session.futures if m.future_id == future_id)
+    # return next(f for f in session.futures if f.future_id == future_id)
+    return session.futures[future_id]
 
 
 # @contextmgr
