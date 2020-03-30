@@ -48,13 +48,12 @@ Data exchange points:
 # top level "run" function. For HTTP handlers, it has to block until the
 # Controller finishes. For others, it can just return. No Controller logic
 # changes necessary. Just the entrypoint / wrapper.
-
-
-
 """
 
 import json
+import time
 import uuid
+import traceback
 import warnings
 from functools import wraps
 from typing import List, Tuple
@@ -65,17 +64,26 @@ from .. import compiler
 from ..machine import C9Machine, ChainedFuture, Controller, Probe
 from ..state import State
 from . import aws_db as db
-
-from .aws_db import FutureMap, MachineMap, ContinuationMap
+from .aws_db import ContinuationMap, FutureMap, MachineMap
+from ..lambda_utils import get_lambda_client
 
 
 class AwsProbe(Probe):
     def __init__(self, m: MachineMap):
         self.m = m
         self._logs = []
+        self._step = 0
 
     def log(self, msg):
-        self._logs.append(msg)
+        self._logs.append(f"*** <{self.m.machine_id}> {msg}")
+
+    def on_step(self, m: C9Machine):
+        self._step += 1
+        self.log(f"[step={self._step}, ip={m.state.ip}] {m.instruction}")
+
+    def on_stopped(self, m: C9Machine):
+        self._step += 1
+        self.log(f"[step={self._step}] :: stopped")
 
     @property
     def logs(self):
@@ -89,6 +97,9 @@ class AwsFuture(ChainedFuture):
         self.lock = lock
         self._session = session
         self._future_id = future_id
+
+    def __repr__(self):
+        return f"<Future {self._future_id}>"
 
     @property
     def _data(self):
@@ -142,8 +153,9 @@ def with_self_lock(inst_method):
 
 
 class AwsController(Controller):
-    def __init__(self, executable, session, do_probe=False):
+    def __init__(self, executable_name, executable, session, do_probe=False):
         super().__init__()
+        self.executable_name = executable_name
         self.executable = executable
         self._session = session
         self.lock = db.SessionLocker(session)
@@ -151,13 +163,18 @@ class AwsController(Controller):
         self.this_machine_is_top_level = False
         # These can be immediate values as they're only relevant for the current
         # context
-        self.finished = False
         self.result = None
 
     def finish(self, result):
-        self.finished = True
         self.result = result
-        db.finish_session(self._session, result)
+        with self.lock:
+            self._session.finished = True
+            self._session.result = result
+
+    @property
+    def finished(self):
+        self._session.refresh()
+        return self._session.finished
 
     def stop(self, m: C9Machine):
         assert m is self.this_machine
@@ -181,7 +198,7 @@ class AwsController(Controller):
 
     def probe_log(self, m: C9Machine, message: str):
         assert m is self.this_machine
-        self.this_machine_probe.log(message)
+        self.this_machine_probe.log(f"[CTRL] {message}")
 
     def get_result_future(self, m: C9Machine) -> AwsFuture:
         # Only one C9Machine is ever running in a controller in AWS at a time,
@@ -228,20 +245,34 @@ class AwsController(Controller):
         assert isinstance(m, MachineMap)
         with self.lock:
             self._session.machines[m.machine_id].state.ip = new_ip
-        self._run_machine_async(m)
+        self._run_machine_async(m.machine_id)
 
     def run_waiting_machine(self, machine_id: int, offset: int, value):
-        # This is called from chain_resolve
-        # See self.get_or_wait - the continuation holds machine_id
-        # db_m = db.get_machine(self._session, machine_id)
-        # db_m.state.ds_set(offset, value)
-        # db_m.state.stopped = False
-        # self._session.update()
-        db.resolve_future(self._session, m, offset, value)
-        self._run_machine_async(m)
+        # This is called from chain_resolve. See self.get_or_wait - the
+        # continuation holds machine_id
+        with self.lock:
+            self._session.machines[machine_id].state.ds_set(offset, value)
+            self._session.machines[machine_id].state.stopped = False
+        self._run_machine_async(machine_id)
 
     def _run_machine_async(self, m):
-        warnings.warn(f"TODO Async {m}")
+        assert isinstance(m, int)
+        self.this_machine_probe.log(f"Starting new machine asynchronously - {m}")
+        client = get_lambda_client()
+        payload = dict(
+            executable_name=self.executable_name,
+            session_id=self._session.session_id,
+            machine_id=m,
+        )
+        res = client.invoke(
+            # --
+            FunctionName="c9run",
+            InvocationType="Event",
+            Payload=json.dumps(payload),
+        )
+        if res["StatusCode"] != 202 or "FunctionError" in res:
+            err = res["Payload"].read()
+            raise Exception(f"Invoke lambda failed {err}")
 
     def run_machine(self, m: MachineMap):
         # m must be full initialised (latest data from DB)
@@ -256,18 +287,48 @@ class AwsController(Controller):
     @property
     def probes(self):
         self._session.refresh()
-        return [AwsProbe(m) for m in self._session.machines]
+        return [self.this_machine_probe] + [
+            AwsProbe(m)
+            for m in self._session.machines
+            if m.machine_id != self.this_machine_id
+        ]
+
+    @property
+    def machine_data(self):
+        self._session.refresh()
+        return self._session.machines
 
 
-def run(executable, *args, do_probe=True):
+def run(name, executable, *args, do_probe=True, timeout=2, sleep_interval=0.1):
     session = db.new_session()
-    controller = AwsController(executable, session, do_probe=do_probe)
+    controller = AwsController(name, executable, session, do_probe=do_probe)
     m = controller.new_machine(args, top_level=True)
+    start_time = time.time()
+
+    try:
+        controller.run_machine(m)
+
+        while not controller.finished:
+            time.sleep(sleep_interval)
+            if time.time() - start_time > timeout:
+                raise Exception("Timeout waiting for machine to finish")
+
+        if not all(m.state.stopped for m in controller.machine_data):
+            raise Exception("Terminated, but not all machines stopped!")
+
+    except Exception as e:
+        warnings.warn("Unexpected Exception!! Returning controller for analysis")
+        traceback.print_exc()
+
+    return controller
+
+
+def run_existing(name, executable, session_id, machine_id, do_probe=True):
+    """Run an existing session and machine"""
+    session = Session.get(session_id)
+    controller = AwsController(name, executable, session, do_probe=do_probe)
+    m = session.get_machine(machine_id)
     controller.run_machine(m)
-
-
-def continue_from(executable, runtime):
-    """Pick up execution from the given point"""
 
 
 # For auto-gen code:

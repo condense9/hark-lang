@@ -170,7 +170,7 @@ class ThreadDied(Exception):
     """A thread died"""
 
 
-def run(executable, *args, do_probe=True, sleep_interval=0.01):
+def run(name, executable, *args, do_probe=True, sleep_interval=0.01):
     LocalProbe.count = 0
 
     controller = LocalController(executable, do_probe=do_probe)

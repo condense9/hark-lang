@@ -127,6 +127,9 @@ class Func(Quote):
             )
         return self.fn(*values)
 
+    def __name__(self):
+        return self.fn.__name__
+
     def __repr__(self):
         return f"<Func {self.label}>"
 

@@ -18,8 +18,11 @@ def lambda_zip_path(function_name):
     return join(ZIP_DIR, function_name + ".zip")
 
 
-def get_lambda_client(localstack=True):
-    if localstack:
+def get_lambda_client():
+    if "C9_IN_AWS" in os.environ:
+        # return boto3.client("lambda", region_name="eu-west-2",)
+        raise NotImplementedError
+    else:
         return boto3.client(
             "lambda",
             aws_access_key_id="",
@@ -28,8 +31,6 @@ def get_lambda_client(localstack=True):
             endpoint_url="http://localhost:4574",
             config=CONFIG,
         )
-    else:
-        raise NotImplementedError
 
 
 def create_lambda_zip(lambda_dir: str, lib_dir: str = None) -> str:
@@ -81,6 +82,15 @@ def delete_lambda(function_name):
         os.remove(lambda_zip_path(function_name))
     except (FileNotFoundError, lambda_client.exceptions.ResourceNotFoundException):
         pass
+
+
+def lambda_exists(function_name) -> bool:
+    client = get_lambda_client()
+    try:
+        client.get_function(FunctionName=function_name)
+        return True
+    except client.exceptions.ResourceNotFoundException:
+        return False
 
 
 def invoke(function_name):

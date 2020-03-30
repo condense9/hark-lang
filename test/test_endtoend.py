@@ -1,19 +1,25 @@
 """Test that programs run correctly - ie test both compiler and machine"""
 
+import os.path
 import random
 import time
 import warnings
 
 import pytest
 
+import c9c.lambda_utils as lambda_utils
 import c9c.machine as m
 import c9c.runtime.aws
 import c9c.runtime.local
 from c9c.compiler import compile_all, link
 from c9c.lang import *
+from c9c.runtime.aws_db import Session
 from c9c.stdlib import Map, MapResolve, wait_for
 
+from . import handlers
 from .simple_functions import *
+
+THIS_DIR = os.path.dirname(__file__)
 
 SEED = random.randint(0, 100000)
 random.seed(SEED)
@@ -27,20 +33,26 @@ RUNTIMES = {
 }
 
 
-def random_sleep(max_ms=10):
-    time.sleep(max_ms * random.random() / 1000.0)
+def setup_module():
+    # `make build deploy` in $ROOT/c9_lambdas/c9run first
+    assert lambda_utils.lambda_exists("c9run")
+    if Session.exists():
+        Session.delete_table()
+    Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
 
 
 def check_result(runtime, main, input_val, expected_result, exe_name, verbose=True):
     """Run main with input_val, check that result is expected_result"""
     executable = link(compile_all(main), exe_name=exe_name)
     try:
-        controller = runtime.run(executable, input_val, do_probe=True)
+        controller = runtime.run(exe_name, executable, input_val, do_probe=verbose)
     finally:
         if verbose:
             m.print_instructions(executable)
+            print("-- LOGS")
             for p in controller.probes:
                 print("\n".join(p.logs))
+            print("-- END LOGS")
     if not controller.finished:
         warnings.warn("Controller did not finish - this will fail")
     assert controller.result == expected_result
@@ -49,24 +61,7 @@ def check_result(runtime, main, input_val, expected_result, exe_name, verbose=Tr
 @pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
 def test_all_calls(runtime):
     """Test all kinds of call - normal, foreign, and async"""
-
-    @Foreign
-    def do_sleep(x):
-        random_sleep()
-        return x
-
-    @Func
-    def level2(a, b):
-        return do_sleep(a)
-
-    @AsyncFunc
-    def level1(a):
-        return level2(a, a)
-
-    @Func
-    def main(a):
-        return level1(a)
-
+    main = handlers.all_calls.main
     check_result(runtime, main, 5, 5, "all_calls")
 
 
@@ -76,17 +71,8 @@ def test_all_calls(runtime):
 @pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
 def test_mapping(runtime):
     """Test that mapping works in the presence of random delays"""
-
-    @Foreign
-    def random_sleep_math(x):
-        random_sleep()
-        return (2 * x) + 3
-
-    @Func
-    def main(a):
-        return MapResolve(random_sleep_math, a)
-
-    check_result(runtime, main, [1, 2], [5, 7], "slow_math")
+    main = handlers.mapping.main
+    check_result(runtime, main, [1, 2], [5, 7], "mapping")
 
 
 ####################
@@ -95,26 +81,7 @@ def test_mapping(runtime):
 @pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
 def test_call_foreign(runtime):
     """More foreign call tests"""
-
-    @Foreign
-    def simple_math(x):
-        return x - 1
-
-    @Func
-    def call_foreign(x):
-        return Cons(simple_math(x), simple_math(x))
-
-    @Func
-    def main(x):
-        # The rules:
-        # - main will wait on the value returned
-        # - you cannot wait on a list that contains futures
-        # - the programmer must wait on all elements
-        # SO this is illegal:
-        #   return call_foreign(x)
-        # ...because call_foreign returns a Cons of futures
-        return Map(wait_for, call_foreign(x))
-
+    main = handlers.call_foreign.main
     check_result(runtime, main, 5, [4, 4], "call_foreign")
 
 
@@ -125,35 +92,7 @@ def test_call_foreign(runtime):
 @pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
 def test_series_concurrent(runtime):
     """Designed to stress the concurrency model a bit more"""
-
-    @Foreign
-    def a(x):
-        random_sleep()
-        return x + 1
-
-    @Foreign
-    def b(x):
-        random_sleep()
-        return x * 1000
-
-    @Foreign
-    def c(x):
-        random_sleep()
-        return x - 1
-
-    @Foreign
-    def d(x):
-        random_sleep()
-        return x * 10
-
-    @Foreign
-    def h(u, v):
-        return u - v
-
-    @Func
-    def main(x):
-        return h(b(a(x)), d(c(x)))  # h(x) = (1000 * (x + 1)) - (10 * (x - 1))
-
+    main = handlers.series_concurrent.main
     input_val = 5
     expected_result = 5960  # = 6000 - 40
     check_result(runtime, main, input_val, expected_result, "series_concurrent")

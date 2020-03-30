@@ -3,24 +3,24 @@
 PYTHON_VERSION ?= python3.8
 
 all: build
-.PHONY: clean requirements build deps
+.PHONY: clean requirements libs src build
+
+build: clean requirements libs src
 
 
-deps:
+libs:
 	mkdir -p build/site-packages
 	pip install --target build/site-packages -r requirements.txt
 	cd build/site-packages; zip -g -r ../$(FUNCTION).zip . -x "*__pycache__*"
 	cp -r ../../src/c9c build
+	cp -r ../../test/handlers build
 	cd build; zip -r $(FUNCTION).zip c9c
 
-build: deps build/$(FUNCTION).zip
-
-build/$(FUNCTION).zip:
-	zip -g -r $@ . -x "*.DS_Store*" "*.git*" "build*" "Makefile" "requirements.txt"
+src:
+	zip -g -r build/$(FUNCTION).zip . -x "*.DS_Store*" "*.git*" "build*" "Makefile" "requirements.txt"
 
 deploy:
 	PYTHONPATH=../../src python ../create.py build/$(FUNCTION).zip
-
 
 # python ../../generate_requirements.py | grep -v boto > requirements.txt
 requirements:

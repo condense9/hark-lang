@@ -5,7 +5,8 @@ import os
 import pickle
 import time
 import uuid
-from contextlib import contextmanager, AbstractContextManager
+import logging
+from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime
 
 from botocore.exceptions import ClientError
@@ -171,28 +172,6 @@ def try_lock(session) -> bool:
         raise
 
 
-# @contextmanager
-# def modify_session(session, timeout=2):
-#     """Lock the session for modification
-
-#     __enter__: Refresh session, lock it
-#     ...
-#     __exit__: save it, release the lock
-
-#     """
-#     start = time.time()
-#     while not try_lock(session):
-#         time.sleep(0.1)
-#         if time.time() - start > timeout:
-#             raise Exception("Couldn't lock {session}, tried for {timeout}s")
-#     try:
-#         # Session will be refreshed by try_lock
-#         yield
-#     finally:
-#         session.locked = False
-#         session.save()
-
-
 class LockTimeout(Exception):
     """Timeout trying to lock session"""
 
@@ -215,7 +194,7 @@ class SessionLocker(AbstractContextManager):
         while not try_lock(self.session):
             time.sleep(0.1)
             if time.time() - start > self.timeout:
-                warnings.warn("Timeout getting lock")
+                logging.warning("Timeout getting lock")
                 raise LockTimeout
 
     def __exit__(self, *exc):
