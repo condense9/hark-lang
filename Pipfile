@@ -4,15 +4,15 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+pytest = "*"
+localstack = "*"
+pytest-repeat = "*"
+md-tangle = "*"
+sphinx = "*"
 
 [packages]
-pytest = "*"
-md-tangle = "*"
 click = "*"
-sphinx = "*"
 pyyaml = "*"
-pytest-repeat = "*"
-localstack = "*"
 boto3 = "*"
 pynamodb = "*"
 

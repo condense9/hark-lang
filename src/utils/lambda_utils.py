@@ -2,7 +2,7 @@
 import json
 import os
 import os.path
-from os.path import join
+from os.path import join, basename
 from zipfile import ZipFile
 import tempfile
 
@@ -13,26 +13,28 @@ CONFIG = botocore.config.Config(retries={"max_attempts": 0})
 ZIP_DIR = tempfile.mkdtemp()
 THIS_DIR = os.path.dirname(__file__)
 
-print("Zip dir: ", ZIP_DIR)
-
 
 def lambda_zip_path(function_name):
     return join(ZIP_DIR, function_name + ".zip")
 
 
-def get_lambda_client():
-    return boto3.client(
-        "lambda",
-        aws_access_key_id="",
-        aws_secret_access_key="",
-        region_name="eu-west-2",
-        endpoint_url="http://localhost:4574",
-        config=CONFIG,
-    )
+def get_lambda_client(localstack=True):
+    if localstack:
+        return boto3.client(
+            "lambda",
+            aws_access_key_id="",
+            aws_secret_access_key="",
+            region_name="eu-west-2",
+            endpoint_url="http://localhost:4574",
+            config=CONFIG,
+        )
+    else:
+        raise NotImplementedError
 
 
-def create_lambda_zip(lambda_dir):
-    with ZipFile(lambda_zip_path(os.path.basename(lambda_dir)), "w") as z:
+def create_lambda_zip(lambda_dir: str, lib_dir: str = None) -> str:
+    zip_name = lambda_zip_path(basename(lambda_dir))
+    with ZipFile(zip_name, "w") as z:
         if not os.path.exists(lambda_dir):
             raise Exception(f"No lambda directory: {lambda_dir}")
         for root, dirs, files in os.walk(lambda_dir):
@@ -41,20 +43,33 @@ def create_lambda_zip(lambda_dir):
                 name = join(root, f)
                 arcname = name[len(lambda_dir) :]
                 z.write(name, arcname=arcname)
+        if lib_dir:
+            # NOTE - will overwrite lib_dir_name/ in the archive
+            for root, dirs, files in os.walk(lib_dir):
+                for f in files:
+                    name = join(root, f)
+                    lib_dir_name = basename(lib_dir)
+                    arcname = name[len(lib_dir) - len(lib_dir_name) :]
+                    z.write(name, arcname=arcname)
+    return zip_name
 
 
-def create_lambda(lambda_dir):
-    lambda_client = get_lambda_client()
-    create_lambda_zip(lambda_dir)
-    function_name = os.path.basename(lambda_dir)
-    with open(lambda_zip_path(function_name), "rb") as f:
-        zipped_code = f.read()
+def create_lambda(lambda_dir, lib_dir=None):
+    create_lambda_zip(lambda_dir, lib_dir)
+    function_name = basename(lambda_dir)
     delete_lambda(function_name)
+    lambda_from_zip(function_name, lambda_zip_path(function_name))
+
+
+def lambda_from_zip(function_name, zipfile, handler="main.handler"):
+    with open(zipfile, "rb") as f:
+        zipped_code = f.read()
+    lambda_client = get_lambda_client()
     lambda_client.create_function(
         FunctionName=function_name,
         Runtime="python3.8",
         Role="role",
-        Handler="main.handler",
+        Handler=handler,
         Code=dict(ZipFile=zipped_code),
     )
 

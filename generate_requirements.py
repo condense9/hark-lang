@@ -10,16 +10,12 @@ def read_json_file(path):
 
 
 def main():
-    root = read_json_file(os.path.join(__dir__, 'Pipfile.lock'))
+    root = read_json_file(os.path.join(__dir__, "Pipfile.lock"))
 
     for name, pkg in root["default"].items():
         version = pkg["version"]
-        sep = lambda i: "" if i == len(pkg["hashes"]) - 1 else " \\"
-        hashes = [f'--hash={t}{sep(i)}' for i, t in enumerate(pkg["hashes"])]
-        tail = '' if len(hashes) == 0 else f' {hashes[0]}'
-        print(f'{name} {version}{tail}')
-        for h in hashes[1:]:
-            print(f'    {h}')
+        hashes = " ".join([f"--hash={t}" for i, t in enumerate(pkg["hashes"])])
+        print(f"{name}{version} {hashes}")
 
 
 if __name__ == "__main__":
