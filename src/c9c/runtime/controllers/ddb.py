@@ -243,6 +243,7 @@ class AwsController(Controller):
 
     def run_forked_machine(self, m: MachineMap, new_ip: int):
         assert isinstance(m, MachineMap)
+        # TODO - different launchers depending on function!
         with self.lock:
             self._session.machines[m.machine_id].state.ip = new_ip
         self.run_machine_async(m.machine_id)
@@ -273,9 +274,9 @@ class AwsController(Controller):
             self.do_probe,
         )
 
-    def run_machine(self, m: MachineMap):
-        # m must be full initialised (latest data from DB)
-        self.this_machine_id = m.machine_id
+    def run_machine(self, machine_id: int):
+        m = db.get_machine(self._session, machine_id)
+        self.this_machine_id = machine_id
         self.this_machine_state = m.state
         self.this_machine_probe = AwsProbe(m) if self.do_probe else Probe()
         self.this_machine_future = AwsFuture(self._session, m.future_fk, self.lock)
@@ -304,20 +305,30 @@ def run_existing(executor, name, searchpath, session_id, machine_id, do_probe):
     """Run an existing session and machine"""
     session = db.Session.get(session_id)
     controller = AwsController(executor, name, searchpath, session, do_probe=do_probe)
-    m = db.get_machine(session, machine_id)
-    controller.run_machine(m)
+    controller.run_machine(machine_id)
     return controller
 
 
 def run(
-    executor, name, searchpath, *args, do_probe=True, timeout=2, sleep_interval=0.1
+    executor,
+    name,
+    searchpath,
+    *args,
+    do_probe=True,
+    launch_async=True,
+    timeout=2,
+    sleep_interval=0.1,
 ):
     """Make a new session and run it from the top"""
     session = db.new_session()
     m = db.new_machine(session, args, top_level=True)
     session.save()
     controller = AwsController(executor, name, searchpath, session, do_probe=do_probe)
-    controller.run_machine_async(m.machine_id)
+
+    if launch_async:
+        controller.run_machine_async(m.machine_id)
+    else:
+        controller.run_machine(m.machine_id)
 
     try:
         start_time = time.time()

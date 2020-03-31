@@ -65,6 +65,3 @@ def handler(run_controller, event, context):
                 finished=False,
             )
         )
-
-
-# TODO new session lambda?
