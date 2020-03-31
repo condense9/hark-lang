@@ -437,11 +437,14 @@ class C9Machine:
 
     @evali.register
     def _(self, i: Cons):
-        a = self.state.ds_pop()
+        # a, b     -> [a, b]
+        # a, [b]   -> [a, b]
+        # [a], [b] -> error
         b = self.state.ds_pop()
-        if isinstance(a, list):
-            assert not isinstance(b, list)
-            self.state.ds_push(a + [b])
+        a = self.state.ds_pop()
+        if isinstance(b, list):
+            assert not isinstance(a, list)
+            self.state.ds_push([a] + b)
         else:
             self.state.ds_push([a, b])
 

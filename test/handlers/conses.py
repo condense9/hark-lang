@@ -7,7 +7,9 @@ def fn4(x):
     return x + 2
 
 
-async_f4 = Async(fn4)
+@AsyncFunc
+def async_fn4(x):
+    return fn4(x)
 
 
 @Foreign
@@ -22,4 +24,4 @@ def fn2(x):
 
 @Func
 def main(x):
-    return List(1, fn2(x), fn3(x), fn4(x))
+    return WaitAll(List(1, fn2(x), fn3(x), async_fn4(x)))

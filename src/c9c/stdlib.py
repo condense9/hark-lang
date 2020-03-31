@@ -1,9 +1,8 @@
 """Standard library of utilities"""
 
-from .lang import Func, ForeignCall, Funcall, Foreign, AsyncFunc, Asm, If
 from . import lang as l
 from . import machine as m
-
+from .lang import Asm, AsyncFunc, Foreign, ForeignCall, Func, Funcall, If
 
 ## This is awkward - these are builtins, but we define them as functions so that
 ## they can be used like normal functions
@@ -122,9 +121,14 @@ def Foldr(function, final, lst):
 
 
 @Func
+def WaitAll(lst):
+    return Map(Wait, lst)
+
+
+@Func
 def MapResolve(function, lst):
     """Map and then resolve all values"""
-    return Map(Wait, Map(function, lst))
+    return WaitAll(Map(function, lst))
 
 
 ## Misc:
@@ -132,24 +136,10 @@ def MapResolve(function, lst):
 
 def List(*args):
     """Shorthand for a nested cons"""
-    return Asm(list(reversed(args)), [m.Cons() for _ in range(len(args) - 1)])
+    return Asm(list(args), [m.Cons() for _ in range(len(args) - 1)])
 
 
-def Async(function: Func):
-    """Get a version of function (of one argument) which is asynchronous"""
-    if not function.blocking:
-        raise Exception(f"{function} is already async")
-    if not isinstance(function, Func):
-        raise Exception(f"{function} is not a Func")
-
-    @AsyncFunc
-    def _wrapper(arg):
-        return Funcall(function, arg)
-
-    return _wrapper
-
-
-# I think this can be easily implemented now that List exists.
+# I think varargs can be easily implemented now that List exists.
 #
 # class VarCallable:
 #     def __init__(self, fn, n):
@@ -165,3 +155,6 @@ def Async(function: Func):
 #         n = len(args)
 #         return Func(VarCallable(fn, n), n)(*args)
 #     return _wrapper
+#
+# Could also implement an "Async" function which returns an AsyncFunc version of
+# the Func it's called with.

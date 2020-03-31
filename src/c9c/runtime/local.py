@@ -36,8 +36,10 @@ class LocalProbe(Probe):
 
     def on_step(self, m):
         self._step += 1
-        self.log(f"[step={self._step}, ip={m.state.ip}] {m.instruction}")
-        self.logs.append("Data: " + str(tuple(m.state._ds)))
+        preface = f"[step={self._step}, ip={m.state.ip}] {m.instruction}"
+        data = list(m.state._ds)
+        self.log(f"{preface:40.40} | {data}")
+        # self.logs.append("Data: " + str(tuple(m.state._ds)))
         if self._step >= self._max_steps:
             self.log(f"MAX STEPS ({self._max_steps}) REACHED!! ***")
             self.early_stop = True
@@ -185,7 +187,7 @@ def run(name, searchpath, *args, do_probe=True, sleep_interval=0.01):
             time.sleep(sleep_interval)
 
             for probe in controller.probes:
-                if probe.early_stop:
+                if isinstance(probe, LocalProbe) and probe.early_stop:
                     raise Exception(f"{m} early stop")
 
             if controller.exception:
