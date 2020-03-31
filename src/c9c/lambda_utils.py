@@ -17,7 +17,7 @@ def lambda_zip_path(function_name):
     return join(ZIP_DIR, function_name + ".zip")
 
 
-def get_lambda_client():
+def get_lambda_client(region_name="eu-west-2"):
     if "LOCALSTACK_HOSTNAME" in os.environ:
         endpoint_url = "http://" + os.environ["LOCALSTACK_HOSTNAME"] + ":4574"
     elif "C9_TARGET_AWS" in os.environ:
@@ -30,7 +30,7 @@ def get_lambda_client():
         "lambda",
         aws_access_key_id="",
         aws_secret_access_key="",
-        region_name="eu-west-2",
+        region_name=region_name,
         endpoint_url=endpoint_url,
         config=botocore.config.Config(retries={"max_attempts": 0}),
     )
@@ -65,7 +65,7 @@ def create_lambda(lambda_dir, lib_dir=None):
     lambda_from_zip(function_name, lambda_zip_path(function_name))
 
 
-def lambda_from_zip(function_name, zipfile, handler="main.handler"):
+def lambda_from_zip(function_name, zipfile, handler="main.handler", timeout=3):
     with open(zipfile, "rb") as f:
         zipped_code = f.read()
     lambda_client = get_lambda_client()
@@ -75,7 +75,7 @@ def lambda_from_zip(function_name, zipfile, handler="main.handler"):
         Role="role",
         Handler=handler,
         Code=dict(ZipFile=zipped_code),
-        # Environment=dict(Variables=dict(C9_IN_AWS="yes")),
+        Timeout=timeout,
     )
 
 

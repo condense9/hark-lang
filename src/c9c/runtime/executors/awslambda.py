@@ -36,11 +36,11 @@ class LambdaRunner:
 
 
 # Input: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-def handler(get_controller, event, context):
+def handler(run_controller, event, context):
     """Handle the AWS lambda event for an existing session, returning a JSON response"""
     logging.info(f"Invoked - {event}")
     executor = LambdaRunner(event["lambda_name"])
-    controller = get_controller(
+    controller = run_controller(
         executor,
         event["executable_name"],
         event["searchpath"],
