@@ -6,6 +6,7 @@ import random
 import time
 import warnings
 
+import pynamodb
 import pytest
 
 import c9c.lambda_utils as lambda_utils
@@ -51,16 +52,16 @@ RUNTIMES = {
 
 
 def setup_module():
+    if not lambda_utils.lambda_exists("c9run"):
+        # `make build deploy` in $ROOT/c9_lambdas/c9run first
+        warnings.warn("c9run lambda doesn't exit")
     try:
-        if not lambda_utils.lambda_exists("c9run"):
-            # `make build deploy` in $ROOT/c9_lambdas/c9run first
-            warnings.warn("c9run lambda doesn't exit")
         if Session.exists():
             Session.delete_table()
         Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
-    except:
+    except pynamodb.exceptions.PynamoDBConnectionError:
         # It's not actually essential for testing local...
-        warnings.warn("Errors initialising Session DynamoDB Table for test")
+        warnings.warn("Can't connect to DynamoDB table")
 
 
 def check_result(runtime, main, input_val, expected_result, exe_name, verbose=True):

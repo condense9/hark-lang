@@ -34,8 +34,8 @@ test:
   stage: test
   script:
     - export PYTHONPATH=$PWD/src:$PYTHONPATH
-    - pytest -vv
-    - pytest -vv --count 10 test/test_endtoend.py
+    - pytest -v -k "not [ddb_"
+    - pytest -vv --count 10 -k "not [ddb_" test/test_endtoend.py
 
 # pages:
 #   stage: package
