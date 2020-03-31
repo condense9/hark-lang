@@ -3,6 +3,7 @@
 __pycache__
 .serverless
 iterm_sessions
-.dir-locals
+.dir-locals.el
+.localstack_api_key
 
 build

@@ -1,11 +1,5 @@
 from c9c.lang import *
 from c9c.stdlib import *
-import random
-import time
-
-
-def random_sleep(max_ms=10):
-    time.sleep(max_ms * random.random() / 1000.0)
 
 
 @Foreign

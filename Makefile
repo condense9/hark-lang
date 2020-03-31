@@ -14,15 +14,14 @@ init:  ## Set up development environment
 test:  ## Run unit tests
 	pipenv run pytest -v
 
+.PHONY: test
+testx:  ## Run unit tests, stopping after first failure
+	pipenv run pytest -vv -x
+
 
 .PHONY: test-local
 test-local:  ## Run local end-to-end tests
 	pipenv run pytest -x -v -k [local] test/test_endtoend.py
-
-
-.PHONY: test-aws
-test-aws:  ## Run AWS end-to-end tests (using localstack)
-	pipenv run pytest -x -v -k [aws] test/test_endtoend.py
 
 
 .PHONY: stress

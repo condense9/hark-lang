@@ -380,6 +380,7 @@ class C9Machine:
                 self.probe.log(f"Resolved! {offset} -> {result}")
                 self.state.ds_set(offset, result)
             else:
+                self.probe.log(f"Waiting for {val}")
                 self.state.stopped = True
 
         elif isinstance(val, list) and any(

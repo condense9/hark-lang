@@ -23,7 +23,7 @@ from pynamodb.attributes import (
     VersionAttribute,
 )
 from pynamodb.constants import BINARY, DEFAULT_ENCODING
-from pynamodb.exceptions import PutError
+from pynamodb.exceptions import UpdateError
 from pynamodb.models import Model
 
 from ...state import State
@@ -85,6 +85,14 @@ class MachineMap(MapAttribute):
     probe_logs = ListAttribute(default=list)
 
 
+if "LOCALSTACK_HOSTNAME" in os.environ:
+    DDB_HOST = "http://" + os.environ["LOCALSTACK_HOSTNAME"] + ":4569"
+elif "C9_TARGET_AWS" in os.environ:
+    raise NotImplementedError
+else:
+    DDB_HOST = "http://localhost:4569"
+
+
 class Session(Model):
     """
     A handler session
@@ -93,8 +101,7 @@ class Session(Model):
     class Meta:
         table_name = "C9Sessions"
         region = "eu-west-2"
-        # Localstack for testing
-        host = None if "C9_IN_AWS" in os.environ else "http://localhost:4569"
+        host = DDB_HOST
 
     # Very simple, SINGLE-ENTRY, global lock for the whole session. Brutal -
     # could be optimised later
@@ -167,7 +174,7 @@ def try_lock(session) -> bool:
         session.update([Session.locked.set(True)], condition=(Session.locked == False))
         return True
 
-    except PutError as e:
+    except UpdateError as e:
         if isinstance(e.cause, ClientError):
             code = e.cause.response["Error"].get("Code")
             if code == "ConditionalCheckFailedException":

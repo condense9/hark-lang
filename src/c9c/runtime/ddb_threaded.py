@@ -5,5 +5,5 @@ from .controllers import ddb
 
 
 def run(*args, **kwargs):
-    runner = thread.ThreadExecutor(ddb.run_existing)
-    return ddb.run(runner, *args, **kwargs)
+    executor = thread.ThreadExecutor(ddb.run_existing)
+    return ddb.run(executor, *args, **kwargs)

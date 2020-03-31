@@ -1,21 +1,25 @@
 # https://gist.github.com/istepanov/48285351fa206a0aba92615fb9d632c6
 
-PYTHON_VERSION ?= python3.8
+all: clean build
+.PHONY: clean requirements src build deploy deps
 
-all: build
-.PHONY: clean requirements src build
-
-build: clean requirements src
+build: requirements deps src
 
 
-src:
+deps:  ## Dependencies
 	mkdir -p build/site-packages
+
 	pip install --target build/site-packages -r requirements.txt
-	cd build/site-packages; zip -g -r ../$(FUNCTION).zip . -x "*__pycache__*"
-	cp -r ../../src/c9c build
-	cp -r ../../test/handlers build
-	cd build; zip -r -g $(FUNCTION).zip c9c
-	cd build; zip -r -g $(FUNCTION).zip handlers
+
+	mkdir -p build/lib
+	cp -r build/site-packages/*  build/lib
+	cd build; zip -g -r $(FUNCTION).zip lib -x "*__pycache__*"
+
+src:  ## just the C9 source
+	cp -r ../../src/c9c          build/lib
+	cd build; zip -g -r $(FUNCTION).zip lib/c9c -x "*__pycache__*"
+	cp -r ../../test/handlers    build
+	cd build; zip -g -r $(FUNCTION).zip handlers
 	zip -g -r build/$(FUNCTION).zip . -x "*.DS_Store*" "*.git*" "build*" "Makefile" "requirements.txt"
 
 deploy:

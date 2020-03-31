@@ -1,17 +1,13 @@
 """Entrypoint for non-handler Machines - do not need to return anything"""
 
-import json
+import sys
 
-from c9c.loader import load_executable
-from c9c.runtime.aws import run_existing
+sys.path.append("lib")
 
-import os.path
+import c9c.runtime.executors.awslambda
+import c9c.runtime.controllers.ddb
 
-# Input: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
+
 def handler(event, context):
-    executable = load_executable(
-        event["executable_name"], os.path.dirname(__file__) + "/" + "handlers"
-    )
-    run_existing(
-        event["executable_name"], executable, event["session_id"], event["machine_id"]
-    )
+    getter = c9c.runtime.controllers.ddb.run_existing
+    return c9c.runtime.executors.awslambda.handler(getter, event, context)

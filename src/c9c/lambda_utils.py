@@ -9,7 +9,6 @@ import tempfile
 import boto3
 import botocore
 
-CONFIG = botocore.config.Config(retries={"max_attempts": 0})
 ZIP_DIR = tempfile.mkdtemp()
 THIS_DIR = os.path.dirname(__file__)
 
@@ -19,18 +18,22 @@ def lambda_zip_path(function_name):
 
 
 def get_lambda_client():
-    if "C9_IN_AWS" in os.environ:
-        # return boto3.client("lambda", region_name="eu-west-2",)
+    if "LOCALSTACK_HOSTNAME" in os.environ:
+        endpoint_url = "http://" + os.environ["LOCALSTACK_HOSTNAME"] + ":4574"
+    elif "C9_TARGET_AWS" in os.environ:
         raise NotImplementedError
     else:
-        return boto3.client(
-            "lambda",
-            aws_access_key_id="",
-            aws_secret_access_key="",
-            region_name="eu-west-2",
-            endpoint_url="http://localhost:4574",
-            config=CONFIG,
-        )
+        # default: localstack
+        endpoint_url = "http://localhost:4574"
+
+    return boto3.client(
+        "lambda",
+        aws_access_key_id="",
+        aws_secret_access_key="",
+        region_name="eu-west-2",
+        endpoint_url=endpoint_url,
+        config=botocore.config.Config(retries={"max_attempts": 0}),
+    )
 
 
 def create_lambda_zip(lambda_dir: str, lib_dir: str = None) -> str:
@@ -72,6 +75,7 @@ def lambda_from_zip(function_name, zipfile, handler="main.handler"):
         Role="role",
         Handler=handler,
         Code=dict(ZipFile=zipped_code),
+        # Environment=dict(Variables=dict(C9_IN_AWS="yes")),
     )
 
 

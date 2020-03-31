@@ -4,6 +4,6 @@ from .executors import awslambda
 from .controllers import ddb
 
 
-def run_lambda(*args, **kwargs):
+def run(*args, **kwargs):
     executor = awslambda.LambdaRunner()
-    return run(executor, *args, **kwargs)
+    return ddb.run(executor, *args, **kwargs)
