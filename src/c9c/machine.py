@@ -161,6 +161,32 @@ class ACall(I):
 
 # I think we'll need a "stream" datatype
 
+## These are "built-in" primitive instructions
+
+
+class Eq(I):
+    """Check whether the top two items on the stack are equal"""
+
+
+class Atomp(I):
+    """Check whether something is an atom"""
+
+
+class Cons(I):
+    """Cons two elements together"""
+
+
+class First(I):
+    """CAR (first element) of a list"""
+
+
+class Rest(I):
+    """CDR (all elements after first) of a list"""
+
+
+class Nullp(I):
+    """Check whether the top item on the stack is NIL"""
+
 
 ################################################################################
 ## The Machine
@@ -400,17 +426,17 @@ class C9Machine:
     ## "builtins":
 
     @evali.register
-    def _(self, i: l.Atomp):
+    def _(self, i: Atomp):
         val = self.state.ds_pop()
         self.state.ds_push(not isinstance(val, list))
 
     @evali.register
-    def _(self, i: l.Nullp):
+    def _(self, i: Nullp):
         val = self.state.ds_pop()
         self.state.ds_push(len(val) == 0)
 
     @evali.register
-    def _(self, i: l.Cons):
+    def _(self, i: Cons):
         a = self.state.ds_pop()
         b = self.state.ds_pop()
         if isinstance(a, list):
@@ -420,17 +446,17 @@ class C9Machine:
             self.state.ds_push([a, b])
 
     @evali.register
-    def _(self, i: l.Car):
+    def _(self, i: First):
         lst = self.state.ds_pop()
         self.state.ds_push(lst[0])
 
     @evali.register
-    def _(self, i: l.Cdr):
+    def _(self, i: Rest):
         lst = self.state.ds_pop()
         self.state.ds_push(lst[1:])
 
     @evali.register
-    def _(self, i: l.Eq):
+    def _(self, i: Eq):
         a = self.state.ds_pop()
         b = self.state.ds_pop()
         self.state.ds_push(a == b)

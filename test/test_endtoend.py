@@ -32,6 +32,7 @@ logging.basicConfig(level=logging.INFO)
 
 def run_ddb_lambda_test(exe_name, searchpath, input_val, **kwargs):
     executor = awslambda.LambdaRunner("c9run")
+    # This will make us a new session :)
     return ddb.run(
         executor,
         exe_name,
@@ -83,41 +84,22 @@ def check_result(runtime, main, input_val, expected_result, exe_name, verbose=Tr
     assert controller.result == expected_result
 
 
-@pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
-def test_all_calls(runtime):
-    """Test all kinds of call - normal, foreign, and async"""
-    main = handlers.all_calls.main
-    check_result(runtime, main, 5, 5, "all_calls")
-
-
 ####################
 
+HANDLERS = [
+    ("all_calls", handlers.all_calls.main, 5, 5),
+    ("conses", handlers.conses.main, 2, [1, 2, 3, 4]),
+    ("mapping", handlers.mapping.main, [1, 2], [5, 7]),
+    ("call_foreign", handlers.call_foreign.main, 5, [4, 4]),
+    ("series_concurrent", handlers.series_concurrent.main, 5, 5960),
+]
 
+
+@pytest.mark.parametrize("handler", HANDLERS, ids=[h[0] for h in HANDLERS])
 @pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
-def test_mapping(runtime):
-    """Test that mapping works in the presence of random delays"""
-    main = handlers.mapping.main
-    check_result(runtime, main, [1, 2], [5, 7], "mapping")
-
-
-####################
-
-
-@pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
-def test_call_foreign(runtime):
-    """More foreign call tests"""
-    main = handlers.call_foreign.main
-    check_result(runtime, main, 5, [4, 4], "call_foreign")
-
-
-####################
-
-# Test more:
-# env PYTHONPATH=src pytest -vv -x --count 5 test/test_endtoend.py
-@pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
-def test_series_concurrent(runtime):
-    """Designed to stress the concurrency model a bit more"""
-    main = handlers.series_concurrent.main
-    input_val = 5
-    expected_result = 5960  # = 6000 - 40
-    check_result(runtime, main, input_val, expected_result, "series_concurrent")
+def test_all_calls(handler, runtime):
+    name = handler[0]
+    main = handler[1]
+    input_val = handler[2]
+    expected_result = handler[3]
+    check_result(runtime, main, input_val, expected_result, name)

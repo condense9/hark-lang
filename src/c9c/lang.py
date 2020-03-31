@@ -104,10 +104,19 @@ class Func(Quote):
 
     blocking = True
 
-    def __init__(self, fn):
+    def __init__(self, fn, num_args=None):
         self.label = "F_" + fn.__name__
         sig = inspect.signature(fn)
-        self.num_args = len(sig.parameters)
+        if num_args:
+            self.num_args = num_args
+        else:
+            self.num_args = len(sig.parameters)
+            for param in sig.parameters.values():
+                if param.kind == param.VAR_POSITIONAL:
+                    # Because the compiler needs to know the number of arguments to
+                    # b_reduce. To be variadic the machine would need a bit of
+                    # runtime logic.
+                    raise Exception("Can't handle varargs (yet)")
         self.fn = fn
         self.constraints = None  # Unused for now.
 
@@ -134,14 +143,8 @@ class Func(Quote):
         return f"<Func {self.label}>"
 
 
-class AsyncFunc(Func):
-    blocking = False
-
-
 class Foreign(Func):
     """Represents a foreign (native Python) function"""
-
-    blocking = False
 
     def __init__(self, fn):
         super().__init__(fn)
@@ -151,6 +154,14 @@ class Foreign(Func):
 
     def _wrapper(self, *args):
         return ForeignCall(self._foreign, *args)
+
+
+class AsyncFunc(Func):
+    blocking = False
+
+
+class AsyncForeign(Foreign):
+    blocking = False
 
 
 class Handler(Func):
@@ -233,68 +244,11 @@ class ForeignCall(Node):
         self.args = self.operands
 
 
-class Builtin(Node):
-    """BuiltIn nodes are machine instructions that can be called directly"""
-
-    def __repr__(self):
-        return "$" + type(self).__name__.upper()
-
-
 class Do(Node):
     """Do multiple things (PROGN)"""
 
 
-## Builtins
-# The __init__ forms are declared just for arity-checking.
-
-
-class Eq(Builtin):
-    """Check whether the top two items on the stack are equal"""
-
-    def __init__(self, a, b):
-        super().__init__(a, b)
-
-
-class Atomp(Builtin):
-    """Check whether something is an atom"""
-
-    def __init__(self, a):
-        super().__init__(a)
-
-
-class Cons(Builtin):
-    """Cons two elements together"""
-
-    def __init__(self, a, b):
-        super().__init__(a, b)
-
-
-class First(Builtin):
-    """CAR (first element) of a list"""
-
-    def __init__(self, a):
-        super().__init__(a)
-
-
-class Rest(Builtin):
-    """CDR (all elements after first) of a list"""
-
-    def __init__(self, a):
-        super().__init__(a)
-
-
-class Nullp(Builtin):
-    """Check whether the top item on the stack is NIL"""
-
-    def __init__(self, a):
-        super().__init__(a)
-
-
 ################################################################################
-
-
-# Func could be made variadic by assigning self.num_args during __call__ and
-# wrapping self.fn with a new function that takes a specific number of values.
 
 
 # A "Type" is a function. So a string name (address) and a body. Some Types are
@@ -312,36 +266,3 @@ class Nullp(Builtin):
 #
 # No. That's reimplementing what already exists - abstraction through defun.
 # Cond can easily be defun'd, using the If primitive.
-
-
-### TODO These should really be in stdlib:
-
-
-@Func
-def Nth(n, lst):
-    # NOTE it's *wrong* to use an FCALL in a built-in language function... but
-    # this is MVP :)
-    return If(Eq(n, 0), First(lst), Nth(ForeignCall(lambda x: x - 1, x), Rest(lst)))
-
-
-@Func
-def Second(lst):
-    return Nth(1, lst)
-
-
-@Func
-def Third(lst):
-    return Nth(2, lst)
-
-
-@Func
-def Fourth(lst):
-    return Nth(3, lst)
-
-
-# Aliases
-Car = First
-Cdr = Rest
-Cadr = Second
-Caddr = Third
-Cadddr = Fourth

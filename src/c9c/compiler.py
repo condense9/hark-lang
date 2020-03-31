@@ -35,8 +35,11 @@ class CodeObject:
         for i in code:
             if isinstance(i, CodeObject):
                 raise Exception("Got CodeObject - did you forget `.code`?")
-            if not isinstance(i, (m.Instruction, l.Builtin)):
+            if not isinstance(i, m.Instruction):
                 raise Exception(f"Bad code {i} ({type(i)})")
+            for o in i.operands:
+                if not callable(o) and not isinstance(o, (l.Node, str, int, list)):
+                    raise Exception(f"Bad operand {o} ({type(o)})")
 
 
 @singledispatch
@@ -65,18 +68,18 @@ def _(node: l.Asm) -> CodeObject:
     return CodeObject(arg_code + node.instructions)
 
 
-@compile_node.register
-def _(node: l.Builtin) -> CodeObject:
-    """Builtin: call a machine instruction of the same name"""
-    arg_code = flatten(compile_node(arg).code for arg in node.operands)
-    return CodeObject(
-        [
-            # --
-            *arg_code,
-            node,  # This node is "primitive"! The machine must implement it
-            # --
-        ]
-    )
+# @compile_node.register
+# def _(node: l.Builtin) -> CodeObject:
+#     """Builtin: call a machine instruction of the same name"""
+#     arg_code = flatten(compile_node(arg).code for arg in node.operands)
+#     return CodeObject(
+#         [
+#             # --
+#             *arg_code,
+#             node,  # This node is "primitive"! The machine must implement it
+#             # --
+#         ]
+#     )
 
 
 @compile_node.register

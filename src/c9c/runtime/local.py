@@ -160,7 +160,7 @@ class LocalController(Controller):
 
     @property
     def machines(self):
-        return [self.top_level] + list(self._machine_future.keys())
+        return list(self._machine_future.keys())
 
     @property
     def probes(self):
@@ -194,8 +194,8 @@ def run(name, searchpath, *args, do_probe=True, sleep_interval=0.01):
         if not all(controller.get_state(m).stopped for m in controller.machines):
             raise Exception("Terminated, but not all machines stopped!")
 
-    except ThreadDied:
-        raise
+    # except ThreadDied:
+    #     raise
 
     except Exception as e:
         warnings.warn("Unexpected Exception!! Returning controller for analysis")

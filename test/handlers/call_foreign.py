@@ -21,4 +21,4 @@ def main(x):
     # SO this is illegal:
     #   return call_foreign(x)
     # ...because call_foreign returns a Cons of futures
-    return Map(wait_for, call_foreign(x))
+    return Map(Wait, call_foreign(x))
