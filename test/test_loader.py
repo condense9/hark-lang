@@ -4,7 +4,5 @@ import os.path
 
 
 def test_loader():
-    exe = load_executable(
-        "mapping", os.path.join(os.path.dirname(__file__), f"handlers/mapping.py")
-    )
+    exe = load_executable("mapping", "test/handlers")
     assert isinstance(exe, Executable)

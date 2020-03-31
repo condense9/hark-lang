@@ -50,28 +50,31 @@ Data exchange points:
 # changes necessary. Just the entrypoint / wrapper.
 """
 
-import json
+import logging
 import time
-import uuid
 import traceback
+import uuid
 import warnings
 from functools import wraps
 from typing import List, Tuple
 
 import boto3
 
-from .. import compiler
-from ..machine import C9Machine, ChainedFuture, Controller, Probe
-from ..state import State
-from . import aws_db as db
-from .aws_db import ContinuationMap, FutureMap, MachineMap
-from ..lambda_utils import get_lambda_client
+from ... import compiler
+from ...loader import load_executable
+from ...machine import C9Machine, ChainedFuture, Controller, Probe, chain_resolve
+from ...state import State
+from . import ddb_model as db
+from .ddb_model import ContinuationMap, FutureMap, MachineMap
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
 
 
 class AwsProbe(Probe):
     def __init__(self, m: MachineMap):
         self.m = m
-        self._logs = []
+        self._logs = list(m.probe_logs)  # Retrieve existing logs
         self._step = 0
 
     def log(self, msg):
@@ -80,6 +83,7 @@ class AwsProbe(Probe):
     def on_step(self, m: C9Machine):
         self._step += 1
         self.log(f"[step={self._step}, ip={m.state.ip}] {m.instruction}")
+        self._logs.append("Data: " + str(tuple(m.state._ds)))
 
     def on_stopped(self, m: C9Machine):
         self._step += 1
@@ -99,7 +103,7 @@ class AwsFuture(ChainedFuture):
         self._future_id = future_id
 
     def __repr__(self):
-        return f"<Future {self._future_id}>"
+        return f"<Future[{self._future_id}] {self.resolved} {self.value}>"
 
     @property
     def _data(self):
@@ -126,7 +130,8 @@ class AwsFuture(ChainedFuture):
     @property
     def chain(self) -> ChainedFuture:
         # All futures share the same lock (could optimise later)
-        return AwsFuture(self._session, self._data.chain, self.lock)
+        if self._data.chain:
+            return AwsFuture(self._session, self._data.chain, self.lock)
 
     @chain.setter
     def chain(self, other: ChainedFuture):
@@ -153,28 +158,30 @@ def with_self_lock(inst_method):
 
 
 class AwsController(Controller):
-    def __init__(self, executable_name, executable, session, do_probe=False):
+    def __init__(self, executor, executable_name, searchpath, session, do_probe=False):
         super().__init__()
         self.executable_name = executable_name
-        self.executable = executable
+        self.searchpath = searchpath
+        self.executable = load_executable(executable_name, searchpath)
         self._session = session
         self.lock = db.SessionLocker(session)
         self.do_probe = do_probe
         self.this_machine_is_top_level = False
-        # These can be immediate values as they're only relevant for the current
-        # context
-        self.result = None
+        self.executor = executor
 
     def finish(self, result):
-        self.result = result
+        logger.info(f"Top Level Finished - {result}")
         with self.lock:
             self._session.finished = True
             self._session.result = result
 
     @property
     def finished(self):
-        self._session.refresh()
         return self._session.finished
+
+    @property
+    def result(self):
+        return self._session.result
 
     def stop(self, m: C9Machine):
         assert m is self.this_machine
@@ -229,8 +236,10 @@ class AwsController(Controller):
     # No need to lock - chain_resolve will do it
     def set_machine_result(self, m: C9Machine, value):
         assert m is self.this_machine
-        chain_resolve(
-            self.this_machine_future, value, self.run_waiting_machine,
+        future = self.this_machine_future
+        resolved = chain_resolve(future, value, self.run_waiting_machine)
+        self.probe_log(
+            m, f"Resolved {future}" if resolved else f"Chained {future} to {value}"
         )
 
     ## After this point, only deal with MachineMap
@@ -251,28 +260,26 @@ class AwsController(Controller):
         # This is called from chain_resolve. See self.get_or_wait - the
         # continuation holds machine_id
         with self.lock:
-            self._session.machines[machine_id].state.ds_set(offset, value)
-            self._session.machines[machine_id].state.stopped = False
+            machine = self._session.machines[machine_id]
+            probe = AwsProbe(machine)
+            probe.log(f"Continuing, {offset} -> {value}")
+            machine.state.ds_set(offset, value)
+            machine.state.stopped = False
         self._run_machine_async(machine_id)
 
-    def _run_machine_async(self, m):
-        assert isinstance(m, int)
-        self.this_machine_probe.log(f"Starting new machine asynchronously - {m}")
-        client = get_lambda_client()
-        payload = dict(
-            executable_name=self.executable_name,
-            session_id=self._session.session_id,
-            machine_id=m,
+    def _run_machine_async(self, machine_id: int):
+        assert isinstance(machine_id, int)
+        self.this_machine_probe.log(
+            f"Starting new machine asynchronously - {machine_id}"
         )
-        res = client.invoke(
-            # --
-            FunctionName="c9run",
-            InvocationType="Event",
-            Payload=json.dumps(payload),
+        self.executor.run(
+            self.executor,
+            self.executable_name,
+            self.searchpath,
+            self._session.session_id,
+            machine_id,
+            self.do_probe,
         )
-        if res["StatusCode"] != 202 or "FunctionError" in res:
-            err = res["Payload"].read()
-            raise Exception(f"Invoke lambda failed {err}")
 
     def run_machine(self, m: MachineMap):
         # m must be full initialised (latest data from DB)
@@ -280,18 +287,16 @@ class AwsController(Controller):
         self.this_machine_state = m.state
         self.this_machine_probe = AwsProbe(m) if self.do_probe else Probe()
         self.this_machine_future = AwsFuture(self._session, m.future_fk, self.lock)
+        self.lock.machine_id = m.machine_id
         self.this_machine_is_top_level = m.is_top_level
         self.this_machine = C9Machine(self)
+        logger.info(f"Running machine - {m.machine_id} ({m.is_top_level})")
         self.this_machine.run()
 
     @property
     def probes(self):
         self._session.refresh()
-        return [self.this_machine_probe] + [
-            AwsProbe(m)
-            for m in self._session.machines
-            if m.machine_id != self.this_machine_id
-        ]
+        return [AwsProbe(m) for m in self._session.machines]
 
     @property
     def machine_data(self):
@@ -299,19 +304,25 @@ class AwsController(Controller):
         return self._session.machines
 
 
-def run(name, executable, *args, do_probe=True, timeout=2, sleep_interval=0.1):
+def run(
+    executor, name, searchpath, *args, do_probe=True, timeout=2, sleep_interval=0.1
+):
     session = db.new_session()
-    controller = AwsController(name, executable, session, do_probe=do_probe)
-    m = controller.new_machine(args, top_level=True)
-    start_time = time.time()
+    m = db.new_machine(session, args, top_level=True)
+    session.save()
+    controller = run_existing(
+        executor, name, searchpath, session.session_id, m.machine_id, do_probe
+    )
 
     try:
-        controller.run_machine(m)
-
+        start_time = time.time()
         while not controller.finished:
             time.sleep(sleep_interval)
             if time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for machine to finish")
+
+        if executor.exception:
+            raise Exception from executor.exception.exc_value
 
         if not all(m.state.stopped for m in controller.machine_data):
             raise Exception("Terminated, but not all machines stopped!")
@@ -323,24 +334,10 @@ def run(name, executable, *args, do_probe=True, timeout=2, sleep_interval=0.1):
     return controller
 
 
-def run_existing(name, executable, session_id, machine_id, do_probe=True):
+def run_existing(executor, name, searchpath, session_id, machine_id, do_probe):
     """Run an existing session and machine"""
-    session = Session.get(session_id)
-    controller = AwsController(name, executable, session, do_probe=do_probe)
-    m = session.get_machine(machine_id)
+    session = db.Session.get(session_id)
+    controller = AwsController(executor, name, searchpath, session, do_probe=do_probe)
+    m = db.get_machine(session, machine_id)
     controller.run_machine(m)
-
-
-# For auto-gen code:
-def get_entrypoint(handler):
-    """Return a function that will run the given handler"""
-    linked = compiler.link(compiler.compile_all(handler), entrypoint_fn=handler.label)
-
-    @wraps(handler)
-    def _f(event, context, linked=linked):
-        state = LocalState([event, context])
-        # FIXME
-        machine.run(linked, state)
-        return state.ds_pop()
-
-    return _f
+    return controller

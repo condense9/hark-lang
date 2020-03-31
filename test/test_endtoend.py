@@ -1,5 +1,6 @@
 """Test that programs run correctly - ie test both compiler and machine"""
 
+import logging
 import os.path
 import random
 import time
@@ -9,11 +10,11 @@ import pytest
 
 import c9c.lambda_utils as lambda_utils
 import c9c.machine as m
-import c9c.runtime.aws
 import c9c.runtime.local
+import c9c.runtime.ddb_threaded
 from c9c.compiler import compile_all, link
 from c9c.lang import *
-from c9c.runtime.aws_db import Session
+from c9c.runtime.controllers.ddb_model import Session
 from c9c.stdlib import Map, MapResolve, wait_for
 
 from . import handlers
@@ -25,17 +26,20 @@ SEED = random.randint(0, 100000)
 random.seed(SEED)
 print("Random seed", SEED)
 
+logging.basicConfig(level=logging.INFO)
 
 RUNTIMES = {
     # --
     "local": c9c.runtime.local,
-    "aws": c9c.runtime.aws,
+    "ddb_threaded": c9c.runtime.ddb_threaded,
+    # "ddb_lambda": c9c.runtime.ddb_threaded,
 }
 
 
 def setup_module():
-    # `make build deploy` in $ROOT/c9_lambdas/c9run first
-    assert lambda_utils.lambda_exists("c9run")
+    if not lambda_utils.lambda_exists("c9run"):
+        # `make build deploy` in $ROOT/c9_lambdas/c9run first
+        warnings.warn("c9run lambda doesn't exit")
     if Session.exists():
         Session.delete_table()
     Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
@@ -43,15 +47,17 @@ def setup_module():
 
 def check_result(runtime, main, input_val, expected_result, exe_name, verbose=True):
     """Run main with input_val, check that result is expected_result"""
-    executable = link(compile_all(main), exe_name=exe_name)
+    # executable = link(compile_all(main), exe_name=exe_name)
     try:
-        controller = runtime.run(exe_name, executable, input_val, do_probe=verbose)
+        sp = os.path.dirname(__file__) + "/" + "handlers"
+        controller = runtime.run(exe_name, sp, input_val, do_probe=verbose)
     finally:
         if verbose:
-            m.print_instructions(executable)
-            print("-- LOGS")
+            m.print_instructions(controller.executable)
+            print(f"-- LOGS ({len(controller.probes)} probes)")
             for p in controller.probes:
                 print("\n".join(p.logs))
+                print("")
             print("-- END LOGS")
     if not controller.finished:
         warnings.warn("Controller did not finish - this will fail")

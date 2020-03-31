@@ -1,11 +1,11 @@
 """DB interaction layer for AWS"""
 
 import base64
+import logging
 import os
 import pickle
 import time
 import uuid
-import logging
 from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime
 
@@ -26,7 +26,10 @@ from pynamodb.constants import BINARY, DEFAULT_ENCODING
 from pynamodb.exceptions import PutError
 from pynamodb.models import Model
 
-from ..state import State
+from ...state import State
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
 
 
 # https://pynamodb.readthedocs.io/en/latest/attributes.html#list-attributes
@@ -131,7 +134,7 @@ def new_future(session) -> FutureMap:
 
 
 def new_machine(session, args, top_level=False) -> MachineMap:
-    state = State(args)
+    state = State(*args)
     f = new_future(session)
     m = MachineMap(
         # --
@@ -177,7 +180,7 @@ class LockTimeout(Exception):
 
 
 class SessionLocker(AbstractContextManager):
-    """Lock the session for modification (reusable)
+    """Lock the session for modification (re-entrant for chain_resolve)
 
     __enter__: Refresh session, lock it
     ...
@@ -188,15 +191,29 @@ class SessionLocker(AbstractContextManager):
     def __init__(self, session, timeout=2):
         self.session = session
         self.timeout = timeout
+        self.machine_id = None
+        self.lock_count = 0
 
     def __enter__(self):
+        logger.info(f"{self} - {self.lock_count}")
+        if self.lock_count:
+            self.lock_count += 1
+            logger.debug(f"({self.machine_id}) :: Re-locking ({self.lock_count})")
+            return
+
         start = time.time()
         while not try_lock(self.session):
-            time.sleep(0.1)
+            time.sleep(0.01)
             if time.time() - start > self.timeout:
-                logging.warning("Timeout getting lock")
+                logger.debug(f"({self.machine_id}) :: Timeout getting lock")
                 raise LockTimeout
 
+        self.lock_count += 1
+        logger.debug(f"({self.machine_id}) :: Locked ({self.lock_count})")
+
     def __exit__(self, *exc):
-        self.session.locked = False
-        self.session.save()
+        self.lock_count -= 1
+        if self.lock_count == 0:
+            self.session.locked = False
+            self.session.save()
+        logger.debug(f"({self.machine_id}) :: Released ({self.lock_count})")

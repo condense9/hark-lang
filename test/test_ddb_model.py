@@ -1,7 +1,7 @@
 """Test the AWS (pynamodb) interface"""
 import pytest
 
-from c9c.runtime.aws_db import *
+from c9c.runtime.controllers.ddb_model import *
 
 
 def setup_module(module):
@@ -92,13 +92,20 @@ def test_lock_reusable():
     assert s1.num_futures == 2
 
 
-def test_lock_not_reentrant():
-    """Test that a lock can't be acquired more than once at a time"""
+def test_lock_reentrant():
+    """Test that a lock can be acquired more than once at a time"""
     s1 = new_session()
     lock = SessionLocker(s1, timeout=0.1)
+    lock2 = SessionLocker(s1, timeout=0.1)
+    assert not s1.locked
     with lock:
         s1.finished = True
-        # Only one lock at a time
+        assert lock.lock_count == 1
+        assert s1.locked
+        # The *same* lock on a session can be acquired more than once
+        with lock:
+            assert lock.lock_count == 2
+        # But a different lock on the same session cannot
         with pytest.raises(LockTimeout):
-            with lock:
+            with lock2:
                 pass

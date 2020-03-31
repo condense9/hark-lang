@@ -201,9 +201,12 @@ def chain_resolve(future: ChainedFuture, value, run_waiting_machine) -> bool:
     actually_resolved = True
 
     with future.lock:
-        if isinstance(value, ChainedFuture) and not value.resolved:
-            actually_resolved = False
-            value.chain = future
+        if isinstance(value, ChainedFuture):
+            if value.resolved:
+                value = value.value  # pull the value out of the future
+            else:
+                actually_resolved = False
+                value.chain = future
 
         if actually_resolved:
             future.resolved = True
@@ -328,7 +331,8 @@ class C9Machine:
             self.state.es_return()
         else:
             self.state.stopped = True
-            value = self.state.ds_pop()
+            value = self.state.ds_peek(0)
+            self.probe.log(f"Returning value: {value}")
             self.controller.set_machine_result(self, value)
 
             if self.controller.is_top_level(self):
@@ -350,7 +354,6 @@ class C9Machine:
         num_args = i.operands[0]
         fn_name = self.state.ds_pop()
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
-
         machine = self.controller.new_machine(args)
         future = self.controller.get_result_future(machine)
         self.probe.log(f"Fork {self} to {machine} => {future}")
@@ -374,6 +377,7 @@ class C9Machine:
         if self.controller.is_future(val):
             resolved, result = self.controller.get_or_wait(self, val, offset)
             if resolved:
+                self.probe.log(f"Resolved! {offset} -> {result}")
                 self.state.ds_set(offset, result)
             else:
                 self.state.stopped = True

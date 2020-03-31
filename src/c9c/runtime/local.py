@@ -9,7 +9,8 @@ import time
 import traceback
 import warnings
 
-from ..machine import C9Machine, Controller, Probe, ChainedFuture, chain_resolve
+from ..loader import load_executable
+from ..machine import C9Machine, ChainedFuture, Controller, Probe, chain_resolve
 from ..state import State
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
@@ -170,9 +171,10 @@ class ThreadDied(Exception):
     """A thread died"""
 
 
-def run(name, executable, *args, do_probe=True, sleep_interval=0.01):
+def run(name, searchpath, *args, do_probe=True, sleep_interval=0.01):
     LocalProbe.count = 0
 
+    executable = load_executable(name, searchpath)
     controller = LocalController(executable, do_probe=do_probe)
     m = controller.new_machine(args, top_level=True)
     controller.probe_log(m, f"Top Level {m}")
