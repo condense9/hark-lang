@@ -35,12 +35,7 @@ def check_compile_all(fn: l.Func, expected: Dict, allow_custom_validation=False)
         assert k in defs
         assert len(defs[k]) == len(expected[k])
         for i, (a, b) in enumerate(zip(defs[k], expected[k])):
-            if isinstance(a, l.Builtin):
-                # Awkward. Builtins take arguments in the source, but not in the
-                # assembly. So this is to avoid having to instantiate real
-                # builtins in EXPECTED
-                assert k and i >= 0 and type(a) == b
-            elif not isinstance(b, l.Node) and callable(b):
+            if not isinstance(b, l.Node) and callable(b):
                 if allow_custom_validation:
                     assert b(a)
                 else:

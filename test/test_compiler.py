@@ -58,18 +58,6 @@ def test_apply2():
     )
 
 
-def test_builtin():
-    node = l.Cons(l.Quote(0), l.Quote(1))
-    check_compile_node(
-        node,
-        """
-        PUSHV    0
-        PUSHV    1
-        $CONS
-        """,
-    )
-
-
 def test_simple_if():
     c = l.Quote(True)
     a = l.Quote(1)
@@ -177,35 +165,6 @@ def test_apply_map():
     listing(compiler.compile_node(node).code)
 
 
-def test_call_map():
-    check_compile_all(
-        Map,
-        {
-            "F_Map": [
-                m.Bind(0),
-                m.Bind(1),
-                m.PushB(1),
-                l.Nullp,
-                m.PushV(True),
-                m.JumpIE(11),
-                m.PushB(1),
-                l.First,
-                m.PushB(0),
-                m.Call(1),
-                m.PushB(1),
-                l.Rest,
-                m.PushB(0),
-                m.PushV("F_Map"),
-                m.Call(2),
-                l.Cons,
-                m.Jump(1),
-                m.PushV([]),
-                m.Return(),
-            ]
-        },
-    )
-
-
 @Func
 def simple_map(a):
     return Map(fcall_times2, a)
@@ -270,7 +229,7 @@ def test_foreign():
                 m.Bind(0),
                 m.PushB(0),
                 m.PushV("FF_simple_math"),
-                m.ACall(1),
+                m.Call(1),
                 m.Return()
                 # --
             ],
