@@ -61,9 +61,10 @@ from typing import List, Tuple
 import boto3
 
 from ... import compiler
-from ...loader import load_executable
+
+# from ...loader import load_executable
 from ...machine import C9Machine, ChainedFuture, Controller, Probe, chain_resolve
-from ...state import State
+from ...machine.state import State
 from . import ddb_model as db
 from .ddb_model import ContinuationMap, FutureMap, MachineMap
 

@@ -3,9 +3,9 @@
 import warnings
 from typing import Dict, List
 
-import c9c.compiler as compiler
-import c9c.lang as l
-import c9c.machine as m
+import c9.compiler as compiler
+import c9.lang as l
+import c9.machine as m
 
 
 def listing(code):

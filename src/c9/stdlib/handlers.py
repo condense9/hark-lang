@@ -1,8 +1,8 @@
 """Event handler decorators"""
 
 
-from . import lang as l
-from . import infrastructure as inf
+from .. import lang as l
+from .. import infrastructure as inf
 
 
 # This is tricky. We're building a new Foreign Node which takes some arguments

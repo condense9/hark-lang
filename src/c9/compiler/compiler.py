@@ -1,8 +1,4 @@
-"""
-
-Node -> Instruction
-
-NOTE: no variables
+"""Languge Node -> Machine Instruction
 
 | Node                             | Evaluates to (pushed on stack)
 |----------------------------------|---------------------------------------
@@ -11,14 +7,18 @@ NOTE: no variables
 | Value x                          | Value(x) (constructor)
 | Do [Node]                        | result of evaluating last node (progn)
 
+We could do with some kind of loop (compile-time function-local label/goto would
+be fairly trivial to implement).
+
 """
 
+import inspect
 from dataclasses import dataclass
 from functools import singledispatch
 from typing import List, Tuple, Dict
 
-from . import lang as l
-from . import machine as m
+from .. import lang as l
+from .. import machine as m
 from .compiler_utils import traverse_dag, flatten, pairwise
 
 
@@ -28,6 +28,8 @@ class CompileError(Exception):
 
 @dataclass
 class CodeObject:
+    """Manage a chunk of code to be passed around in the compiler"""
+
     code: list  # List[Instruction]
 
     def __init__(self, code):
@@ -38,7 +40,7 @@ class CodeObject:
             if not isinstance(i, m.Instruction):
                 raise Exception(f"Bad code {i} ({type(i)})")
             for o in i.operands:
-                if not callable(o) and not isinstance(o, (l.Node, str, int, list)):
+                if not isinstance(o, (str, int, list)):
                     raise Exception(f"Bad operand {o} ({type(o)})")
 
 
@@ -68,20 +70,6 @@ def _(node: l.Asm) -> CodeObject:
     return CodeObject(arg_code + node.instructions)
 
 
-# @compile_node.register
-# def _(node: l.Builtin) -> CodeObject:
-#     """Builtin: call a machine instruction of the same name"""
-#     arg_code = flatten(compile_node(arg).code for arg in node.operands)
-#     return CodeObject(
-#         [
-#             # --
-#             *arg_code,
-#             node,  # This node is "primitive"! The machine must implement it
-#             # --
-#         ]
-#     )
-
-
 @compile_node.register
 def _(node: l.Funcall) -> CodeObject:
     """Call a C9 Function"""
@@ -104,7 +92,11 @@ def _(node: l.ForeignCall) -> CodeObject:
             # --
             *arg_code,
             *waits,  # All arguments must be resolved first!
-            m.MFCall(node.function, num_args)
+            m.MFCall(
+                inspect.getmodule(node.function).__name__,
+                node.function.__name__,
+                num_args,
+            )
             # --
         ]
     )
@@ -165,41 +157,3 @@ def compile_function(fn: l.Func) -> List[m.Instruction]:
     ]
 
     return body
-
-
-class LinkError(Exception):
-    """Something went wrong while linking"""
-
-
-def link(defs, entrypoint_fn="F_main", num_args=1, exe_name=None) -> m.Executable:
-    """Link a bunch of definitions into a single executable"""
-    preamble_length = 1
-    defs_code = []
-    locations = {}
-
-    for name, instructions in defs.items():
-        locations[name] = len(defs_code) + preamble_length
-        defs_code += instructions
-
-    entrypoint = len(defs_code)  # *relative* jump to after defs_code
-    preamble = [m.Jump(entrypoint)]
-
-    if len(preamble) != preamble_length:
-        # Defensive coding
-        raise LinkError(f"Preamble length {len(preamble)} != {preamble_length}")
-
-    if entrypoint_fn not in defs:
-        raise LinkError(f"{entrypoint_fn} not found in defitions")
-
-    code = [
-        *preamble,
-        *defs_code,
-        # actual entrypoint:
-        m.PushV(entrypoint_fn),
-        m.Call(num_args),
-        m.Wait(0),  # Always wait for the last value to resolve
-        m.Return(),
-        # NOTE -- no Return at the end. Nothing to return to!
-    ]
-
-    return m.Executable(locations, code, name=exe_name)

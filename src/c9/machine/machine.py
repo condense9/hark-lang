@@ -20,13 +20,11 @@
 # Peripheral
 #   call method
 
-import warnings
-from collections import deque
-from dataclasses import dataclass
 from functools import singledispatchmethod
 from typing import Any, Dict, List
 
-from . import lang as l
+from .controller import Controller
+from .executable import Executable
 
 
 def traverse(o, tree_types=(list, tuple)):
@@ -61,14 +59,27 @@ class Instruction:
         self.operands = operands
 
     def __repr__(self):
-        name = type(self).__name__.upper()
-        ops = " ".join(map(str, self.operands))
-        return f"{name:8} {ops}"
+        name = type(self).__name__
+        ops = ", ".join(map(op_to_str, self.operands))
+        return f"{name:8.8} {ops}"
 
     def __eq__(self, other):
         return type(self) == type(other) and all(
             a == b for a, b in zip(self.operands, other.operands)
         )
+
+
+def op_to_str(obj):
+    if isinstance(obj, str):
+        return f'"{obj}"'
+    else:
+        return str(obj)
+
+
+def instruction_from_repr(s):
+    name = s[:8].strip()
+    ops = eval("[" + s[8:] + "]")
+    return globals()[name](*ops)
 
 
 ################################################################################
@@ -138,7 +149,7 @@ class Wait(I):
 class MFCall(I):
     """Call a *foreign* function"""
 
-    op_types = [callable, int]
+    op_types = [str, str, int]
 
 
 class Return(I):
@@ -245,17 +256,6 @@ def chain_resolve(future: ChainedFuture, value, run_waiting_machine) -> bool:
     return actually_resolved
 
 
-class Controller:
-    pass
-
-
-@dataclass
-class Executable:
-    locations: dict
-    code: list
-    name: str
-
-
 class C9Machine:
     """This is the Machine, the CPU.
 
@@ -274,6 +274,7 @@ class C9Machine:
         executable = controller.executable
         self.imem = executable.code
         self.locations = executable.locations
+        self.modules = executable.modules
         # No entrypoint argument - just set the IP in the state
 
     @property
@@ -388,8 +389,14 @@ class C9Machine:
 
     @evali.register
     def _(self, i: MFCall):
-        func = i.operands[0]
-        num_args = i.operands[1]
+        module_name = i.operands[0]
+        func_name = i.operands[1]
+        func = getattr(self.modules[module_name], func_name)
+        # Massive hack here. In the current hacky packing method, Foreign
+        # functions get called as-is.
+        if hasattr(func, "c9_original_function"):
+            func = func.c9_original_function
+        num_args = i.operands[2]
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
         # TODO convert args to python values???
         result = func(*args)
@@ -524,7 +531,7 @@ class MaxStepsReached(Exception):
 # fills in the extra logic in the implementation. This is a CISC-style approach.
 
 
-# Programming the VM with other languages
+# Programming the VM with other l.anguages
 #
 # Build a minimal "parser" - read a text file of assembly line by line. All
 # operands are numbers or strings. Then, to run it, provide an "environment"

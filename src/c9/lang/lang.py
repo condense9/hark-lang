@@ -9,9 +9,6 @@ Capabilities
 """
 import inspect
 import itertools
-from collections import deque
-from dataclasses import dataclass
-from functools import singledispatch, wraps
 from typing import List
 
 
@@ -150,10 +147,13 @@ class Foreign(Func):
         super().__init__(fn)
         self.label = "FF_" + fn.__name__
         self.fn = self._wrapper
-        self._foreign = fn
+        self.c9_original_function = fn
 
     def _wrapper(self, *args):
-        return ForeignCall(self._foreign, *args)
+        return ForeignCall(self.c9_original_function, *args)
+
+    def __repr__(self):
+        return f"<Foreign {self.label}>"
 
 
 class AsyncFunc(Func):

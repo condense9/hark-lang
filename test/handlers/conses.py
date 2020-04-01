@@ -1,5 +1,5 @@
-from c9c.lang import *
-from c9c.stdlib import *
+from c9.lang import *
+from c9.stdlib import *
 
 
 @Foreign

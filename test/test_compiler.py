@@ -1,11 +1,12 @@
 """Test that the compiler generates appropriate machine code"""
 
-import c9c.compiler as compiler
-import c9c.lang as l
-import c9c.machine as m
-from c9c.lang import Foreign, Func
-from c9c.stdlib import Map
+import c9.compiler as compiler
+import c9.lang as l
+import c9.machine as m
+from c9.lang import Foreign, Func
+from c9.stdlib import Map
 
+from . import simple_functions
 from .simple_functions import *
 from .utils import check_compile_all, check_compile_node, list_defs, listing
 
@@ -140,7 +141,7 @@ def test_compile_all():
 
 @Func
 def fcall_times2(a):
-    return l.ForeignCall(times2, a)
+    return l.ForeignCall(simple_functions.plus1, a)
 
 
 def test_fcall():
@@ -152,7 +153,7 @@ def test_fcall():
                 m.Bind(0),
                 m.PushB(0),
                 m.Wait(0),
-                m.MFCall(times2, 1),
+                m.MFCall("test.simple_functions.plus1", 1),
                 m.Return()
                 # --
             ]

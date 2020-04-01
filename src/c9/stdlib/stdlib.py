@@ -1,8 +1,8 @@
 """Standard library of utilities"""
 
-from . import lang as l
-from . import machine as m
-from .lang import Asm, AsyncFunc, Foreign, ForeignCall, Func, Funcall, If
+from .. import lang as l
+from .. import machine as m
+from ..lang import Asm, AsyncFunc, Foreign, ForeignCall, Func, Funcall, If
 
 ## This is awkward - these are builtins, but we define them as functions so that
 ## they can be used like normal functions

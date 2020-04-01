@@ -3,7 +3,7 @@
 import itertools
 from collections import deque
 
-from . import lang as l
+from .. import lang as l
 
 
 def flatten(list_of_lists: list) -> list:

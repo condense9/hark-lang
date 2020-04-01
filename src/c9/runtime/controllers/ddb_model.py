@@ -26,7 +26,7 @@ from pynamodb.constants import BINARY, DEFAULT_ENCODING
 from pynamodb.exceptions import UpdateError
 from pynamodb.models import Model
 
-from ...state import State
+from ...machine.state import State
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
