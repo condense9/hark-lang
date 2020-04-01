@@ -71,6 +71,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 
+# TODO
+#
+# - Reduce the amount of data transferred. It makes it super slow
+# - Profile this, to be sure
+# - Probe content viewer (console/web-ui)
+# - Session viewer (web-ui)
+# - Provide a function restart-on-error interface (console/web-ui??)
+#
+# Can you build custom picklers for objects? Probably. Pickling the whole state
+# object is so ugly.
+
+
 class AwsProbe(Probe):
     def __init__(self, m: MachineMap):
         self.m = m
