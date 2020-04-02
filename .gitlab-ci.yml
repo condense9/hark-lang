@@ -34,6 +34,7 @@ test:
   stage: test
   script:
     - export PYTHONPATH=$PWD/src:$PYTHONPATH
+    - export RUNNING_IN_GITLAB=yes
     - pytest -v -k "not [ddb_"
     - pytest -vv --count 10 -k "not [ddb_" test/test_endtoend.py
 

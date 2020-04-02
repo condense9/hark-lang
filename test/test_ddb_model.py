@@ -3,6 +3,11 @@ import pytest
 
 from c9.controllers.ddb_model import *
 
+pytestmark = pytest.mark.skipif(
+    "RUNNING_IN_GITLAB" not in os.environ,
+    reason="DynamoDB testing not configured in gitlab yet",
+)
+
 
 def setup_module(module):
     if Session.exists():
