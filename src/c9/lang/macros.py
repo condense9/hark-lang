@@ -1,4 +1,18 @@
-"""Macros!!!!!!111!"""
+"""Macros!!!!!!111!
+
+These are decorators to modify the result of calling a Func. They are
+compile-time AST modifiers. Pre-compiler optimisation. Happy days.
+
+Given a Func, fn, called with some args, the result will be a Node (a).
+
+Node (a) is passed to the macro tfm (transform) function.
+
+tfm must return a Node (b).
+
+Node (b) is substituted (i.e. at compile-time) into where the original Node
+would have been.
+
+"""
 
 # TODO!
 

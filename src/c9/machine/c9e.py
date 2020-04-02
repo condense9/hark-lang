@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from collections import namedtuple
 from os.path import join
-from zipfile import ZipFile
+import zipfile
 
 from . import instruction_from_repr
 from .executable import Executable
@@ -50,7 +50,7 @@ def dump_c9e(
 
         zipf = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
         try:
-            with ZipFile(zipf, "w") as z:
+            with zipfile.ZipFile(zipf, "w") as z:
                 for root, dirs, files in os.walk(d_name):
                     for f in files:
                         name = join(root, f)
@@ -64,10 +64,17 @@ def dump_c9e(
             os.unlink(zipf.name)
 
 
+class LoadError(Exception):
+    """Could not load a C9 executable file"""
+
+
 def load(exe_file: str) -> Executable:
     with tempfile.TemporaryDirectory() as d:
-        with ZipFile(exe_file, "r") as f:
-            f.extractall(d)
+        try:
+            with zipfile.ZipFile(exe_file, "r") as f:
+                f.extractall(d)
+        except zipfile.BadZipFile:
+            raise LoadError("Bad file format")
 
         with open(join(d, "top_module_name.txt"), "r") as f:
             top_module_name = f.read().strip()

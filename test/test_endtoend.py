@@ -1,6 +1,7 @@
 """Test that programs run correctly - ie test both compiler and machine"""
 
 import logging
+import os
 import random
 import time
 import warnings
@@ -29,6 +30,10 @@ random.seed(SEED)
 print("Random seed", SEED)
 
 logging.basicConfig(level=logging.INFO)
+
+pytestmark = pytest.mark.skipif(
+    "SKIP_E2E" in os.environ, reason="Found SKIP_E2E in env vars"
+)
 
 
 def run_ddb_lambda_test(exe_name, input_value, do_probe):
