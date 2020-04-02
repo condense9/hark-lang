@@ -1,1 +1,2 @@
-from .lang import *
+from .primitive import *
+from .func import *

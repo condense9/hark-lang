@@ -12,7 +12,7 @@ import yaml
 from dataclasses import dataclass as dc
 from typing import List
 
-from . import lang as l
+from .. import lang as l
 
 
 ################################################################################

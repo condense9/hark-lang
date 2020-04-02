@@ -1,12 +1,14 @@
 """Test that the machine executes instructions correctly"""
 
-# FIXME nothing in this works anymore. At least it's covered by test_endtoend.py
+import pytest
 
-from c9c.machine import *
+from c9.machine import *
 
 from .simple_functions import *
 
-# from .utils import run_dbg_local
+pytestmark = pytest.mark.skip(
+    "Machine API changing rapidly -- use test_end2end.py for now."
+)
 
 
 def make_printer(buf: Buf) -> list:

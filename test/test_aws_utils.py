@@ -6,7 +6,7 @@ from os.path import join
 
 import pytest
 
-import c9c.lambda_utils as lambda_utils
+import c9.lambda_utils as lambda_utils
 
 pytestmark = pytest.mark.skipif(
     "CI_JOB_ID" in os.environ, reason="Gitlab not supported yet"
