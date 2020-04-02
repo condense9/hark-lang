@@ -1,7 +1,7 @@
 """Test the AWS (pynamodb) interface"""
 import pytest
 
-from c9c.runtime.controllers.ddb_model import *
+from c9.controllers.ddb_model import *
 
 
 def setup_module(module):

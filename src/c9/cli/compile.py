@@ -4,8 +4,6 @@ import click
 
 from .. import py_to_c9e
 
-# from .service import Service
-
 
 @click.command()
 @click.argument("file")

@@ -1,7 +1,7 @@
 """Runtime: DynamoDB for state, Python threading for execution"""
 
-from .executors import thread
-from .controllers import ddb
+from ..executors import thread
+from ..controllers import ddb
 from ..machine import c9e
 
 

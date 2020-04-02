@@ -12,13 +12,14 @@ import pytest
 import c9.lambda_utils as lambda_utils
 import c9.machine as m
 import c9.py_to_c9e as py_to_c9e
-import c9.runtime.ddb_threaded
-import c9.runtime.local
+import c9.runtimes.ddb_lambda
+import c9.runtimes.ddb_threaded
+import c9.runtimes.local
 from c9.compiler import compile_all, link
+from c9.controllers import ddb
+from c9.controllers.ddb_model import Session
+from c9.executors import awslambda
 from c9.machine import c9e
-from c9.runtime.controllers import ddb
-from c9.runtime.controllers.ddb_model import Session
-from c9.runtime.executors import awslambda
 
 from . import handlers
 from .simple_functions import *
@@ -30,24 +31,23 @@ print("Random seed", SEED)
 logging.basicConfig(level=logging.INFO)
 
 
-def run_ddb_lambda_test(exe_name, searchpath, input_val, **kwargs):
-    executor = awslambda.LambdaRunner("c9run")
-    # This will make us a new session :)
-    return ddb.run(
-        executor,
+def run_ddb_lambda_test(exe_name, input_value, do_probe):
+    """Simple wrapper around ddb_lambda.run specifically for the test lambda"""
+    assert lambda_utils.lambda_exists("runtest")
+    return c9.runtimes.ddb_lambda.run(
+        "runtest",
         exe_name,
-        "handlers",
-        input_val,
+        input_value,
+        do_probe=do_probe,
         timeout=60,
         sleep_interval=2,
-        **kwargs,
     )
 
 
 RUNTIMES = {
     # --
-    "local": c9.runtime.local.run,
-    "ddb_threaded": c9.runtime.ddb_threaded.run,
+    "local": c9.runtimes.local.run,
+    "ddb_threaded": c9.runtimes.ddb_threaded.run,
     "ddb_lambda": run_ddb_lambda_test,
 }
 
@@ -65,9 +65,6 @@ VERBOSE = True
 
 def setup_module():
     try:
-        if not lambda_utils.lambda_exists("c9run"):
-            # `make build deploy` in $ROOT/c9_lambdas/c9run first
-            warnings.warn("c9run lambda doesn't exit")
         if Session.exists():
             Session.delete_table()
         Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
@@ -95,7 +92,7 @@ def test_all_calls(handler, runtime):
         m.print_instructions(executable)
 
     try:
-        controller = runtime(path_to_exe, input_val, do_probe=VERBOSE)
+        controller = runtime(path_to_exe, [input_val], do_probe=VERBOSE)
     finally:
         if VERBOSE:
             print(f"-- LOGS ({len(controller.probes)} probes)")

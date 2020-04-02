@@ -141,7 +141,7 @@ def generate(service, build_dir):
 
     # -- build_dir/code_dir/main.py
     with open(join(build_dir, code_dir, "main.py"), "w") as fp:
-        fp.write("import c9c.runtime.awslambda as awslambda\n\n")
+        fp.write("import c9.runtimes.awslambda as awslambda\n\n")
         for h in service.handlers:
             fp.write("\n")
             entrypoint = entrypoint_for(h)

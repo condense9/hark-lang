@@ -1,7 +1,9 @@
 """Define dumper/loader for the C9 executable file"""
 
 import importlib
+import logging
 import os
+import stat
 import pickle
 import shutil
 import tempfile
@@ -12,12 +14,18 @@ from zipfile import ZipFile
 from . import instruction_from_repr
 from .executable import Executable
 
+logger = logging.getLogger()
+
 # TODO validation of the code?? Versions..
 
 # TODO security https://www.synopsys.com/blogs/software-security/python-pickling/
 
+DEFAULT_MODE = stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH
 
-def dump_c9e(executable: Executable, dest: str, main_file, includes=[]):
+
+def dump_c9e(
+    executable: Executable, dest: str, main_file, includes=[], dest_mode=DEFAULT_MODE
+):
     code = "\n".join(map(str, executable.code))
 
     with tempfile.TemporaryDirectory() as d_name:
@@ -48,8 +56,10 @@ def dump_c9e(executable: Executable, dest: str, main_file, includes=[]):
                         name = join(root, f)
                         arcname = name[len(d_name) :]
                         z.write(name, arcname=arcname)
-                        # print(name)
+                        logger.info(f"Adding {name}")
             shutil.copy(zipf.name, dest)
+            # https://stackoverflow.com/questions/10541760/can-i-set-the-umask-for-tempfile-namedtemporaryfile-in-python
+            os.chmod(dest, dest_mode)
         finally:
             os.unlink(zipf.name)
 

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from ..machine.executable import Executable
+from .machine.executable import Executable
 
 # A service is essentially a collection of handlers
 #

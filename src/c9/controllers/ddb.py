@@ -60,11 +60,8 @@ from typing import List, Tuple
 
 import boto3
 
-from ... import compiler
-
-# from ...loader import load_executable
-from ...machine import C9Machine, ChainedFuture, Controller, Probe, chain_resolve
-from ...machine.state import State
+from ..machine import C9Machine, ChainedFuture, Controller, Probe, chain_resolve
+from ..machine.state import State
 from . import ddb_model as db
 from .ddb_model import ContinuationMap, FutureMap, MachineMap
 
@@ -315,25 +312,15 @@ def run_existing(executor, executable, session_id, machine_id, do_probe):
     return controller
 
 
-def run(
-    executor,
-    executable,
-    *args,
-    do_probe=True,
-    launch_async=True,
-    timeout=2,
-    sleep_interval=0.1,
-):
+def run(executor, executable, args, *, do_probe=True, timeout=2, sleep_interval=0.1):
     """Make a new session and run it from the top"""
     session = db.new_session()
     m = db.new_machine(session, args, top_level=True)
     session.save()
     controller = AwsController(executor, executable, session, do_probe=do_probe)
 
-    if launch_async:
-        controller.run_machine_async(m.machine_id)
-    else:
-        controller.run_machine(m.machine_id)
+    # New machine is always run async
+    controller.run_machine_async(m.machine_id)
 
     try:
         start_time = time.time()

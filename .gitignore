@@ -5,6 +5,7 @@ __pycache__
 iterm_sessions
 .dir-locals.el
 .localstack_api_key
+*.pyc
 test/handlers/*.zip
 
 build

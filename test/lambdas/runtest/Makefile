@@ -16,14 +16,13 @@ deps:  ## Dependencies
 	cd build; zip -g -r $(FUNCTION).zip lib -x "*__pycache__*"
 
 src:  ## just the C9 source
-	mkdir -p build/lib/c9
-	cp -r ../../../src/c9/lang    build/lib/c9
-	cp -r ../../../src/c9/machine build/lib/c9
-	cp -r ../../../src/c9/runtime build/lib/c9
-	make -C ../../handlers
-	cp -r ../../handlers/*.zip build
+	cp -r ../../../src/c9 build/lib
+	rm -rf build/lib/c9/compiler
+	make -C ../../handlers clean all
+	mkdir -p build/executables
+	cp -r ../../handlers/*.zip build/executables
 	cd build; zip -g -r $(FUNCTION).zip lib/c9 -x "*__pycache__*"
-	cd build; zip -g -r $(FUNCTION).zip *.zip
+	cd build; zip -g -r $(FUNCTION).zip executables
 	zip -g -r build/$(FUNCTION).zip . -x "*.DS_Store*" "*.git*" "build*" "Makefile" "requirements.txt"
 
 deploy:  ## Deploy the zip to AWS

@@ -1,1 +1,2 @@
-from .compiler.service import Service
+from .service import Service
+from .lang import *

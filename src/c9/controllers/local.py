@@ -9,7 +9,6 @@ import time
 import traceback
 import warnings
 
-# from ..loader import load_executable
 from ..machine import C9Machine, ChainedFuture, Controller, Probe, chain_resolve
 from ..machine.state import State
 from ..machine import c9e
@@ -174,13 +173,9 @@ class ThreadDied(Exception):
     """A thread died"""
 
 
-def run(path_to_exe: str, *args, **kwargs) -> LocalController:
-    """Load executable from file and run it"""
-    executable = c9e.load(path_to_exe)
-    return run_exe(executable, *args, **kwargs)
-
-
-def run_exe(executable, *args, do_probe=True, sleep_interval=0.01) -> LocalController:
+def run_exe(
+    executable, args: list, *, do_probe=True, sleep_interval=0.01
+) -> LocalController:
     LocalProbe.count = 0
 
     controller = LocalController(executable, do_probe=do_probe)

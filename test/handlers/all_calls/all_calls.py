@@ -1,4 +1,4 @@
-from c9 import *
+from c9.lang import *
 import random
 import time
 

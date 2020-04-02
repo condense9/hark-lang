@@ -1,17 +1,18 @@
 import json
 import logging
 
-from ...lambda_utils import get_lambda_client
+from ..lambda_utils import get_lambda_client
 
 logging.basicConfig(level=logging.INFO)
 
 
-class LambdaRunner:
+class LambdaExecutor:
     def __init__(self, fn_name):
         self.fn_name = fn_name
 
-    def run(self, executable, searchpath, session_id, machine_id, do_probe):
+    def run(self, executable, session_id, machine_id, do_probe):
         client = get_lambda_client()
+        logging.info("Running lambda for executable: %s", executable.name)
         payload = dict(
             lambda_name=self.fn_name,
             module_name=executable.name,
@@ -35,7 +36,7 @@ class LambdaRunner:
 def handler(run_controller, executable, event, context):
     """Handle the AWS lambda event for an existing session, returning a JSON response"""
     logging.info(f"Invoked - {event}")
-    executor = LambdaRunner(event["lambda_name"])
+    executor = LambdaExecutor(event["lambda_name"])
     controller = run_controller(
         executor,
         executable,

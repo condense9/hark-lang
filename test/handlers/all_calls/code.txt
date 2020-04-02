@@ -1,0 +1,35 @@
+Jump     30
+Bind     0
+PushB    0
+PushV    "F_level1"
+ACall    1
+Return   
+Bind     0
+PushB    0
+PushB    0
+PushV    "F_level2"
+Call     2
+Return   
+Bind     0
+Bind     1
+PushB    0
+PushV    "FF_do_sleep_sync"
+Call     1
+PushB    0
+PushV    "FF_do_sleep"
+ACall    1
+Return   
+Bind     0
+PushB    0
+Wait     0
+MFCall   "all_calls", "do_sleep", 1
+Return   
+Bind     0
+PushB    0
+Wait     0
+MFCall   "all_calls", "do_sleep_sync", 1
+Return   
+PushV    "F_main"
+Call     1
+Wait     0
+Return   
