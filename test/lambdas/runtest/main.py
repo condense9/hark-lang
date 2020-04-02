@@ -10,6 +10,9 @@ import c9.machine.c9e
 
 
 def handler(event, context):
-    executable = c9e.load()
-    getter = c9c.runtime.controllers.ddb.run_existing
-    return c9c.runtime.executors.awslambda.handler(getter, event, context)
+    # In the test, the zips are all named the same as their top level module
+    executable = c9e.load(event["module_name"] + ".zip")
+    run_method = c9c.runtime.controllers.ddb.run_existing
+    return c9c.runtime.executors.awslambda.handler(
+        run_method, executable, event, context
+    )

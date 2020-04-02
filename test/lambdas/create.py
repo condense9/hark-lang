@@ -1,7 +1,9 @@
+"""Create a lambda from the given zip file"""
+
 import os.path
 import sys
 
-import c9c.lambda_utils as utils
+import c9.lambda_utils as utils
 
 zipfile = sys.argv[1]
 assert zipfile.endswith(".zip")

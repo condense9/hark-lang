@@ -160,10 +160,9 @@ class AwsFuture(ChainedFuture):
 
 
 class AwsController(Controller):
-    def __init__(self, executor, executable_name, searchpath, session, do_probe=False):
+    def __init__(self, executor, executable, session, do_probe=False):
         super().__init__()
-        self.executable_name = executable_name
-        self.searchpath = searchpath
+        self.executable = executable
         self._session = session
         self.lock = db.SessionLocker(session)
         self.do_probe = do_probe
@@ -279,12 +278,7 @@ class AwsController(Controller):
                 f"Starting new machine asynchronously - {machine_id}"
             )
         self.executor.run(
-            self.executor,
-            self.executable_name,
-            self.searchpath,
-            self._session.session_id,
-            machine_id,
-            self.do_probe,
+            self.executable, self._session.session_id, machine_id, self.do_probe,
         )
 
     def run_machine(self, machine_id: int):
@@ -295,7 +289,6 @@ class AwsController(Controller):
         self.this_machine_future = AwsFuture(self._session, m.future_fk, self.lock)
         self.lock.machine_id = m.machine_id
         self.this_machine_is_top_level = m.is_top_level
-        self.executable = load_executable(self.executable_name, self.searchpath)
         self.this_machine = C9Machine(self)
         self.probe_log(f"Running machine - {m.machine_id} ({m.is_top_level})")
         self.this_machine.run()
@@ -314,18 +307,17 @@ class AwsController(Controller):
 ## Entrypoints
 
 
-def run_existing(executor, name, searchpath, session_id, machine_id, do_probe):
+def run_existing(executor, executable, session_id, machine_id, do_probe):
     """Run an existing session and machine"""
     session = db.Session.get(session_id)
-    controller = AwsController(executor, name, searchpath, session, do_probe=do_probe)
+    controller = AwsController(executor, executable, session, do_probe=do_probe)
     controller.run_machine(machine_id)
     return controller
 
 
 def run(
     executor,
-    name,
-    searchpath,
+    executable,
     *args,
     do_probe=True,
     launch_async=True,
@@ -336,7 +328,7 @@ def run(
     session = db.new_session()
     m = db.new_machine(session, args, top_level=True)
     session.save()
-    controller = AwsController(executor, name, searchpath, session, do_probe=do_probe)
+    controller = AwsController(executor, executable, session, do_probe=do_probe)
 
     if launch_async:
         controller.run_machine_async(m.machine_id)

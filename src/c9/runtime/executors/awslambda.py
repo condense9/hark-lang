@@ -10,15 +10,11 @@ class LambdaRunner:
     def __init__(self, fn_name):
         self.fn_name = fn_name
 
-    def run(
-        self, runner, executable_name, searchpath, session_id, machine_id, do_probe
-    ):
-        assert runner is self
+    def run(self, executable, searchpath, session_id, machine_id, do_probe):
         client = get_lambda_client()
         payload = dict(
             lambda_name=self.fn_name,
-            executable_name=executable_name,
-            searchpath=searchpath,
+            module_name=executable.name,
             session_id=session_id,
             machine_id=machine_id,
             do_probe=do_probe,
@@ -36,14 +32,13 @@ class LambdaRunner:
 
 
 # Input: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-def handler(run_controller, event, context):
+def handler(run_controller, executable, event, context):
     """Handle the AWS lambda event for an existing session, returning a JSON response"""
     logging.info(f"Invoked - {event}")
     executor = LambdaRunner(event["lambda_name"])
     controller = run_controller(
         executor,
-        event["executable_name"],
-        event["searchpath"],
+        executable,
         event["session_id"],
         event["machine_id"],
         event["do_probe"],

@@ -11,5 +11,7 @@ class ThreadExecutor:
         self.exception = args
 
     def run(self, *args):
-        t = threading.Thread(target=self.target, args=args)
+        # Awkward - we have to pass in self to the target, as the executor has
+        # to be the first argument. TODO - clean up this interface.
+        t = threading.Thread(target=self.target, args=[self, *args])
         t.run()
