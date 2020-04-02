@@ -1,20 +1,21 @@
 """Test that programs run correctly - ie test both compiler and machine"""
 
 import logging
-from os.path import join, dirname
 import random
 import time
 import warnings
+from os.path import dirname, join
 
 import pynamodb
 import pytest
 
-import c9.c9exe as c9exe
 import c9.lambda_utils as lambda_utils
 import c9.machine as m
+import c9.py_to_c9e as py_to_c9e
 import c9.runtime.ddb_threaded
 import c9.runtime.local
 from c9.compiler import compile_all, link
+from c9.machine import c9e
 from c9.runtime.controllers import ddb
 from c9.runtime.controllers.ddb_model import Session
 from c9.runtime.executors import awslambda
@@ -78,7 +79,7 @@ def setup_module():
         name = h[0]
         filename = join(dirname(__file__), "handlers", f"{name}.py")
         dest = join(dirname(__file__), f"handlers/{name}.zip")
-        c9exe.dump(filename, dest)
+        py_to_c9e.dump(filename, dest)
 
 
 @pytest.mark.parametrize("handler", HANDLERS, ids=[h[0] for h in HANDLERS])
@@ -87,11 +88,14 @@ def test_all_calls(handler, runtime):
     name = handler[0]
     input_val = handler[1]
     expected_result = handler[2]
+    path_to_exe = join(dirname(__file__), f"handlers/{name}.zip")
 
-    executable = c9exe.load(join(dirname(__file__), f"handlers/{name}.zip"))
-    m.print_instructions(executable)
+    if VERBOSE:
+        executable = c9e.load(path_to_exe)
+        m.print_instructions(executable)
+
     try:
-        controller = runtime(executable, input_val, do_probe=VERBOSE)
+        controller = runtime(path_to_exe, input_val, do_probe=VERBOSE)
     finally:
         if VERBOSE:
             print(f"-- LOGS ({len(controller.probes)} probes)")

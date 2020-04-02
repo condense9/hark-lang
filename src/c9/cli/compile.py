@@ -2,7 +2,7 @@
 
 import click
 
-from .. import c9exe
+from .. import py_to_c9e
 
 # from .service import Service
 
@@ -13,7 +13,7 @@ from .. import c9exe
 @click.option("-i", "--include", multiple=True)
 def compile(file, output, include):
     """Compile file into a C9 executable"""
-    c9exe.dump(file, output, include)
+    py_to_c9e.dump(file, output, include)
 
 
 if __name__ == "__main__":

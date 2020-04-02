@@ -1,40 +1,23 @@
-"""Executable <--> FILE"""
+"""Define dumper/loader for the C9 executable file"""
 
-import os
 import importlib
+import os
 import pickle
 import shutil
 import tempfile
 from collections import namedtuple
-from os.path import basename, dirname, join, splitext
+from os.path import join
 from zipfile import ZipFile
 
-from . import compiler
-from .machine.executable import Executable
-from .machine import instruction_from_repr
+from . import instruction_from_repr
+from .executable import Executable
+
+# TODO validation of the code?? Versions..
 
 # TODO security https://www.synopsys.com/blogs/software-security/python-pickling/
 
 
-# Executable Archive:
-# - executable.pkl
-# - src/
-
-
-# Source dir:
-# - something.py   :: def main(), import lib.foo, import other.bar
-# - other.py
-# - lib/foo.py
-
-
-def dump(main_file, dest: str, includes=[]):
-    module_name = splitext(basename(main_file))[0]
-    module_path = dirname(main_file)
-    spec = importlib.util.spec_from_file_location(module_name, main_file)
-    m = spec.loader.load_module()
-    executable = compiler.link(
-        compiler.compile_all(m.main), module_path, exe_name=module_name
-    )
+def dump_c9e(executable: Executable, dest: str, main_file, includes=[]):
     code = "\n".join(map(str, executable.code))
 
     with tempfile.TemporaryDirectory() as d_name:
@@ -45,7 +28,7 @@ def dump(main_file, dest: str, includes=[]):
         with open(join(d_name, "modules.txt"), "w") as pf:
             pf.write("\n".join(executable.modules.keys()))
         with open(join(d_name, "top_module_name.txt"), "w") as f:
-            f.write(module_name)
+            f.write(executable.name)
 
         shutil.copy(main_file, d_name)
 
@@ -100,5 +83,4 @@ def load(exe_file: str) -> Executable:
         else:
             modules[modname] = getattr(top_module, modname)
 
-    name = basename(exe_file)
-    return Executable(locations, code, modules, name)
+    return Executable(locations, code, modules, top_module_name)

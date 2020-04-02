@@ -1,8 +1,6 @@
-"""Defines the Executable class"""
+"""Define the Executable class"""
 
 from dataclasses import dataclass
-
-# TODO validation of the code?? Versions..
 
 
 @dataclass
