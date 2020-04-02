@@ -61,10 +61,10 @@ class Foreign(Func):
         super().__init__(fn)
         self.label = "FF_" + fn.__name__
         self.fn = self._wrapper
-        self.c9_original_function = fn
+        self.original_function = fn
 
     def _wrapper(self, *args):
-        return ForeignCall(self.c9_original_function, *args)
+        return ForeignCall(self.original_function, *args)
 
     def __repr__(self):
         return f"<Foreign {self.label}>"

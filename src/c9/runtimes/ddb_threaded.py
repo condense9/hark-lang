@@ -5,7 +5,6 @@ from ..controllers import ddb
 from ..machine import c9e
 
 
-def run(path_to_exe, *args, **kwargs):
-    executable = c9e.load(path_to_exe)
+def run(executable, *args, **kwargs):
     executor = thread.ThreadExecutor(ddb.run_existing)
     return ddb.run(executor, executable, *args, **kwargs)

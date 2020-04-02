@@ -2,6 +2,7 @@
 
 import sys
 import os.path
+from os.path import join, dirname
 
 sys.path.append("lib")
 
@@ -11,9 +12,11 @@ import c9.machine.c9e as c9e
 
 
 def handler(event, context):
-    # In the test, the zips are all named the same as their top level module
-    exe_path = "executables/" + event["module_name"] + ".zip"
-    assert os.path.exists(exe_path)
-    executable = c9e.load(exe_path)
     run_method = c9.controllers.ddb.run_existing
+
+    # In the test, the zips are all named the same as their top level module
+    zipfile = "executables/" + event["module_name"] + ".zip"
+
+    executable = c9e.load(zipfile, [join(dirname(__file__), "src")])
+
     return c9.executors.awslambda.handler(run_method, executable, event, context)

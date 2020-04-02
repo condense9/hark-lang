@@ -7,5 +7,4 @@ from dataclasses import dataclass
 class Executable:
     locations: dict
     code: list
-    modules: dict
     name: str

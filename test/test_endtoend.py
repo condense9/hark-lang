@@ -22,7 +22,7 @@ from c9.controllers.ddb_model import Session
 from c9.executors import awslambda
 from c9.machine import c9e
 
-from . import handlers
+from .handlers import all_calls, call_foreign, conses, mapping, series_concurrent
 from .simple_functions import *
 
 SEED = random.randint(0, 100000)
@@ -36,38 +36,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def run_ddb_lambda_test(exe_name, input_value, do_probe):
-    """Simple wrapper around ddb_lambda.run specifically for the test lambda"""
-    assert lambda_utils.lambda_exists("runtest")
-    return c9.runtimes.ddb_lambda.run(
-        "runtest",
-        exe_name,
-        input_value,
-        do_probe=do_probe,
-        timeout=60,
-        sleep_interval=2,
-    )
-
-
-RUNTIMES = {
-    # --
-    "local": c9.runtimes.local.run,
-    "ddb_threaded": c9.runtimes.ddb_threaded.run,
-    "ddb_lambda": run_ddb_lambda_test,
-}
-
-
-HANDLERS = [
-    ("all_calls", 5, 5),
-    ("conses", 2, [1, 2, 3, 4]),
-    ("mapping", [1, 2], [5, 7]),
-    ("call_foreign", 5, [4, 4]),
-    ("series_concurrent", 5, 5960),
-]
-
-VERBOSE = True
-
-
 def setup_module():
     try:
         if Session.exists():
@@ -77,27 +45,53 @@ def setup_module():
         # It's not actually essential for testing local...
         warnings.warn("Can't connect to DynamoDB table")
 
-    for h in HANDLERS:
-        name = h[0]
-        filename = join(dirname(__file__), "handlers", f"{name}.py")
-        dest = join(dirname(__file__), f"handlers/{name}.zip")
-        py_to_c9e.dump(filename, dest)
+
+def run_ddb_lambda_test(executable, input_value, do_probe):
+    """Simple wrapper around ddb_lambda.run specifically for the test lambda"""
+    assert lambda_utils.lambda_exists("runtest")
+    return c9.runtimes.ddb_lambda.run(
+        "runtest",
+        executable,
+        input_value,
+        do_probe=do_probe,
+        timeout=60,
+        sleep_interval=2,
+    )
+
+
+VERBOSE = True
+
+RUNTIMES = {
+    # --
+    "local": c9.runtimes.local.run,
+    "ddb_threaded": c9.runtimes.ddb_threaded.run,
+    "ddb_lambda": run_ddb_lambda_test,
+}
+
+# from .handlers import all_calls, call_foreign, conses, mapping, series_concurrent
+HANDLERS = [
+    ("all_calls", all_calls.main, 5, 5),
+    ("conses", conses.main, 2, [1, 2, 3, 4]),
+    ("mapping", mapping.main, [1, 2], [5, 7]),
+    ("call_foreign", call_foreign.main, 5, [4, 4]),
+    ("series_concurrent", series_concurrent.main, 5, 5960),
+]
 
 
 @pytest.mark.parametrize("handler", HANDLERS, ids=[h[0] for h in HANDLERS])
 @pytest.mark.parametrize("runtime", RUNTIMES.values(), ids=RUNTIMES.keys())
 def test_all_calls(handler, runtime):
     name = handler[0]
-    input_val = handler[1]
-    expected_result = handler[2]
-    path_to_exe = join(dirname(__file__), f"handlers/{name}.zip")
+    entrypoint = handler[1]
+    input_val = handler[2]
+    expected_result = handler[3]
+    executable = link(compile_all(entrypoint), name)
 
     if VERBOSE:
-        executable = c9e.load(path_to_exe)
         m.print_instructions(executable)
 
     try:
-        controller = runtime(path_to_exe, [input_val], do_probe=VERBOSE)
+        controller = runtime(executable, [input_val], do_probe=VERBOSE)
     finally:
         if VERBOSE:
             print(f"-- LOGS ({len(controller.probes)} probes)")

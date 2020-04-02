@@ -9,9 +9,7 @@ class LinkError(Exception):
     """Something went wrong while linking"""
 
 
-def link(
-    defs, searchpath, entrypoint_fn="F_main", num_args=1, exe_name=None
-) -> Executable:
+def link(defs, exe_name, *, entrypoint_fn="F_main", num_args=1) -> Executable:
     """Link a bunch of definitions into a single executable"""
     preamble_length = 1
     defs_code = []
@@ -42,18 +40,4 @@ def link(
         # NOTE -- no Return at the end. Nothing to return to!
     ]
 
-    modules = {
-        i.operands[0]: load_module(i.operands[0], searchpath)
-        for i in code
-        if isinstance(i, m.MFCall)
-    }
-
-    return Executable(locations, code, modules, name=exe_name)
-
-
-def load_module(name, searchpath):
-    if name == "__main__":
-        raise Exception("ugh")
-    else:
-        spec = importlib.machinery.PathFinder.find_spec(name, path=[searchpath])
-        return spec.loader.load_module()
+    return Executable(locations, code, name=exe_name)

@@ -16,8 +16,8 @@ Note: no API gateway; this is just one function.
 Very little is needed.
 
 ```python tangle:service.py
-import c9c
-from c9c.handlers import HttpHandler, Response
+import c9
+from c9.handlers import HttpHandler, Response
 ```
 
 

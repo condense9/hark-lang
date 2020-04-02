@@ -46,6 +46,7 @@ class Instruction:
     check_op_types = True
 
     def __init__(self, *operands):
+        self.name = type(self).__name__
         good_length = len(operands) == len(self.op_types)
         # this is horrible:
         good_types = all(
@@ -59,27 +60,20 @@ class Instruction:
         self.operands = operands
 
     def __repr__(self):
-        name = type(self).__name__
-        ops = ", ".join(map(op_to_str, self.operands))
-        return f"{name:8.8} {ops}"
+        ops = ", ".join(map(str, self.operands))
+        name = self.name.upper()
+        return f"{name:8} {ops}"
 
     def __eq__(self, other):
         return type(self) == type(other) and all(
             a == b for a, b in zip(self.operands, other.operands)
         )
 
-
-def op_to_str(obj):
-    if isinstance(obj, str):
-        return f'"{obj}"'
-    else:
-        return str(obj)
-
-
-def instruction_from_repr(s):
-    name = s[:8].strip()
-    ops = eval("[" + s[8:] + "]")
-    return globals()[name](*ops)
+    @classmethod
+    def from_name(cls, name, *ops):
+        """Instantiate a machine instruction with name and operands"""
+        # contract: self.name can be looked up here.
+        return globals()[name](*ops)
 
 
 ################################################################################
@@ -149,7 +143,16 @@ class Wait(I):
 class MFCall(I):
     """Call a *foreign* function"""
 
-    op_types = [str, str, int]
+    op_types = [callable, int]
+
+    def __eq__(self, other):
+        # https://stackoverflow.com/questions/36852912/is-it-possible-to-know-if-two-python-functions-are-functionally-equivalent
+        # Can't always check equality of functions! Best effort:
+        return (
+            type(self) == type(other)
+            and self.operands[0].__name__ == other.operands[0].__name__
+            and self.operands[1] == other.operands[1]
+        )
 
 
 class Return(I):
@@ -274,7 +277,6 @@ class C9Machine:
         executable = controller.executable
         self.imem = executable.code
         self.locations = executable.locations
-        self.modules = executable.modules
         # No entrypoint argument - just set the IP in the state
 
     @property
@@ -389,14 +391,8 @@ class C9Machine:
 
     @evali.register
     def _(self, i: MFCall):
-        module_name = i.operands[0]
-        func_name = i.operands[1]
-        func = getattr(self.modules[module_name], func_name)
-        # Massive hack here. In the current hacky packing method, Foreign
-        # functions get called as-is.
-        if hasattr(func, "c9_original_function"):
-            func = func.c9_original_function
-        num_args = i.operands[2]
+        func = i.operands[0]
+        num_args = i.operands[1]
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
         # TODO convert args to python values???
         result = func(*args)

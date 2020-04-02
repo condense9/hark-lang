@@ -12,7 +12,6 @@ be fairly trivial to implement).
 
 """
 
-import inspect
 from dataclasses import dataclass
 from functools import singledispatch
 from typing import List, Tuple, Dict
@@ -40,7 +39,7 @@ class CodeObject:
             if not isinstance(i, m.Instruction):
                 raise Exception(f"Bad code {i} ({type(i)})")
             for o in i.operands:
-                if not isinstance(o, (str, int, list)):
+                if not isinstance(o, (str, int, list)) and not callable(o):
                     raise Exception(f"Bad operand {o} ({type(o)})")
 
 
@@ -92,11 +91,7 @@ def _(node: l.ForeignCall) -> CodeObject:
             # --
             *arg_code,
             *waits,  # All arguments must be resolved first!
-            m.MFCall(
-                inspect.getmodule(node.function).__name__,
-                node.function.__name__,
-                num_args,
-            )
+            m.MFCall(node.function, num_args,)
             # --
         ]
     )
@@ -133,7 +128,7 @@ def _(node: l.Do) -> CodeObject:
 ## Node spec done - now compile them.
 
 
-def compile_all(fn: l.Func, target_machine=None) -> Dict[str, List[m.Instruction]]:
+def compile_all(fn: l.Func) -> Dict[str, List[m.Instruction]]:
     """Compile FN and all functions called by FN"""
     return {
         n.label: compile_function(n) for n in traverse_dag(fn) if isinstance(n, l.Func)

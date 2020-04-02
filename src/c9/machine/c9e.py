@@ -3,15 +3,16 @@
 import importlib
 import logging
 import os
+import inspect
 import stat
-import pickle
+import json
 import shutil
 import tempfile
 from collections import namedtuple
 from os.path import join
 import zipfile
 
-from . import instruction_from_repr
+from . import MFCall, Instruction
 from .executable import Executable
 
 logger = logging.getLogger()
@@ -23,30 +24,32 @@ logger = logging.getLogger()
 DEFAULT_MODE = stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH
 
 
-def dump_c9e(
-    executable: Executable, dest: str, main_file, includes=[], dest_mode=DEFAULT_MODE
-):
-    code = "\n".join(map(str, executable.code))
+# Instead of packing the python into the exe, make it the user's job to
+# distribute the source alongside the exe. Of course I would just make a packer
+# for that (Service packer).
+#
+# Inputs:
+# - executables (handlers)
+# - source code files []
 
+# This module should just handle Executable to/from disk. Nothing more.
+
+
+def dump(executable: Executable, dest: str, dest_mode=DEFAULT_MODE):
+    """Save Executable to disk"""
     with tempfile.TemporaryDirectory() as d_name:
-        with open(join(d_name, "code.txt"), "w") as pf:
-            pf.write(code)
-        with open(join(d_name, "locations.pkl"), "wb") as pf:
-            pickle.dump(executable.locations, pf, fix_imports=False)
-        with open(join(d_name, "modules.txt"), "w") as pf:
-            pf.write("\n".join(executable.modules.keys()))
+        with open(join(d_name, "code.json"), "w") as pf:
+            data = [
+                [i.name, i.operands]
+                if not isinstance(i, MFCall)
+                else ["MFCALL", translate_mfcall_operands(i)]
+                for i in executable.code
+            ]
+            json.dump(data, pf)
+        with open(join(d_name, "locations.json"), "w") as pf:
+            json.dump(executable.locations, pf)
         with open(join(d_name, "top_module_name.txt"), "w") as f:
             f.write(executable.name)
-
-        shutil.copy(main_file, d_name)
-
-        for i in includes:
-            if os.path.isdir(i):
-                shutil.copytree(i, d_name, follow_symlinks=False)
-            else:
-                shutil.copy(i, d_name)
-
-            shutil.copy(i, d_name)
 
         zipf = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
         try:
@@ -68,7 +71,12 @@ class LoadError(Exception):
     """Could not load a C9 executable file"""
 
 
-def load(exe_file: str) -> Executable:
+def load(exe_file: str, searchpaths: list) -> Executable:
+    """Load an executable from disk
+
+    searchpath: where to search for python modules for foreign calls
+
+    """
     with tempfile.TemporaryDirectory() as d:
         try:
             with zipfile.ZipFile(exe_file, "r") as f:
@@ -78,26 +86,47 @@ def load(exe_file: str) -> Executable:
 
         with open(join(d, "top_module_name.txt"), "r") as f:
             top_module_name = f.read().strip()
+        with open(join(d, "code.json"), "r") as cf:
+            code = json.load(cf)
+        with open(join(d, "locations.json"), "r") as pf:
+            locations = json.load(pf)
 
-        spec = importlib.util.spec_from_file_location(
-            top_module_name, join(d, f"{top_module_name}.py")
-        )
-        top_module = spec.loader.load_module()
+    instructions = []
 
-        with open(join(d, "code.txt"), "r") as cf:
-            code = [instruction_from_repr(line) for line in cf.read().split("\n")]
+    for item in code:
+        name, ops = tuple(item)
 
-        with open(join(d, "modules.txt"), "r") as mf:
-            module_names = mf.read().split("\n")
-
-        with open(join(d, "locations.pkl"), "rb") as pf:
-            locations = pickle.load(pf)
-
-    modules = {}
-    for modname in module_names:
-        if modname == top_module_name:
-            modules[modname] = top_module
+        if name == "MFCALL":
+            instr = retrieve_mfcall(ops, searchpaths)
         else:
-            modules[modname] = getattr(top_module, modname)
+            instr = Instruction.from_name(name, *ops)
 
-    return Executable(locations, code, modules, top_module_name)
+        instructions.append(instr)
+
+    return Executable(locations, instructions, top_module_name)
+
+
+def translate_mfcall_operands(instruction) -> tuple:
+    fn = instruction.operands[0]
+    num_args = instruction.operands[1]
+    return (inspect.getmodule(fn).__name__, fn.__name__, num_args)
+
+
+def retrieve_mfcall(ops, searchpaths):
+    # paired with translate_mfcall_operands
+    fn = find_function(ops[0], ops[1], searchpaths)
+    return MFCall(fn, ops[2])
+
+
+def find_function(modname, fnname, searchpaths: list):
+    """Find the specified python function """
+    # print(f"Loading {modname}.{fnname} from {searchpaths}")
+    spec = importlib.machinery.PathFinder.find_spec(modname, path=searchpaths)
+    if not spec:
+        raise Exception(f"Can't find {modname}.{fnname} in {searchpaths}")
+    m = spec.loader.load_module()
+    fn = getattr(m, fnname)
+    # Hackyyyy - Foreign
+    if hasattr(fn, "original_function"):
+        fn = fn.original_function
+    return fn
