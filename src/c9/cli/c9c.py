@@ -5,7 +5,7 @@ Usage:
   c9c [options] service <file> <attribute> [--output=<file>] [--include=<path>]...
 
 Commands:
-  handler  Generate a C9E executable file.
+  handler  Generate a C9E executable file for the handler.
   service  Generate a deployable service object.
 
 Arguments:
@@ -61,10 +61,11 @@ Generate a foo.zip for SERVICE, also packaging "fileb.py" and "dir".
 import os.path
 
 from docopt import docopt
-from schema import Schema, And, Or, Use, SchemaError
+from schema import And, Or, Schema, SchemaError, Use
 
 from .. import packer
 from ..constants import C9_VERSION
+from ..machine import c9e
 
 
 def dir_exists(x):
@@ -76,10 +77,10 @@ def file_does_not_exist(x):
 
 
 def main(args):
-    ext = ".c9e" if args["handler"] else ".zip"
+    ext = c9e.FILE_EXT if args["handler"] else "zip"
 
     if not args["--output"]:
-        args["--output"] = args["<attribute>"].lower() + ext
+        args["--output"] = args["<attribute>"].lower() + "." + ext
 
     args["output_dir"] = os.path.dirname(args["--output"])
 

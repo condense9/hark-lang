@@ -25,7 +25,7 @@ def test_dump_and_load(args):
     handler = args[1]
     moddir = join(dirname(__file__), "handlers")
 
-    zipfile = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    zipfile = tempfile.NamedTemporaryFile(suffix="." + c9e.FILE_EXT, delete=False)
     logging.info(f"Created {zipfile} in test (will clean up afterwards)")
 
     original_exe = link(compile_all(handler), name)
