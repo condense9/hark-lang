@@ -21,7 +21,7 @@ class LocalProbe(Probe):
 
     count = 0
 
-    def __init__(self, *, max_steps=300):
+    def __init__(self, *, max_steps=500):
         self._max_steps = max_steps
         self._step = 0
         LocalProbe.count += 1
@@ -187,7 +187,7 @@ def run_exe(
 
             for probe in controller.probes:
                 if isinstance(probe, LocalProbe) and probe.early_stop:
-                    raise Exception(f"{m} early stop")
+                    raise Exception(f"{m} forcibly stopped by probe (too many steps)")
 
             if controller.exception:
                 raise ThreadDied from controller.exception.exc_value

@@ -11,7 +11,7 @@ def random_sleep(max_ms=10):
 @Foreign
 def random_sleep_math(x):
     random_sleep()
-    return (2 * x) + 3
+    return (2 * int(x)) + 3
 
 
 @Func

@@ -123,7 +123,7 @@ def find_function(modname, fnname, searchpaths: list):
     # print(f"Loading {modname}.{fnname} from {searchpaths}")
     spec = importlib.machinery.PathFinder.find_spec(modname, path=searchpaths)
     if not spec:
-        raise Exception(f"Can't find {modname}.{fnname} in {searchpaths}")
+        raise LoadError(f"Can't find {modname}.{fnname} in {searchpaths}")
     m = spec.loader.load_module()
     fn = getattr(m, fnname)
     # Hackyyyy - Foreign
