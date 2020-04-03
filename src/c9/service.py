@@ -20,6 +20,8 @@ from .machine.executable import Executable
 @dataclass
 class Service:
     name: str
-    entrypoint: str
     handlers: List[Executable]
-    export_methods: List[Executable]
+    # outputs: TODO
+    # FIXME needed?
+    # export_methods: List[Executable]
+    # entrypoint: str

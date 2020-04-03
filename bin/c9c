@@ -8,4 +8,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 PYTHONPATH=$(realpath "$DIR/../src")
 export PYTHONPATH
 
-python3 -m c9.cli.compile $@
+python3 -m c9.cli.c9c $@

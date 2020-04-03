@@ -12,7 +12,6 @@ import pytest
 
 import c9.lambda_utils as lambda_utils
 import c9.machine as m
-import c9.py_to_c9e as py_to_c9e
 import c9.runtimes.ddb_lambda
 import c9.runtimes.ddb_threaded
 import c9.runtimes.local

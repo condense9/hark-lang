@@ -15,6 +15,10 @@ click = "*"
 pyyaml = "*"
 boto3 = "*"
 pynamodb = "*"
+colorama = "*"
+pyfiglet = "*"
+schema = "*"
+docopt = "*"
 
 [requires]
 python_version = "3.8"

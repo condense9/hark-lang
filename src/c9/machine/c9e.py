@@ -23,6 +23,8 @@ logger = logging.getLogger()
 
 DEFAULT_MODE = stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH
 
+FILE_EXT = "c9e"
+
 
 # Instead of packing the python into the exe, make it the user's job to
 # distribute the source alongside the exe. Of course I would just make a packer
@@ -33,6 +35,17 @@ DEFAULT_MODE = stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH
 # - source code files []
 
 # This module should just handle Executable to/from disk. Nothing more.
+
+
+def zip_from_dir(path, zipf: str):
+    """Zip all contents of PATH into ZIPF"""
+    with zipfile.ZipFile(zipf, "w") as z:
+        for root, dirs, files in os.walk(path):
+            for f in files:
+                name = join(root, f)
+                arcname = name[len(path) :]
+                z.write(name, arcname=arcname)
+                logger.info(f"Zipped {name} -> {arcname}")
 
 
 def dump(executable: Executable, dest: str, dest_mode=DEFAULT_MODE):
@@ -51,20 +64,7 @@ def dump(executable: Executable, dest: str, dest_mode=DEFAULT_MODE):
         with open(join(d_name, "top_module_name.txt"), "w") as f:
             f.write(executable.name)
 
-        zipf = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
-        try:
-            with zipfile.ZipFile(zipf, "w") as z:
-                for root, dirs, files in os.walk(d_name):
-                    for f in files:
-                        name = join(root, f)
-                        arcname = name[len(d_name) :]
-                        z.write(name, arcname=arcname)
-                        logger.info(f"Adding {name}")
-            shutil.copy(zipf.name, dest)
-            # https://stackoverflow.com/questions/10541760/can-i-set-the-umask-for-tempfile-namedtemporaryfile-in-python
-            os.chmod(dest, dest_mode)
-        finally:
-            os.unlink(zipf.name)
+        zip_from_dir(d_name, dest)
 
 
 class LoadError(Exception):

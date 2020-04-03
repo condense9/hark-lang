@@ -130,6 +130,9 @@ def _(node: l.Do) -> CodeObject:
 
 def compile_all(fn: l.Func) -> Dict[str, List[m.Instruction]]:
     """Compile FN and all functions called by FN"""
+    if not isinstance(fn, l.Func):
+        raise TypeError(f"Not a Func: {fn}. ({l.Func} != {type(fn)})")
+
     return {
         n.label: compile_function(n) for n in traverse_dag(fn) if isinstance(n, l.Func)
     }

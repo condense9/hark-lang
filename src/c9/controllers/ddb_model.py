@@ -28,7 +28,6 @@ from pynamodb.models import Model
 
 from ..machine.state import State
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 

@@ -1,7 +1,6 @@
 """Link a bunch of functions together into an executable"""
 
 from .. import machine as m
-import importlib
 from ..machine.executable import Executable
 
 
@@ -27,7 +26,7 @@ def link(defs, exe_name, *, entrypoint_fn="F_main", num_args=1) -> Executable:
         raise LinkError(f"Preamble length {len(preamble)} != {preamble_length}")
 
     if entrypoint_fn not in defs:
-        raise LinkError(f"{entrypoint_fn} not found in defitions")
+        raise LinkError(f"{entrypoint_fn} not found in definitions: {defs.keys()}")
 
     code = [
         *preamble,

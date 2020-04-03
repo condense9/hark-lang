@@ -65,9 +65,13 @@ def create_lambda(lambda_dir, lib_dir=None):
     lambda_from_zip(function_name, lambda_zip_path(function_name))
 
 
-def lambda_from_zip(function_name, zipfile, handler="main.handler", timeout=3):
+def lambda_from_zip(
+    function_name, zipfile, handler="main.handler", env=None, timeout=3
+):
     with open(zipfile, "rb") as f:
         zipped_code = f.read()
+    if not env:
+        env = {}
     lambda_client = get_lambda_client()
     lambda_client.create_function(
         FunctionName=function_name,
@@ -76,6 +80,7 @@ def lambda_from_zip(function_name, zipfile, handler="main.handler", timeout=3):
         Handler=handler,
         Code=dict(ZipFile=zipped_code),
         Timeout=timeout,
+        Environment=dict(Variables=env),
     )
 
 

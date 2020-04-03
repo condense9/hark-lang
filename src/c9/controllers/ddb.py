@@ -65,7 +65,6 @@ from ..machine.state import State
 from . import ddb_model as db
 from .ddb_model import ContinuationMap, FutureMap, MachineMap
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 

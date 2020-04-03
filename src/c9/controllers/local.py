@@ -1,7 +1,6 @@
 """Local Implementation"""
 
 import concurrent.futures
-import copy
 import logging
 import sys
 import threading
@@ -15,7 +14,6 @@ from ..machine import c9e
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
 LOGGER = logging.getLogger()
-logging.basicConfig()
 
 
 class LocalProbe(Probe):

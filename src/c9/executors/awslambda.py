@@ -1,9 +1,10 @@
 import json
 import logging
+from os.path import join
 
+from .. import packer
 from ..lambda_utils import get_lambda_client
-
-logging.basicConfig(level=logging.INFO)
+from ..machine import c9e
 
 
 class LambdaExecutor:
@@ -15,7 +16,7 @@ class LambdaExecutor:
         logging.info("Running lambda for executable: %s", executable.name)
         payload = dict(
             lambda_name=self.fn_name,
-            module_name=executable.name,
+            executable_name=executable.name,
             session_id=session_id,
             machine_id=machine_id,
             do_probe=do_probe,
@@ -33,9 +34,15 @@ class LambdaExecutor:
 
 
 # Input: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-def handler(run_controller, executable, event, context):
+def handler(run_controller, event, context):
     """Handle the AWS lambda event for an existing session, returning a JSON response"""
     logging.info(f"Invoked - {event}")
+
+    exe_path = packer.EXE_PATH
+    src_path = packer.SRC_PATH
+    zipfile = join(exe_path, event["executable_name"] + ".c9e")
+    executable = c9e.load(zipfile, [src_path])
+
     executor = LambdaExecutor(event["lambda_name"])
     controller = run_controller(
         executor,

@@ -47,6 +47,7 @@ class Func(Quote):
             )
         return self.fn(*values)
 
+    @property
     def __name__(self):
         return self.fn.__name__
 

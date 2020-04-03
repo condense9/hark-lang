@@ -5,9 +5,7 @@ import sys
 
 import c9.lambda_utils as utils
 
-zipfile = sys.argv[1]
-assert zipfile.endswith(".zip")
-name = os.path.splitext(os.path.basename(zipfile))[0]
+name = "runtest"
 
 client = utils.get_lambda_client()
 try:
@@ -17,7 +15,13 @@ except client.exceptions.ResourceNotFoundException:
 
 # Increase the timeout a bit - some of our tests have long-ish sleeps to
 # simulate long-running tasks
-utils.lambda_from_zip(name, zipfile, timeout=15)
+utils.lambda_from_zip(
+    name,
+    "build/runtest.zip",
+    handler="src.runtest.handler",
+    env=dict(PYTHONPATH="src/lib"),
+    timeout=15,
+)
 print("OK")
 
 # To check it exists:
