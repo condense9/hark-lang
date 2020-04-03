@@ -111,7 +111,7 @@ def main(args):
         include = args["--include"]
         if args["--split-handlers"]:
             raise NotImplementedError("Split handlers not implemented yet!")
-        packer.pack_service_lambda(
+        packer.pack_deployment(
             main_file, attribute, output, include, args["--include-all"]
         )
     else:

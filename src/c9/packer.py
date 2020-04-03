@@ -54,10 +54,14 @@ def file_module(fname):
     return fname.split(".py")[0].replace("/", ".")
 
 
-def pack_service_lambda(
-    service_file: str, attr: str, dest: str, include, include_service_file_dir
+def pack_deployment(
+    service_file: str,
+    attr: str,
+    dest: str,
+    include: list,
+    include_service_file_dir: bool,
 ):
-    """Pack a service for deployment to lambda"""
+    """Pack a service for deployment """
     # a service file must be part of a module
     m = _import_module(file_module(service_file))
     service = getattr(m, attr)
@@ -65,34 +69,44 @@ def pack_service_lambda(
     if not isinstance(service, Service):
         raise PackerError(f"Not a Service: '{attr}' in {service_file}")
 
-    # Create the lambda content
-    with tempfile.TemporaryDirectory() as d_name:
+    with tempfile.TemporaryDirectory() as build_d:
 
-        # --> /EXE_PATH/...
-        os.makedirs(join(d_name, EXE_PATH))
-        for name, handler in service.handlers:
-            executable = compiler.link(compiler.compile_all(handler), name)
-            exe_dest = join(d_name, EXE_PATH, name + "." + c9e.FILE_EXT)
-            c9e.dump(executable, exe_dest)
+        pack_lambda_deployment(
+            build_d, service, service_file, include, include_service_file_dir
+        )
 
-        # --> /src/service_file.py
-        if include_service_file_dir:
-            copytree(dirname(service_file), join(d_name, SRC_PATH))
-        else:
-            os.makedirs(join(d_name, SRC_PATH))
-            copy(service_file, join(d_name, SRC_PATH, basename(service_file)))
-
-        # --> /src/...
-        for i in include:
-            if os.path.isfile(i):
-                copy(i, join(d_name, SRC_PATH, basename(i)))
-            else:
-                copytree(i, join(d_name, SRC_PATH, basename(normpath(i))))
-
-        # TODO include "libs" somehow... But probably duplicating lambda-packer.
-        # --> /src/c9
-        # if "c9" not in include:
-        #     copytree(dirname(__file__), join(d_name, "src", "c9"))
+        # pack_infra() TODO
 
         # zip_from_dir should probably be moved to a shared utils module:
-        c9e.zip_from_dir(d_name, dest)
+        c9e.zip_from_dir(build_d, dest)
+
+
+def pack_lambda_deployment(
+    build_d: str,
+    service: Service,
+    service_file: str,
+    include: list,
+    include_service_file_dir: bool,
+):
+    """Build the lambda source component of the deploy object"""
+
+    # --> /EXE_PATH/...
+    os.makedirs(join(build_d, EXE_PATH))
+    for name, handler in service.handlers:
+        executable = compiler.link(compiler.compile_all(handler), name)
+        exe_dest = join(build_d, EXE_PATH, name + "." + c9e.FILE_EXT)
+        c9e.dump(executable, exe_dest)
+
+    # --> /src/service_file.py
+    if include_service_file_dir:
+        copytree(dirname(service_file), join(build_d, SRC_PATH))
+    else:
+        os.makedirs(join(build_d, SRC_PATH))
+        copy(service_file, join(build_d, SRC_PATH, basename(service_file)))
+
+    # --> /src/...
+    for i in include:
+        if os.path.isfile(i):
+            copy(i, join(build_d, SRC_PATH, basename(i)))
+        else:
+            copytree(i, join(build_d, SRC_PATH, basename(normpath(i))))
