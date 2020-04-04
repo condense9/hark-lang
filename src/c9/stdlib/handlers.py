@@ -2,7 +2,8 @@
 
 
 from .. import lang as l
-from .. import infrastructure as inf
+from ..lang import infrastructure as inf
+from ..lang.func import FuncModifier
 
 
 # This is tricky. We're building a new Foreign Node which takes some arguments
@@ -33,15 +34,20 @@ def Response(
     return _node(status, body, headers, multi_value_headers)
 
 
-class HttpHandler:
-    def __init__(self, method, path):
+class HttpEndpoint(FuncModifier):
+    """Add an HttpEndpoint infrastructure resource to func"""
+
+    def __init__(self, method: str, path: str):
         self.method = method
         self.path = path
 
-    def __call__(self, fn):
-        # TODO check at compile-time that the wrapped function takes (event,
-        # context) ??
-        # TODO handle wrapping another Handler (append infrastructure)
-        name = fn.__qualname__.replace(".", "__")
-        endpoint = inf.HttpEndpoint(name, self.method, self.path)
-        return l.Handler(fn, [endpoint])
+    def modify(self, fn: l.Func):
+        name = self.method + "_" + self.path.replace("/", "_")
+        fn.infrastructure.extend(
+            [
+                # The Endpoint handler is the Function name!
+                inf.HttpEndpoint(name, self.method, self.path, name),
+                inf.Function(name),
+            ]
+        )
+        return fn

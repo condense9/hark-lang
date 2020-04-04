@@ -17,7 +17,7 @@ class SynthState:
     def gen_iac(self, path):
         """Write the IAC to files in path"""
         for generator in self.iac:
-            with open(join(path, generator.filename), "w") as f:
+            with open(join(path, generator.filename), "a") as f:
                 f.write(generator.generate())
                 f.write("\n")
 

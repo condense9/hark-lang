@@ -10,6 +10,9 @@ class LinkError(Exception):
 
 def link(defs, exe_name, *, entrypoint_fn="F_main", num_args=1) -> Executable:
     """Link a bunch of definitions into a single executable"""
+    if not isinstance(entrypoint_fn, str):
+        raise ValueError(entrypoint_fn)
+
     preamble_length = 1
     defs_code = []
     locations = {}

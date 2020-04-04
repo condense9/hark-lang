@@ -154,7 +154,9 @@ def make_api(state, endpoints: List[ServerlessComponent]) -> ServerlessComponent
     for e in endpoints:
         if e.handler not in existing_functions:
             # the "functions" synth must come before api
-            raise SynthesisException(f"Can't find handler {e.handler} in IAC")
+            raise SynthesisException(
+                f"Can't find handler {e.handler} in IAC: {state.iac}"
+            )
 
     api_endpoints = [
         dict(path=e.path, method=e.method, function=f"${{{e.handler}}}")

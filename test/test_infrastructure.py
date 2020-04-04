@@ -2,7 +2,7 @@ import pytest
 
 from c9 import compiler
 from c9.lang import *
-from c9.lang.handlers import HttpEndpoint
+from c9.stdlib.handlers import HttpEndpoint
 
 
 @HttpEndpoint("GET", "/foo")

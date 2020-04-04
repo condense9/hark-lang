@@ -89,6 +89,4 @@ class FuncModifier:
 
     def __call__(self, fn):
         func = Func(fn)
-        infrastructure = self.modify(fn)
-        func.infrastructure.append(infrastructure)
-        return func
+        return self.modify(func)

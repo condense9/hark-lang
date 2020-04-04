@@ -71,10 +71,12 @@ def pack_deployment(
         raise PackerError(f"Not a Service: '{attr}' in {service_file}")
 
     with tempfile.TemporaryDirectory() as build_d:
-
-        lambda_dirname = "lambda_code"
-        pack_lambda_deployment(join(build_d, lambda_dirname), service, service_file)
-        pack_iac(build_d, lambda_dirname, service)
+        try:
+            lambda_dirname = "lambda_code"
+            pack_lambda_deployment(join(build_d, lambda_dirname), service, service_file)
+            pack_iac(build_d, lambda_dirname, service)
+        except Exception as e:
+            raise PackerError from e
 
         # zip_from_dir should probably be moved to a shared utils module:
         c9e.zip_from_dir(build_d, dest)
@@ -100,7 +102,9 @@ def pack_lambda_deployment(build_d: str, service: Service, service_file):
     # --> C9 Executables
     os.makedirs(join(build_d, EXE_PATH))
     for name, handler in service.handlers:
-        executable = compiler.link(compiler.compile_all(handler), name)
+        executable = compiler.link(
+            compiler.compile_all(handler), name, entrypoint_fn=handler.label
+        )
         exe_dest = join(build_d, EXE_PATH, name + "." + c9e.FILE_EXT)
         c9e.dump(executable, exe_dest)
 
