@@ -1,3 +1,6 @@
+import glob
+from os.path import dirname
+
 import c9.controllers.ddb
 import c9.executors.awslambda
 import c9.machine.c9e
@@ -20,5 +23,6 @@ SERVICE = Service(
         ("series_concurrent", series_concurrent.main),
         ("conses", conses.main),
     ],
+    include=["lib", *glob.glob(dirname(__file__) + "/*.py")]
     # outputs=[index_foo.endpoint_url],
 )

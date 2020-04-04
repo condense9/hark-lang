@@ -52,3 +52,6 @@ def Foreign(node: Funcall):
 @Foreign
 def foo(x):
     return x + 1
+
+
+## Func Modifiers

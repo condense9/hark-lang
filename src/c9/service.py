@@ -1,9 +1,12 @@
 """Describe a complete service"""
 
 from dataclasses import dataclass
-from typing import List
+from pathlib import Path
+from typing import List, Tuple
 
-from .machine.executable import Executable
+from .lang import Func
+
+from .synthesiser import slcomponents as slc
 
 # A service is essentially a collection of handlers
 #
@@ -17,11 +20,23 @@ from .machine.executable import Executable
 # are available with a special method... TBD. Basically remote state.
 
 
-@dataclass
+DEFAULT_PIPELINE = [slc.functions, slc.buckets, slc.dynamodbs, slc.api, slc.finalise]
+
+
 class Service:
-    name: str
-    handlers: List[Executable]
-    # outputs: TODO
-    # FIXME needed?
-    # export_methods: List[Executable]
-    # entrypoint: str
+    def __init__(
+        self,
+        name: str,
+        handlers: List[Tuple[str, Func]],
+        include=List[Path],
+        pipeline: list = None,
+    ):
+        # outputs: TODO
+        # export_methods: List[Func] TODO
+        self.name = name
+        self.handlers = handlers
+        self.pipeline = pipeline if pipeline else DEFAULT_PIPELINE
+        self.include = include
+
+
+# TODO - if a Quote thing implements to_json, it can be returned from a lambda

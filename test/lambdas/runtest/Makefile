@@ -21,7 +21,7 @@ src:  ## just the test source
 	cp runtest.py build
 
 	rm -f build/runtest.zip
-	$(C9C) service build/runtest.py SERVICE -o build/runtest.zip --include-all
+	$(C9C) service build/runtest.py SERVICE -o build/runtest.zip
 
 
 deploy:  ## Deploy the zip to AWS

@@ -19,7 +19,7 @@ def pairwise(iterable):
 
 
 def traverse_dag(fn: l.Func):
-    """Yield every node in the DAG, starting from FN"""
+    """Yield every Node and Func in the DAG, starting from FN"""
     to_visit = deque([fn])
     visited = []
 
@@ -27,6 +27,8 @@ def traverse_dag(fn: l.Func):
         this_fn = to_visit.pop()
         visited.append(this_fn)
 
+        if not isinstance(this_fn, l.Func):
+            raise Exception(f"{this_fn} is not Node (bad compile tree)")
         yield this_fn
 
         # Reduce the function with symbolic placeholders, and continue traversal
@@ -38,4 +40,6 @@ def traverse_dag(fn: l.Func):
                 if isinstance(n, l.Func):
                     to_visit.append(n)
                 else:
+                    if not isinstance(n, l.Node):
+                        raise Exception(f"{n} is not Node (bad compile tree)")
                     yield n

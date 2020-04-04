@@ -1,7 +1,7 @@
 """Decorators to make functions"""
 
 import inspect
-from .primitive import Quote, Funcall, ForeignCall
+from .primitive import Quote, Funcall, ForeignCall, Node
 
 
 class Func(Quote):
@@ -17,6 +17,7 @@ class Func(Quote):
             self.label = label
         else:
             self.label = "F_" + fn.__name__
+        super().__init__(self.label)
         sig = inspect.signature(fn)
         if num_args:
             self.num_args = num_args
@@ -35,17 +36,17 @@ class Func(Quote):
         """Create a DAG node that calls this function with arguments"""
         return Funcall(self, *args, blocking=self.blocking)
 
-    def unquote(self):
-        # the "machine representation" of a function is just it's name.
-        return self.label
-
     def b_reduce(self, values):
         """Evaluate the function with arguments replaced with values"""
         if len(values) != self.num_args:
             raise Exception(
                 f"Wrong number of arguments - got {len(values)}, needed {self.num_args}"
             )
-        return self.fn(*values)
+        # Not sure this is a good idea:
+        result = self.fn(*values)
+        if not isinstance(result, Node):
+            result = Quote(result)
+        return result
 
     @property
     def __name__(self):
@@ -80,9 +81,14 @@ class AsyncForeign(Foreign):
     blocking = False
 
 
-class Handler(Func):
-    """A special kind of Func that includes some infrastructure"""
+class FuncModifier:
+    """Abstract class to make decorators that create and modify Funcs"""
 
-    def __init__(self, fn, infrastructure):
-        super().__init__(fn)
-        self.infrastructure = infrastructure
+    def modify(self, fn: Func):
+        raise NotImplementedError
+
+    def __call__(self, fn):
+        func = Func(fn)
+        infrastructure = self.modify(fn)
+        func.infrastructure.append(infrastructure)
+        return func

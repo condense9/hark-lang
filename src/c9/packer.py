@@ -1,16 +1,17 @@
 """Python File -> C9 Executable File"""
 
 import importlib
-import tempfile
-import os
 import logging
-from os.path import basename, dirname, join, splitext, normpath
+import os
+import tempfile
+from os.path import basename, dirname, join, normpath, splitext
 from shutil import copy, copytree
 
 from . import compiler
+from .lang import Func
 from .machine import c9e
 from .service import Service
-from .lang import Func
+from .synthesiser.synthstate import SynthState
 
 SRC_PATH = "src"
 EXE_PATH = "exe"
@@ -71,42 +72,44 @@ def pack_deployment(
 
     with tempfile.TemporaryDirectory() as build_d:
 
-        pack_lambda_deployment(
-            build_d, service, service_file, include, include_service_file_dir
-        )
-
-        # pack_infra() TODO
+        lambda_dirname = "lambda_code"
+        pack_lambda_deployment(join(build_d, lambda_dirname), service, service_file)
+        pack_iac(build_d, lambda_dirname, service)
 
         # zip_from_dir should probably be moved to a shared utils module:
         c9e.zip_from_dir(build_d, dest)
 
 
-def pack_lambda_deployment(
-    build_d: str,
-    service: Service,
-    service_file: str,
-    include: list,
-    include_service_file_dir: bool,
-):
+def pack_iac(build_d: str, lambda_dirname, service: Service):
+    handlers = [h[1] for h in service.handlers]  # (name, handler) tuple
+    resources = compiler.get_resources_set(handlers)
+    state = SynthState(resources, [], [], lambda_dirname)
+
+    for synth in service.pipeline:
+        state = synth(state)
+
+    if state.resources:
+        warnings.warn(f"Some resources were not synthesised! {state.resources}")
+
+    state.gen_iac(build_d)
+
+
+def pack_lambda_deployment(build_d: str, service: Service, service_file):
     """Build the lambda source component of the deploy object"""
 
-    # --> /EXE_PATH/...
+    # --> C9 Executables
     os.makedirs(join(build_d, EXE_PATH))
     for name, handler in service.handlers:
         executable = compiler.link(compiler.compile_all(handler), name)
         exe_dest = join(build_d, EXE_PATH, name + "." + c9e.FILE_EXT)
         c9e.dump(executable, exe_dest)
 
-    # --> /src/service_file.py
-    if include_service_file_dir:
-        copytree(dirname(service_file), join(build_d, SRC_PATH))
-    else:
-        os.makedirs(join(build_d, SRC_PATH))
-        copy(service_file, join(build_d, SRC_PATH, basename(service_file)))
-
-    # --> /src/...
-    for i in include:
-        if os.path.isfile(i):
-            copy(i, join(build_d, SRC_PATH, basename(i)))
+    # --> Python source/libs for Foreign calls
+    os.makedirs(join(build_d, SRC_PATH))
+    for include in service.include:
+        root = dirname(service_file)
+        full_path = join(root, include)
+        if os.path.isfile(include):
+            copy(full_path, join(build_d, SRC_PATH, basename(include)))
         else:
-            copytree(i, join(build_d, SRC_PATH, basename(normpath(i))))
+            copytree(full_path, join(build_d, SRC_PATH, basename(normpath(include))))

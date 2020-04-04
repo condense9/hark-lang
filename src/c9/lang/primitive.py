@@ -31,6 +31,7 @@ class Node:
         Node._count += 1
         self._name = f"N{Node._count}"
         self.operands = [Quote(o) if not isinstance(o, Node) else o for o in operands]
+        self.infrastructure = []
 
     @property
     def name(self):
@@ -88,21 +89,11 @@ class Quote(Node):
     def descendents(self):
         return []
 
+    def __repr__(self):
+        return f"<Quote {self.value}>"
+
     def __eq__(self, other):
         return isinstance(other, Quote) and self.unquote() == other.unquote()
-
-
-# FIXME this is abstract
-class Infrastructure(Quote):
-    """A Quote (compile-time value) that includes some infrastructure"""
-
-    @property
-    def infrastructure(self) -> list:
-        raise NotImplementedError
-
-    def unquote(self):
-        """Get the machine representation of the value"""
-        return self
 
 
 class If(Node):

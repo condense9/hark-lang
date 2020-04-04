@@ -33,11 +33,7 @@ def Response(
     return _node(status, body, headers, multi_value_headers)
 
 
-class HandlerFactory:
-    pass
-
-
-class HttpHandler(HandlerFactory):
+class HttpHandler:
     def __init__(self, method, path):
         self.method = method
         self.path = path

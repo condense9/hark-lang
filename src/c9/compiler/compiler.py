@@ -18,7 +18,7 @@ from typing import List, Tuple, Dict
 
 from .. import lang as l
 from .. import machine as m
-from .compiler_utils import traverse_dag, flatten, pairwise
+from .compiler_utils import traverse_dag, flatten
 
 
 class CompileError(Exception):
@@ -140,6 +140,8 @@ def compile_all(fn: l.Func) -> Dict[str, List[m.Instruction]]:
 
 def compile_function(fn: l.Func) -> List[m.Instruction]:
     """Compile function into machine instructions"""
+    if not isinstance(fn, l.Func):
+        raise TypeError(fn)
     # Bind the arguments so they can be used later
     bindings, placeholders = list(
         zip(*[(m.Bind(i), l.Symbol(i)) for i in range(fn.num_args)])
@@ -155,3 +157,15 @@ def compile_function(fn: l.Func) -> List[m.Instruction]:
     ]
 
     return body
+
+
+def get_resources(fn: l.Func) -> set:
+    if not isinstance(fn, l.Func):
+        raise TypeError(fn)
+    return set(flatten(node.infrastructure for node in traverse_dag(fn)))
+
+
+def get_resources_set(handlers: List[l.Func]) -> set:
+    if not all(isinstance(h, l.Func) for h in handlers):
+        raise TypeError(handlers)
+    return set(flatten(list(get_resources(h)) for h in handlers))
