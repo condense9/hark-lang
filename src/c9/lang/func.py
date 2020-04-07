@@ -60,8 +60,7 @@ class Foreign(Func):
     """Represents a foreign (native Python) function"""
 
     def __init__(self, fn):
-        super().__init__(fn)
-        self.label = "FF_" + fn.__name__
+        super().__init__(fn, label="FF_" + fn.__name__)
         self.fn = self._wrapper
         self.original_function = fn
 
