@@ -21,7 +21,7 @@ from c9.controllers.ddb_model import Session
 from c9.executors import awslambda
 from c9.machine import c9e
 
-from .handlers import all_calls, call_foreign, conses, mapping, series_concurrent
+from .handlers.src import all_calls, call_foreign, conses, mapping, series_concurrent
 from .simple_functions import *
 
 SEED = random.randint(0, 100000)

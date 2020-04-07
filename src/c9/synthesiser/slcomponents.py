@@ -76,7 +76,7 @@ def _bijective_map(resource_type, f_inject, state: SynthState) -> SynthState:
         state.resources,
         state.iac + components,
         state.deploy_commands,
-        state.api_code_dir,
+        state.code_dir,
     )
 
 
@@ -97,7 +97,7 @@ def _surjective_map(resource_type, f_map, state: SynthState) -> SynthState:
         state.resources,
         state.iac + [new_component],
         state.deploy_commands,
-        state.api_code_dir,
+        state.code_dir,
     )
 
 
@@ -106,8 +106,9 @@ def make_function(state: SynthState, fn: inf.Function):
         "function",
         fn.name,
         dict(
-            code=state.api_code_dir,
-            handler=fn.name,  # TODO is this ok?
+            code=state.code_dir,
+            handler="main.event_handler",
+            env=dict(C9_HANDLER=fn.name, C9_TIMEOUT=fn.timeout),
             memory=fn.memory,
             timeout=fn.timeout,
             runtime=fn.runtime,
@@ -137,11 +138,9 @@ def make_dynamodb(_, kvstore: inf.KVStore):
             region=get_region(),
             deletion_policy=kvstore.allow_deletion,
             attributeDefinitions=[
-                dict(AttributeName=k[0], AttributeType=k[1]) for k in kvstore.attributes
+                dict(AttributeName=k[0], AttributeType=k[1]) for k in kvstore.attrs
             ],
-            keySchema=[
-                dict(AttributeName=k[0], KeyType=k[1]) for k in kvstore.key_schema
-            ],
+            keySchema=[dict(AttributeName=k[0], KeyType=k[1]) for k in kvstore.keys],
         ),
     )
 
@@ -177,14 +176,33 @@ def finalise(state: SynthState) -> SynthState:
     # TODO any more glue? Permissions?
     resources = []
 
-    existing = [c for c in state.iac if isinstance(c, ServerlessComponent)]
+    existing = [c.name for c in state.iac if isinstance(c, ServerlessComponent)]
 
     # if not existing:
     #     return state
+
+    if "c9_main" in existing:
+        raise SynthesisException("Don't name an endpoint c9_main!")
+
+    # Push the C9 machine handler in
+    iac = state.iac + [
+        ServerlessComponent(
+            "function",
+            "c9_main",
+            dict(
+                code=state.code_dir,
+                handler="main.c9_handler",  # TODO is this ok?
+                memory=128,
+                timeout=10,
+                runtime="python3.8",
+                region=get_region(),
+            ),
+        )
+    ]
 
     if "serverless" in state.deploy_commands:
         raise Exception("finalise called twice!")
     else:
         deploy_commands = state.deploy_commands + ["serverless"]
 
-    return SynthState(resources, state.iac, deploy_commands, state.api_code_dir)
+    return SynthState(resources, iac, deploy_commands, state.code_dir)

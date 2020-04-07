@@ -52,6 +52,7 @@ def compile_node(node: l.Node) -> CodeObject:
 @compile_node.register
 def _(node: l.Quote) -> CodeObject:
     """Quote: just unquote it and push the value"""
+    # print("3232432", node, node.unquote())
     return CodeObject([m.PushV(node.unquote())])
 
 

@@ -10,7 +10,7 @@ import c9.machine.c9e as c9e
 from c9.compiler import compile_all, link
 from c9.machine import Executable
 
-from .handlers import conses, mapping
+from .handlers.src import conses, mapping
 
 TESTS = [
     # --
@@ -23,7 +23,7 @@ TESTS = [
 def test_dump_and_load(args):
     name = args[0]
     handler = args[1]
-    moddir = join(dirname(__file__), "handlers")
+    moddir = join(dirname(__file__), "handlers/src")
 
     zipfile = tempfile.NamedTemporaryFile(suffix="." + c9e.FILE_EXT, delete=False)
     logging.info(f"Created {zipfile} in test (will clean up afterwards)")

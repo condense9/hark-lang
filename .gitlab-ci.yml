@@ -24,19 +24,16 @@ cache:
 
 before_script:
   - python -V  # Print out python version for debugging
-  - python generate_requirements.py > requirements.txt
-  - pip install virtualenv
-  - virtualenv venv
-  - source venv/bin/activate
-  - pip install -r requirements.txt
+  - pip install poetry
+  - poetry install
 
 test:
   stage: test
   script:
     - export PYTHONPATH=$PWD/src:$PYTHONPATH
     - export RUNNING_IN_GITLAB=yes
-    - pytest -v -k "not [ddb_"
-    - pytest -vv --count 10 -k "not [ddb_" test/test_endtoend.py
+    - poetry run pytest -v -k "not [ddb_"
+    - poetry run pytest -vv --count 10 -k "not [ddb_" test/test_endtoend.py
 
 # pages:
 #   stage: package

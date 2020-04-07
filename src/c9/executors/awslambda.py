@@ -34,14 +34,12 @@ class LambdaExecutor:
 
 
 # Input: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-def handler(run_controller, event, context):
+def handle_existing(run_controller, event, context):
     """Handle the AWS lambda event for an existing session, returning a JSON response"""
     logging.info(f"Invoked - {event}")
 
-    exe_path = packer.EXE_PATH
-    src_path = packer.SRC_PATH
-    zipfile = join(exe_path, event["executable_name"] + ".c9e")
-    executable = c9e.load(zipfile, [src_path])
+    zipfile = join(packer.EXE_PATH, event["executable_name"] + ".c9e")
+    executable = c9e.load(zipfile, [packer.SRC_PATH])
 
     executor = LambdaExecutor(event["lambda_name"])
     controller = run_controller(
@@ -60,6 +58,37 @@ def handler(run_controller, event, context):
                 result=controller.result,
             )
         )
+    else:
+        return json.dumps(
+            dict(
+                session_id=event["session_id"],
+                machine_id=event["machine_id"],
+                finished=False,
+            )
+        )
+
+
+def handle_new(run_controller, event, context):
+    """Handle the AWS lambda event for a new session"""
+    handler_name = os.environ["C9_HANDLER"]
+    logging.info(f"Invoked - {handler_name}, {event}")
+
+    zipfile = join(packer.EXE_PATH, handler_name + ".c9e")
+    executable = c9e.load(zipfile, [packer.SRC_PATH])
+
+    args = []  # TODO
+
+    executor = LambdaExecutor(handler_name)
+    controller = run_controller(
+        executor,
+        executable,
+        args,
+        timeout=os.environ["C9_TIMEOUT"] + 2,  # hackhackhack
+        do_probe=True,
+        # Other args...
+    )
+    if controller.finished:
+        return controller.result
     else:
         return json.dumps(
             dict(

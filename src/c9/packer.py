@@ -5,6 +5,7 @@ import logging
 import os
 import tempfile
 from os.path import basename, dirname, join, normpath, splitext
+import sys
 from shutil import copy, copytree
 
 from . import compiler
@@ -25,12 +26,10 @@ class PackerError(Exception):
 def _import_module(path):
     logging.info(f"importing {path}")
     try:
-        if path.endswith(".py") and os.path.isfile(path):
-            module_name = splitext(basename(path))[0]
-            spec = importlib.util.spec_from_file_location(module_name, path)
-            m = spec.loader.load_module()
-        else:
-            m = importlib.import_module(path)
+        # UGLYyyyy
+        if os.getcwd() not in sys.path:
+            sys.path.append(os.getcwd())
+        m = importlib.import_module(path)
     except Exception as e:
         raise PackerError(f"Could not import {path}") from e
     return m
@@ -45,41 +44,29 @@ def pack_handler(handler_file: str, handler_attr: str, dest: str):
     if not isinstance(handler_fn, Func):
         raise PackerError(f"Not a Func: '{handler_attr}' in {handler_file}")
 
-    executable = compiler.link(compiler.compile_all(handler_fn), exe_name)
-    c9e.dump(executable, dest)
-
-
-def file_module(fname):
-    if not fname.endswith(".py"):
-        raise ValueError
-    return fname.split(".py")[0].replace("/", ".")
+    try:
+        executable = compiler.link(compiler.compile_all(handler_fn), exe_name)
+        c9e.dump(executable, dest)
+    except Exception as e:
+        raise PackerError from e
 
 
 def pack_deployment(
-    service_file: str,
-    attr: str,
-    dest: str,
-    include: list,
-    include_service_file_dir: bool,
+    service_file: str, attr: str, build_d: str,
 ):
     """Pack a service for deployment """
-    # a service file must be part of a module
-    m = _import_module(file_module(service_file))
+    m = _import_module(service_file)
     service = getattr(m, attr)
 
     if not isinstance(service, Service):
         raise PackerError(f"Not a Service: '{attr}' in {service_file}")
 
-    with tempfile.TemporaryDirectory() as build_d:
-        try:
-            lambda_dirname = "lambda_code"
-            pack_lambda_deployment(join(build_d, lambda_dirname), service, service_file)
-            pack_iac(build_d, lambda_dirname, service)
-        except Exception as e:
-            raise PackerError from e
-
-        # zip_from_dir should probably be moved to a shared utils module:
-        c9e.zip_from_dir(build_d, dest)
+    try:
+        lambda_dirname = "lambda_code"
+        pack_lambda_deployment(join(build_d, lambda_dirname), service, service_file)
+        pack_iac(build_d, lambda_dirname, service)
+    except Exception as e:
+        raise PackerError from e
 
 
 def pack_iac(build_d: str, lambda_dirname, service: Service):
@@ -108,12 +95,33 @@ def pack_lambda_deployment(build_d: str, service: Service, service_file):
         exe_dest = join(build_d, EXE_PATH, name + "." + c9e.FILE_EXT)
         c9e.dump(executable, exe_dest)
 
+    with open(join(build_d, "main.py"), "w") as f:
+        f.write(LAMBDA_MAIN)
+
     # --> Python source/libs for Foreign calls
     os.makedirs(join(build_d, SRC_PATH))
+    root = dirname(service_file)
     for include in service.include:
-        root = dirname(service_file)
         full_path = join(root, include)
         if os.path.isfile(include):
             copy(full_path, join(build_d, SRC_PATH, basename(include)))
         else:
             copytree(full_path, join(build_d, SRC_PATH, basename(normpath(include))))
+
+
+LAMBDA_MAIN = f"""
+import sys
+
+sys.path.append("{SRC_PATH}")
+
+import c9.controllers.ddb
+import c9.executors.awslambda
+
+def c9_handler(event, context):
+    run_method = c9.controllers.ddb.run_existing
+    return c9.executors.awslambda.handle_existing(run_method, event, context)
+
+def event_handler(event, context):
+    run_method = c9.controllers.ddb.run
+    return c9.executors.awslambda.handle_new(run_method, event, context)
+"""

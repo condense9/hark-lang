@@ -1,13 +1,11 @@
 
-all: clean service.py build
+all: clean service.py
 
 service.py: README.md
 	md-tangle -f -v README.md
 	black service.py
 
-.PHONY: build
-build:
-	PYTHONPATH=../../src python service.py generate -o build
+# TODO build with c9c
 
 .phony: clean
 clean:

@@ -65,8 +65,8 @@ class KVStore(Infrastructure):
     def __init__(
         self,
         name,
-        attributes: List[Tuple[str, str]],
-        key_schema: List[Tuple[str, str]],
+        attrs: List[Tuple[str, str]],
+        keys: List[Tuple[str, str]],
         allow_deletion=False,
     ):
         super().__init__(name)

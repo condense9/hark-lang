@@ -13,12 +13,9 @@ App requirements
 A few things are needed.
 
 ```python tangle:service.py
-"""A very simple imageboard"""
-
-import c9c.events as e
-import c9c.services as s
-from c9c.lang import Func, If
-
+import c9
+from c9.infrastructure import ObjectStore
+from c9.lang import *
 ```
 
 
@@ -32,39 +29,60 @@ Easy.
 
 ### Handle the bucket event
 
-```python tangle:service.py
-@e.object.uploaded(buckets=DPP.options.buckets)
-def on_upload(obj):
-    return If(validate(obj), process(obj), None)
+Create the bucket and the event handler.
 
-@Func
+```python tangle:service.py
+BUCKET = ObjectStore("uploads")
+
+@BUCKET.on_upload
+def on_upload(obj):
+    return If(validate(obj), process(obj), None)    
+```
+
+Process the object:
+
+```python tangle:service.py
+@Function
 def process(obj):
-    """The data processing workflow"""
-    meta1 = get_metadata1(obj)
-    meta2 = get_metadata2(obj)
-    Return Do(write_db1(meta1), write_db2(meta2))
+    chunks = Async(get_chunks(obj))
+    metadata = Async(get_metadata(obj))
+    results = Map(process_chunk, chunks)
+    return save_to_db(metadata, results)
 
 @Foreign
-def write_to_db1(meta):
+def process_chunk(chunk):
+    # long running function
     pass
 
 @Foreign
-def write_to_db2(meta):
+def save_to_db(metadata, results):
+    # ...
+    pass
+```
+
+And the other methods:
+
+```python tangle:service.py
+@Async
+@Native
+def get_chunks(obj):
+    # ...
+    pass
+    
+@Async
+@Native
+def get_metadata(obj):
+    # ...
     pass
 
 ```
 
-### Compile the service
+### Create the service
 
 ```python tangle:service.py
-if __name__ == '__main__':
-    import c9c
-    import typing as t
-
-    class DPP(c9c.Service):
-        options = {"buckets": t.List[str]}
-        export_methods = []
-        outputs = []
-
-    c9c.compiler_cli(DPP)
+SERVICE = Service(
+    "Data Processor",
+    handlers=[on_upload],
+    include=[__file__, "lib", ...]
+)
 ```

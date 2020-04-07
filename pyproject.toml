@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "c9"
+version = "0.1.0"
+description = ""
+authors = ["Ric da Silva <ric@condense9.com>"]
+homepage = "https://www.condense9.com"
+packages = [
+    { include = "c9", from = "src" },
+]
+
+[tool.poetry.scripts]
+c9 = 'c9.cli.main:main'
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pyyaml = "*"
+boto3 = "*"
+botocore = "*"
+pynamodb = "*"
+schema = "*"
+docopt = "*"
+localstack = "^0.11.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+pytest-repeat = "*"
+md-tangle = "*"
+sphinx = "*"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

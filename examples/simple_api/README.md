@@ -1,76 +1,80 @@
 # Example :: Super Simple API
 
-This is the simplest possible API endpoint.
+This is a very simple web application with a Database backend.
 
 Infrastructure:
-- Lambda to handle the request
-
-Dpeloyment outputs:
-- The endpoint URL
-
-Note: no API gateway; this is just one function.
+- Lambda to handle the requests
+- Key-Value store database
 
 
 ### Preface: Imports
 
-Very little is needed.
-
 ```python tangle:service.py
 import c9
-from c9.handlers import HttpHandler, Response
+from c9.lang import *
+from c9.stdlib.http import Response
 ```
-
 
 ## Let's do it!
 
-ok, what events have we got?
+First, the database (currently implemented on DynamoDB).
+
+```python tangle:service.py
+DB = c9.infrastructure.KVStore(
+    "todos",
+    attrs=dict(todo_id="S", complete="B", description="S"),
+    keys=dict(todo_id="HASH"),
+)
+```
+
+Next, what events have we got?
 - GET /
+- POST /new-todo
 
 Easy.
 
 ```python tangle:service.py
-@HttpHandler("GET", "/")
-def index_foo(event, context):
-    return Response(200, "Hello world!")
+@c9.handlers.Http("POST", "/new-todo")
+def add_todo(request):
+    success, new_todo = DB.insert(
+        complete=False, description=request.body["description"],
+    )
+    return If(success, Response(200, new_todo), Response(500))
+
+@c9.handlers.Http("GET", "/")
+def index(request):
+    return Response(
+        200, build_homepage_html(DB.scan(Select="ALL_ATTRIBUTES", Limit=20))
+    )
 ```
 
-### Create the service
+Now we also need to implement the native function `build_homepage_html` to
+actually render the HTML. This is evaluated at runtime, so use your favourite
+template engine!
 
 ```python tangle:service.py
-SERVICE = c9c.Service(
-    name="foo",
-    entrypoint=__file__,
-    # extra_source =
-    handlers=[index_foo],
-    export_methods=[],
-    # outputs=[handler.endpoint_url],
-)
+@Native
+def build_homepage_html(todos):
+    return "<html>... {{ todos }} ...</html>"
+```
 
+Finally, create the service:
+
+```python tangle:service.py
+SERVICE = Service(
+    "Simple To-Do List",
+    handlers=[add_todo, index],
+    include=[__file__]
+)
 ```
 
 ### Compile the service
 
-```python tangle:service.py
-
-def main():
-    # c9c.cli.generate(SERVICE)
-    c9c.synthesiser.generate(SERVICE, "./build")
-    
-if __name__ == '__main__':
-    main()
+```shell
+c9c service service.py SERVICE -o build
 ```
 
-The result is a folder with
+The result is a folder (`build`) with
 - the source code to implement the service (ie this file)
-- 
+- a `deploy.sh` script to deploy it
 
-
-For testing:
-
-```
-if __name__ == "__main__":
-    import c9c.compiler
-    import c9c.synthesiser
-
-    print(c9c.synthesiser.generate(SERVICE, "./build"))
-```

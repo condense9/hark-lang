@@ -30,6 +30,8 @@ class Node:
     def __init__(self, *operands):
         Node._count += 1
         self._name = f"N{Node._count}"
+        # TODO - convert structured data. e.g. if the operand is a python list,
+        # convert it into a (Cons) List.
         self.operands = [Quote(o) if not isinstance(o, Node) else o for o in operands]
         self.infrastructure = []
 

@@ -42,12 +42,12 @@ class HttpEndpoint(FuncModifier):
         self.path = path
 
     def modify(self, fn: l.Func):
-        name = self.method + "_" + self.path.replace("/", "_")
+        endpoint_name = self.method + "_" + self.path.replace("/", "_")
         fn.infrastructure.extend(
             [
                 # The Endpoint handler is the Function name!
-                inf.HttpEndpoint(name, self.method, self.path, name),
-                inf.Function(name),
+                inf.HttpEndpoint(endpoint_name, self.method, self.path, fn.__name__),
+                inf.Function(fn.__name__),
             ]
         )
         return fn

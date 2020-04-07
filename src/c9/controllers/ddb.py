@@ -311,15 +311,27 @@ def run_existing(executor, executable, session_id, machine_id, do_probe):
     return controller
 
 
-def run(executor, executable, args, *, do_probe=True, timeout=2, sleep_interval=0.1):
+def run(
+    executor,
+    executable,
+    args,
+    *,
+    do_probe=True,
+    timeout=2,
+    sleep_interval=0.1,
+    start_async=False,
+):
     """Make a new session and run it from the top"""
     session = db.new_session()
     m = db.new_machine(session, args, top_level=True)
     session.save()
     controller = AwsController(executor, executable, session, do_probe=do_probe)
 
-    # New machine is always run async
-    controller.run_machine_async(m.machine_id)
+    # This is useful for kicking off a lambda from tests
+    if start_async:
+        controller.run_machine_async(m.machine_id)
+    else:
+        controller.run_machine(m.machine_id)
 
     try:
         start_time = time.time()

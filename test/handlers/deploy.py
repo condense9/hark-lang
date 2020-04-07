@@ -16,11 +16,7 @@ except client.exceptions.ResourceNotFoundException:
 # Increase the timeout a bit - some of our tests have long-ish sleeps to
 # simulate long-running tasks
 utils.lambda_from_zip(
-    name,
-    "build/runtest.zip",
-    handler="src.runtest.handler",
-    env=dict(PYTHONPATH="src/lib"),
-    timeout=15,
+    name, "build/lambda.zip", handler="main.c9_handler", timeout=15,
 )
 print("OK")
 

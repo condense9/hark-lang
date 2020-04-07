@@ -1,34 +1,49 @@
-"""A very simple imageboard"""
+import c9
+from c9.infrastructure import ObjectStore
+from c9.lang import *
 
-import c9c.events as e
-import c9c.services as s
-from c9c.lang import Func, If
-@e.object.uploaded(buckets=DPP.options.buckets)
-def handle_upload(obj):
+BUCKET = ObjectStore("uploads")
+
+
+@BUCKET.on_upload
+def on_upload(obj):
     return If(validate(obj), process(obj), None)
 
-@Func
+
+@Function
 def process(obj):
-    """The data processing workflow"""
-    meta1 = get_metadata1(obj)
-    meta2 = get_metadata2(obj)
-    Return Do(write_db1(meta1), write_db2(meta2))
+    chunks = Async(get_chunks(obj))
+    metadata = Async(get_metadata(obj))
+    results = Map(process_chunk, chunks)
+    return save_to_db(metadata, results)
+
 
 @Foreign
-def write_to_db1(meta):
+def process_chunk(chunk):
+    # long running function
     pass
+
 
 @Foreign
-def write_to_db2(meta):
+def save_to_db(metadata, results):
+    # ...
     pass
 
-if __name__ == '__main__':
-    import c9c
-    import typing as t
 
-    class DPP(c9c.Service):
-        options = {"buckets": t.List[str]}
-        export_methods = []
-        outputs = []
+@Async
+@Native
+def get_chunks(obj):
+    # ...
+    pass
 
-    c9c.compiler_cli(DPP)
+
+@Async
+@Native
+def get_metadata(obj):
+    # ...
+    pass
+
+
+SERVICE = Service(
+    "Data Processor", handlers=[on_upload], include=[__file__, "lib", ...]
+)
