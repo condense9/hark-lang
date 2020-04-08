@@ -1,21 +1,28 @@
-"""Infrastructure"""
+"""InfrastructureNode"""
 from dataclasses import dataclass as dc
-from functools import wraps, partial, update_wrapper
+from functools import partial, update_wrapper, wraps
+
+# class DynamoDB(Constructor):
+#     def __init__(self, name, **kwargs):
+#         super().__init__(self)
+#         self.infrastructure.append[]
+#     def construct(self, )
+from types import SimpleNamespace
 from typing import List, Tuple
 
 import yaml
 
+from . import synthesiser
 from .compiler import compiler_utils
 from .lang import Foreign, ForeignCall
 
-
 # FIXME how to compile infrastructure references?
-class Infrastructure:
-    def __init__(self, name):
-        self.name = name
+# class InfrastructureNode:
+#     def __init__(self, name):
+#         self.name = name
 
-    def __repr__(self):
-        return f"<{type(self).__name__} {self.name}>"
+#     def __repr__(self):
+#         return f"<{type(self).__name__} {self.name}>"
 
 
 ################################################################################
@@ -26,23 +33,15 @@ class Infrastructure:
 # They are used to generate Serverless Components.
 
 
-class Function(Infrastructure):
-    def __init__(self, name, runtime="python3.8", memory=128, timeout=10):
-        super().__init__(name)
-        self.memory = memory
-        self.timeout = timeout
-        self.runtime = runtime
+# class HttpEndpoint:
+#     def __init__(self, name, method, path, handler):
+#         # super().__init__(name)
+#         self.method = method
+#         self.path = path
+#         self.handler = handler
 
 
-class HttpEndpoint(Infrastructure):
-    def __init__(self, name, method, path, handler):
-        super().__init__(name)
-        self.method = method
-        self.path = path
-        self.handler = handler
-
-
-class ObjectStore(Infrastructure):
+class ObjectStore:
     def __init__(
         self,
         name,
@@ -75,74 +74,104 @@ class ObjectStore(Infrastructure):
                 self.cors_rules["AllowedOrigins"] = allowed_origins
 
 
-class KVStore(Infrastructure):
-    def __init__(
-        self, name, attrs: dict, keys: dict, allow_deletion=False,
+class Infrastructure:
+    """Rrepresents general purpose Infrastructure"""
+
+    runtime_attributes = []
+    _used_names = []
+
+    @staticmethod
+    def make_name(inst, name):
+        full_name = f"{type(inst).__name__}_{name}"
+
+        if full_name in Infrastructure._used_names:
+            raise ValueError(full_name)
+
+        Infrastructure._used_names.append(full_name)
+        return full_name
+
+    def __init__(self, name, *args, **kwargs):
+        self.infra_name = Infrastructure.make_name(self, name)
+        self.infra_spec = SimpleNamespace(**self.init_spec(name, *args, **kwargs))
+
+    def __repr__(self):
+        return f"<Infrastructure {self.infra_name}>"
+
+
+class InfrastructureNode(ForeignCall):
+    """Represents Infrastructure that can be used as a Node in the DAG
+
+    (And referred to at runtime)
+    """
+
+    runtime_attributes = []
+
+    def __init__(self, name, *args, **kwargs):
+        self.infra_name = Infrastructure.make_name(self, name)
+        self.infra_spec = SimpleNamespace(**self.init_spec(name, *args, **kwargs))
+
+        # This is a foreigncall!
+        super().__init__(synthesiser.load_outputs, self.infra_name, name)
+
+    def __hash__(self):
+        return hash(self.infra_name)
+
+    def __repr__(self):
+        return f"<InfrastructureNode {self.infra_name}>"
+
+
+################################################################################
+# Define some Infrastructure!
+#
+# NOTE that the synthesisers must be written in conjunction so that the runtime
+# attributes are correctly written for each type. Only relevant for
+# InfrastructureNode classes.
+
+
+class HttpEndpoint(Infrastructure):
+    def init_spec(self, name, method, path, handler):
+        return dict(name=name, method=method, path=path, handler=handler)
+
+
+class Function(Infrastructure):
+    def init_spec(self, name, runtime="python3.8", memory=128, timeout=10):
+        return dict(name=name, runtime=runtime, memory=memory, timeout=timeout)
+
+
+class KVStore(InfrastructureNode):
+    runtime_attributes = ["name"]
+
+    def init_spec(self, name, attrs: dict, keys: dict, allow_deletion=False) -> dict:
+        return dict(name=name, attrs=attrs, keys=keys, allow_deletion=allow_deletion)
+
+
+class ObjectStore(InfrastructureNode):
+    runtime_attributes = ["name"]
+
+    def init_spec(
+        self,
+        name,
+        acl="private",
+        accelerated=False,
+        cors_rules=None,
+        allowed_origins=None,
     ):
-        super().__init__(name)
-        self.keys = keys
-        self.attrs = attrs
-        self.allow_deletion = allow_deletion
+        """An object store.
 
+        accelerated: enable upload acceleration for S3 buckets
 
-# So there's an awkward restriction - you can't introduce bindings except by
-# doing function calls. So multiple-value returns are out.
-#
-# success, todo = do_insert(...)
-##=
-# a = do_insert(...)  # -> List
-# success = First(a)
-# todo = Second(a)
-#
-# This isn't possible because the language can't express the "a = ..."
+        If cors_rules is unset, a default set of cors rules are used. If
+        allowed_origins is set, the AllowedOrigins property will use it
 
+        """
+        if not cors_rules:
+            cors_rules = dict(
+                AllowedHeaders=["*"],
+                AllowedMethods=["PUT", "POST", "DELETE"],
+                AllowedOrigins=[],
+                MaxAgeSeconds=3000,
+            )
+            if allowed_origins:
+                cors_rules["AllowedOrigins"] = allowed_origins
 
-################################################################################
-# Constructors
-
-
-class InfrastructureRef(dict):
-    pass
-
-
-def make_infra_node(cls: Infrastructure, get_ref, *args, **kwargs) -> ForeignCall:
-    # Note - the foreigncall can't take kwargs
-    node = ForeignCall(get_ref, *args)
-    node.infrastructure.append(cls(*args, **kwargs))
-    return node
-
-
-def make_reference(cls, attrs) -> InfrastructureRef:
-    """Make a reference to infrastructure, retrieving some attributes"""
-    # use cls name to find the attributes in the deployment state
-    # return something that looks like cls
-
-
-# Functions used with ForeignCall must
-# http://louistiao.me/posts/adding-__name__-and-__doc__-attributes-to-functoolspartial-objects/
-def wrapped_partial(func, *args, **kwargs):
-    partial_func = partial(func, *args, **kwargs)
-    update_wrapper(partial_func, func)
-    return partial_func
-
-
-# So ugly :(
-ref_kvstore = partial(make_reference, KVStore, ["name"])
-ref_kvstore.__name__ = "ref_kvstore"
-ref_kvstore.__module__ = __name__
-
-make_kvstore = partial(make_infra_node, KVStore, ref_kvstore)
-
-
-################################################################################
-# Things that work with refs
-
-
-@Foreign
-def db_scan(db: InfrastructureRef, args):
-    print("scanning", item)
-
-
-@Foreign
-def db_insert(db: InfrastructureRef, args):
-    print("inserting", item)
+        return dict(name=name, accelerated=accelerated, acl=acl, cors_rules=cors_rules)

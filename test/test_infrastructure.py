@@ -2,10 +2,10 @@ import pytest
 
 from c9 import compiler
 from c9.lang import *
-from c9.stdlib.handlers import HttpEndpoint
+from c9.stdlib.http import HttpHandler
 
 
-@HttpEndpoint("GET", "/foo")
+@HttpHandler("GET", "/foo")
 def main(x):
     return 1
 

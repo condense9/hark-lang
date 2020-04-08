@@ -4,6 +4,7 @@ import os
 from functools import partial
 
 from .synthstate import SynthState
+from ..compiler.compiler_utils import flatten
 
 DEFAULT_REGION = "eu-west-2"
 
@@ -17,6 +18,8 @@ class Synthesiser:
 
 
 class TextSynth(Synthesiser):
+    """General purpose text synthesiser"""
+
     def __init__(self, filename, text):
         self.filename = filename
         self.text = text
@@ -35,7 +38,7 @@ def get_region():
 
 def bijective_map(resource_type, f_inject, state: SynthState) -> SynthState:
     # f_inject :: SynthState -> resource_type -> IacObject
-    resources = state.filter_resources(resource_type)
+    resources = [r for r in state.filter_resources(resource_type)]
     if not resources:
         return state
 
@@ -57,8 +60,8 @@ def bijective_map(resource_type, f_inject, state: SynthState) -> SynthState:
 
 
 def surjective_map(resource_type, f_map, state: SynthState) -> SynthState:
-    # f_map :: SynthState -> [resource_type] -> ServerlessComponent
-    resources = state.filter_resources(resource_type)
+    # f_map :: SynthState -> [resource_type] -> IacObject
+    resources = [r for r in state.filter_resources(resource_type)]
     if not resources:
         return state
 
@@ -76,3 +79,42 @@ def surjective_map(resource_type, f_map, state: SynthState) -> SynthState:
         state.deploy_commands,
         state.code_dir,
     )
+
+
+def one_to_many(resource_type, f_map, state: SynthState) -> SynthState:
+    resources = [r for r in state.filter_resources(resource_type)]
+    if not resources:
+        return state
+
+    components = flatten(list(map(partial(f_map, state), resources)))
+
+    existing = [c.name for c in state.iac]
+    for c in components:
+        if c.name in existing:
+            raise warnings.warn(f"{resource_type} {c.name} is already synthesised")
+
+    return SynthState(
+        # finalise will update the resources and deploy_command
+        state.service_name,
+        state.resources,
+        state.iac + components,
+        state.deploy_commands,
+        state.code_dir,
+    )
+
+
+################################################################################
+# Outputs (possibly different module...)
+
+
+def write_outputs(inf_name, values):
+    pass
+
+
+def load_outputs(inf_name, original_name):
+    # TODO
+    # eg args: KVStore_todos, todos
+    outputs = json.loads("outputs.json")
+    if "name" not in outputs:
+        outputs["name"] = original_name
+    return outputs

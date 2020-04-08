@@ -2,12 +2,12 @@ import glob
 from os.path import dirname
 
 from c9 import Service
-from c9.stdlib.handlers import HttpEndpoint
+from c9.stdlib.http import HttpHandler
 
 from . import all_calls, call_foreign, conses, mapping, series_concurrent
 
 
-@HttpEndpoint("GET", "/foo")
+@HttpHandler("GET", "/foo")
 def foo(a):
     return a
 

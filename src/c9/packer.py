@@ -74,13 +74,14 @@ def pack_iac(build_d: str, lambda_dirname, service: Service):
     resources = compiler.get_resources_set(handlers)
     state = SynthState(service.name, resources, [], [], lambda_dirname)
 
+    print("Resources:", resources)
     for synth in service.pipeline:
         state = synth(state)
 
     if state.resources:
         warnings.warn(f"Some resources were not synthesised! {state.resources}")
 
-    print("IAC resources:", state.iac)
+    print("IAC:", state.iac)
     state.gen_iac(build_d)
 
 

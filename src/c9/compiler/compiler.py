@@ -19,6 +19,7 @@ from typing import List, Tuple, Dict
 from .. import lang as l
 from .. import machine as m
 from .compiler_utils import traverse_dag, flatten
+from .. import infrastructure as inf
 
 
 class CompileError(Exception):
@@ -134,9 +135,7 @@ def compile_all(fn: l.Func) -> Dict[str, List[m.Instruction]]:
     if not isinstance(fn, l.Func):
         raise TypeError(f"Not a Func: {fn}. ({l.Func} != {type(fn)})")
 
-    return {
-        n.label: compile_function(n) for n in traverse_dag(fn) if isinstance(n, l.Func)
-    }
+    return {n.label: compile_function(n) for n in traverse_dag(fn, only=l.Func)}
 
 
 def compile_function(fn: l.Func) -> List[m.Instruction]:
@@ -163,7 +162,12 @@ def compile_function(fn: l.Func) -> List[m.Instruction]:
 def get_resources(fn: l.Func) -> set:
     if not isinstance(fn, l.Func):
         raise TypeError(fn)
-    return set(flatten(node.infrastructure for node in traverse_dag(fn)))
+    return set(
+        # Nodes with extra infrastructure:
+        flatten(node.infrastructure for node in traverse_dag(fn))
+        # Nodes that *are* infrastructure:
+        + [node for node in traverse_dag(fn, only=inf.InfrastructureNode)]
+    )
 
 
 def get_resources_set(handlers: List[l.Func]) -> set:

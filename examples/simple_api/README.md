@@ -12,10 +12,12 @@ Infrastructure:
 ```python tangle:service.py
 import c9.service
 from c9.lang import *
-from c9.infrastructure import make_kvstore, db_insert, db_scan
+from c9.infrastructure import KVStore
 from c9.stdlib.http import HttpHandler, OkJson, Error
 from c9.stdlib import C9List
 import os.path
+
+from . import lib
 ```
 
 ## Let's do it!
@@ -23,7 +25,7 @@ import os.path
 First, the database (currently implemented on DynamoDB).
 
 ```python tangle:service.py
-DB = make_kvstore(
+DB = KVStore(
     "todos",
     attrs=dict(todo_id="S"),
     keys=dict(todo_id="HASH"),
@@ -38,26 +40,16 @@ Easy.
 
 ```python tangle:service.py
 @HttpHandler("POST", "/new-todo")
-def add_todo(request):
-    new_todo = db_insert(DB, C9List("complete", False,
-        "description", get_description(request)))
+def add_todo(event, context):
+    new_todo = lib.create_todo(DB, event, context)
     return If(new_todo, OkJson(new_todo), Error(500))
 
 @HttpHandler("GET", "/")
-def index(request):
-    return OkJson(db_scan(DB, "ALL_ATTRIBUTES", 20))
+def index(event, context):
+    return OkJson(lib.list_todos(DB, event, context))
 ```
 
-C9 doesn't have many native types, so some Python is necessary to deconstruct
-dictionaries.
-
-```python tangle:service.py
-@Foreign
-def get_description(request):
-    return request["body"]["description"]
-```
-
-Finally, create the service:
+And create the service:
 
 ```python tangle:service.py
 SERVICE = c9.service.Service(

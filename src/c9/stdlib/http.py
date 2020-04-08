@@ -3,6 +3,7 @@
 
 from .. import infrastructure as inf
 from ..lang.func import FuncModifier, Func, Foreign
+from .decimalencoder import DecimalEncoder
 
 
 def make_response(status, body, headers, multi_value_headers=None) -> dict:
@@ -21,7 +22,7 @@ def make_response(status, body, headers, multi_value_headers=None) -> dict:
 @Foreign
 def OkJson(value):
     """HTTP 200 with a JSON response"""
-    body = json.dumps(value)
+    body = json.dumps(value, cls=DecimalEncoder)
     return make_response(200, body, {"content-type": "application/json"})
 
 
