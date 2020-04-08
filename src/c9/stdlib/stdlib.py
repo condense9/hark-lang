@@ -134,7 +134,8 @@ def MapResolve(function, lst):
 ## Misc:
 
 
-def List(*args):
+# NOTE! Only use this inside a Func
+def C9List(*args):
     """Shorthand for a nested cons"""
     return Asm(list(args), [m.Cons() for _ in range(len(args) - 1)])
 
@@ -158,3 +159,29 @@ def List(*args):
 #
 # Could also implement an "Async" function which returns an AsyncFunc version of
 # the Func it's called with.
+
+
+## These helpers might be useful for dicts:
+
+
+def args_list_to_dict(fn):
+    """Convert arguments to FN from [a, b, c, d] to {a: b, c: d}"""
+
+    @wraps(fn)
+    def _wrapper(*args):
+        # https://docs.python.org/3/library/functions.html#zip
+        d = {zip(*[iter(args)] * n)}
+        return fn(d)
+
+    return _wrapper
+
+
+def args_dict_to_list(fn):
+    """Convert args to FN from {a: b, c: d} to [a, b, c, d]"""
+
+    @wraps(fn)
+    def _wrapper(self, *args, **kwargs):
+        kwargs_list = compiler_utils.flatten(zip(kwargs.keys(), kwargs.values()))
+        return fn(list(args) + kwargs_list)
+
+    return _wrapper

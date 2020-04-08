@@ -1,7 +1,7 @@
 """Test the synthesiser!"""
 import pytest
 
-from c9.lang import infrastructure as inf
+from c9 import infrastructure as inf
 from c9.synthesiser import slcomponents as slc
 from c9.synthesiser.exceptions import SynthesisException
 from c9.synthesiser.synthstate import SynthState
@@ -28,7 +28,7 @@ def test_basic_pipeline():
 
     # TODO - more tests!
 
-    bucket_iac = s4.iac[-1]()
+    bucket_iac = s4.iac[-1].generate()
     assert len(bucket_iac) > 0
     assert isinstance(bucket_iac, str)
     assert bucket_iac.startswith("buc:")

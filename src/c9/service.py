@@ -2,11 +2,12 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from .lang import Func
 
 from .synthesiser import slcomponents as slc
+from .synthesiser import terraform as tf
 
 # A service is essentially a collection of handlers
 #
@@ -19,24 +20,34 @@ from .synthesiser import slcomponents as slc
 # When deployed, a service may list some properties about the deployment. These
 # are available with a special method... TBD. Basically remote state.
 
+SLC_PIPELINE = [slc.functions, slc.buckets, slc.dynamodbs, slc.api, slc.finalise]
+TF_PIPELINE = [tf.functions, tf.buckets, tf.dynamodbs, tf.finalise]
 
-DEFAULT_PIPELINE = [slc.functions, slc.buckets, slc.dynamodbs, slc.api, slc.finalise]
+DEFAULT_PIPELINE = SLC_PIPELINE
 
 
 class Service:
     def __init__(
         self,
         name: str,
-        handlers: List[Tuple[str, Func]],
+        handlers: List[Union[Func, Tuple[str, Func]]],
         include=List[Path],
         pipeline: list = None,
     ):
         # outputs: TODO
         # export_methods: List[Func] TODO
         self.name = name
-        self.handlers = handlers
+        self.handlers = []
         self.pipeline = pipeline if pipeline else DEFAULT_PIPELINE
         self.include = include
+        # handler names can be specified or not
+        for h in handlers:
+            if isinstance(h, Func):
+                self.handlers.append((h.__name__, h))
+            else:
+                if not isinstance(h, tuple):
+                    raise ValueError(h)
+                self.handlers.append(h)
 
 
 # TODO - if a Quote thing implements to_json, it can be returned from a lambda

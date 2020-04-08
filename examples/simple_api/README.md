@@ -10,9 +10,12 @@ Infrastructure:
 ### Preface: Imports
 
 ```python tangle:service.py
-import c9
+import c9.service
 from c9.lang import *
-from c9.stdlib.http import Response
+from c9.infrastructure import make_kvstore, db_insert, db_scan
+from c9.stdlib.http import HttpHandler, OkJson, Error
+from c9.stdlib import C9List
+import os.path
 ```
 
 ## Let's do it!
@@ -20,9 +23,9 @@ from c9.stdlib.http import Response
 First, the database (currently implemented on DynamoDB).
 
 ```python tangle:service.py
-DB = c9.infrastructure.KVStore(
+DB = make_kvstore(
     "todos",
-    attrs=dict(todo_id="S", complete="B", description="S"),
+    attrs=dict(todo_id="S"),
     keys=dict(todo_id="HASH"),
 )
 ```
@@ -34,37 +37,34 @@ Next, what events have we got?
 Easy.
 
 ```python tangle:service.py
-@c9.handlers.Http("POST", "/new-todo")
+@HttpHandler("POST", "/new-todo")
 def add_todo(request):
-    success, new_todo = DB.insert(
-        complete=False, description=request.body["description"],
-    )
-    return If(success, Response(200, new_todo), Response(500))
+    new_todo = db_insert(DB, C9List("complete", False,
+        "description", get_description(request)))
+    return If(new_todo, OkJson(new_todo), Error(500))
 
-@c9.handlers.Http("GET", "/")
+@HttpHandler("GET", "/")
 def index(request):
-    return Response(
-        200, build_homepage_html(DB.scan(Select="ALL_ATTRIBUTES", Limit=20))
-    )
+    return OkJson(db_scan(DB, "ALL_ATTRIBUTES", 20))
 ```
 
-Now we also need to implement the native function `build_homepage_html` to
-actually render the HTML. This is evaluated at runtime, so use your favourite
-template engine!
+C9 doesn't have many native types, so some Python is necessary to deconstruct
+dictionaries.
 
 ```python tangle:service.py
-@Native
-def build_homepage_html(todos):
-    return "<html>... {{ todos }} ...</html>"
+@Foreign
+def get_description(request):
+    return request["body"]["description"]
 ```
 
 Finally, create the service:
 
 ```python tangle:service.py
-SERVICE = Service(
+SERVICE = c9.service.Service(
     "Simple To-Do List",
     handlers=[add_todo, index],
-    include=[__file__]
+    pipeline=c9.service.TF_PIPELINE,
+    include=[os.path.dirname(__file__)]
 )
 ```
 

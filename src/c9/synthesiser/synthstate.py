@@ -4,7 +4,8 @@ from os.path import join
 
 
 class SynthState:
-    def __init__(self, resources: set, iac, deploy_commands, code_dir):
+    def __init__(self, name, resources: set, iac, deploy_commands, code_dir):
+        self.service_name = name.replace(" ", "-")
         self.resources = resources
         self.iac = iac
         self.deploy_commands = deploy_commands

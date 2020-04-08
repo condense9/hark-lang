@@ -1,20 +1,34 @@
 """Synthesise into Serverless Components"""
 
 import os
-import yaml
-
-from functools import partial
 import warnings
+from functools import partial
 from typing import List
 
-from ..lang import infrastructure as inf
+import yaml
+
+from .. import infrastructure as inf
+from .synthesiser import (
+    DEFAULT_REGION,
+    Synthesiser,
+    SynthesisException,
+    TextSynth,
+    get_region,
+    bijective_map,
+    surjective_map,
+)
 from .synthstate import SynthState
-from .exceptions import SynthesisException
 
-DEFAULT_REGION = "eu-west-2"
+FUNCTION_TYPE = "aws-lambda"
 
 
-class ServerlessComponent:
+def indent_text(text, spaces=2):
+    """Return text indented with the given number of spaces"""
+    indent = " " * spaces
+    return indent + text.replace("\n", f"\n{indent}")
+
+
+class ServerlessComponent(Synthesiser):
     """Thin abstraction over Serverless Components"""
 
     def __init__(self, component_type: str, name: str, inputs: dict):
@@ -24,8 +38,8 @@ class ServerlessComponent:
 
     def yaml(self) -> str:
         """Create YAML for a Serverless ServerlessComponent"""
-        return yaml.dump(
-            {self.name: {"component": self.component_type, "inputs": self.inputs}}
+        return indent_text(
+            yaml.dump({self.name: {"type": self.component_type, "inputs": self.inputs}})
         )
 
     def __repr__(self):
@@ -50,60 +64,9 @@ def get_sls_deploy_commands(state):
         return state.deploy_commands + ["serverless"]
 
 
-def get_region():
-    # Would be nice for this to be more easily configurable / obvious
-    try:
-        return os.environ["AWS_DEFAULT_REGION"]
-    except KeyError:
-        return DEFAULT_REGION
-
-
-def _bijective_map(resource_type, f_inject, state: SynthState) -> SynthState:
-    # f_inject :: SynthState -> resource_type -> ServerlessComponent
-    resources = state.filter_resources(resource_type)
-    if not resources:
-        return state
-
-    components = list(map(partial(f_inject, state), resources))
-
-    existing = [c.name for c in state.iac if isinstance(c, ServerlessComponent)]
-    for c in components:
-        if c.name in existing:
-            raise warnings.warn(f"{resource_type} {c.name} is already synthesised")
-
-    return SynthState(
-        # finalise will update the resources and deploy_command
-        state.resources,
-        state.iac + components,
-        state.deploy_commands,
-        state.code_dir,
-    )
-
-
-def _surjective_map(resource_type, f_map, state: SynthState) -> SynthState:
-    # f_map :: SynthState -> [resource_type] -> ServerlessComponent
-    resources = state.filter_resources(resource_type)
-    if not resources:
-        return state
-
-    new_component = f_map(state, resources)
-
-    # Each surjective map should only be called once...
-    for c in state.iac:
-        if c.component_type == new_component.component_type:
-            raise warnings.warn(f"{c.component_type} is already synthesised")
-
-    return SynthState(
-        state.resources,
-        state.iac + [new_component],
-        state.deploy_commands,
-        state.code_dir,
-    )
-
-
 def make_function(state: SynthState, fn: inf.Function):
     return ServerlessComponent(
-        "function",
+        FUNCTION_TYPE,
         fn.name,
         dict(
             code=state.code_dir,
@@ -138,15 +101,19 @@ def make_dynamodb(_, kvstore: inf.KVStore):
             region=get_region(),
             deletion_policy=kvstore.allow_deletion,
             attributeDefinitions=[
-                dict(AttributeName=k[0], AttributeType=k[1]) for k in kvstore.attrs
+                dict(AttributeName=k, AttributeType=v) for k, v in kvstore.attrs.items()
             ],
-            keySchema=[dict(AttributeName=k[0], KeyType=k[1]) for k in kvstore.keys],
+            keySchema=[
+                dict(AttributeName=k, KeyType=v) for k, v in kvstore.keys.items()
+            ],
         ),
     )
 
 
 def make_api(state, endpoints: List[ServerlessComponent]) -> ServerlessComponent:
-    existing_functions = [c.name for c in state.iac if c.component_type == "function"]
+    existing_functions = [
+        c.name for c in state.iac if c.component_type == FUNCTION_TYPE
+    ]
 
     # TODO check no duplicated endpoints (method + path)
 
@@ -166,10 +133,10 @@ def make_api(state, endpoints: List[ServerlessComponent]) -> ServerlessComponent
     )
 
 
-functions = partial(_bijective_map, inf.Function, make_function)
-buckets = partial(_bijective_map, inf.ObjectStore, make_bucket)
-dynamodbs = partial(_bijective_map, inf.KVStore, make_dynamodb)
-api = partial(_surjective_map, inf.HttpEndpoint, make_api)
+functions = partial(bijective_map, inf.Function, make_function)
+buckets = partial(bijective_map, inf.ObjectStore, make_bucket)
+dynamodbs = partial(bijective_map, inf.KVStore, make_dynamodb)
+api = partial(surjective_map, inf.HttpEndpoint, make_api)
 
 
 def finalise(state: SynthState) -> SynthState:
@@ -184,25 +151,30 @@ def finalise(state: SynthState) -> SynthState:
     if "c9_main" in existing:
         raise SynthesisException("Don't name an endpoint c9_main!")
 
-    # Push the C9 machine handler in
-    iac = state.iac + [
-        ServerlessComponent(
-            "function",
-            "c9_main",
-            dict(
-                code=state.code_dir,
-                handler="main.c9_handler",  # TODO is this ok?
-                memory=128,
-                timeout=10,
-                runtime="python3.8",
-                region=get_region(),
-            ),
-        )
-    ]
+    frontmatter = TextSynth(
+        "serverless.yaml", f"name: {state.service_name}\n\ncomponents:\n"
+    )
+    c9_handler = ServerlessComponent(
+        FUNCTION_TYPE,
+        "c9_main",
+        dict(
+            code=state.code_dir,
+            handler="main.c9_handler",  # TODO is this ok?
+            memory=128,
+            timeout=10,
+            runtime="python3.8",
+            region=get_region(),
+        ),
+    )
+
+    # Push the C9 machine handler in and serverless component name
+    iac = [frontmatter, c9_handler] + state.iac
 
     if "serverless" in state.deploy_commands:
         raise Exception("finalise called twice!")
     else:
         deploy_commands = state.deploy_commands + ["serverless"]
 
-    return SynthState(resources, iac, deploy_commands, state.code_dir)
+    return SynthState(
+        state.service_name, resources, iac, deploy_commands, state.code_dir
+    )
