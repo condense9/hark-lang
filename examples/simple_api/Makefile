@@ -2,7 +2,8 @@ C9_VERSION = 0.1.0
 LIBS = libs
 BUILD = build
 
-all: cleansrc pkg/service.py build ## Build everything
+default: build  ## Default just build
+all: build deploy test  ## Build, test and deploy
 
 pkg/service.py: README.md
 	md-tangle -f -v README.md
@@ -15,7 +16,7 @@ deps:  ## Install runtime Python dependencies
 	pip install --upgrade --target $(LIBS) ../../dist/c9-$(C9_VERSION).tar.gz
 
 # We only depend on C9 - this step could be installing requirements.txt
-build: pkg/service.py  ## Build the deployment
+build: cleansrc pkg/service.py  ## Build the deployment
 	c9 --dev --libs=$(LIBS) --output=$(BUILD) compile pkg.service SERVICE pkg
 
 cleansrc:  ## Clean everything except terraform things
@@ -40,6 +41,7 @@ test:  ## Invoke the echo_it function for testing
 		response.json
 	cat response.json
 	rm response.json
+
 
 .PHONY: clean cleansrc deps build deploy check test
 

@@ -49,11 +49,8 @@ def index(event, context):
     return OkJson(lib.list_todos(DB, event, context))
     
 @HttpHandler("POST", "/echo")
-def echo_it(event, context):
-    return return_it(event)
-
 @Foreign
-def return_it(event):
+def echo_it(event, context):
     return dict(statusCode=200, body=event)
 ```
 
