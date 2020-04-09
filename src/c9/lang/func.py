@@ -87,5 +87,6 @@ class FuncModifier:
         raise NotImplementedError
 
     def __call__(self, fn):
-        func = Func(fn)
+        """Create a Func from fn, and modify it, or modify an existing Func"""
+        func = fn if isinstance(fn, Func) else Func(fn)
         return self.modify(func)
