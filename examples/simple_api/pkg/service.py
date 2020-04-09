@@ -21,6 +21,4 @@ def index(event, context):
     return OkJson(lib.list_todos(DB, event, context))
 
 
-SERVICE = c9.service.Service(
-    "Simple To-Do List", handlers=[add_todo, index], include=[os.path.dirname(__file__)]
-)
+SERVICE = c9.service.Service("Simple To-Do List", handlers=[add_todo, index],)

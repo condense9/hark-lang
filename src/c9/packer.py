@@ -7,6 +7,7 @@ import tempfile
 from os.path import basename, dirname, join, normpath, splitext
 import sys
 from shutil import copy, copytree
+import glob
 
 from . import compiler
 from .lang import Func
@@ -15,6 +16,7 @@ from .service import Service
 from .synthesiser.synthstate import SynthState
 
 SRC_PATH = "src"
+LIB_PATH = "lib"
 EXE_PATH = "exe"
 
 
@@ -52,11 +54,21 @@ def pack_handler(handler_file: str, handler_attr: str, dest: str, verbose=False)
 
 
 def pack_deployment(
-    service_file: str, attr: str, build_d: str, dev_pipeline=False, verbose=False
+    service_file: str,
+    attr: str,
+    package: str,
+    *,
+    build_d: str = None,
+    libs: str = None,
+    dev_pipeline=False,
+    verbose=False,
 ):
     """Pack a service for deployment """
     m = _import_module(service_file)
     service = getattr(m, attr)
+
+    if not build_d:
+        build_d = attr.lower()
 
     if not isinstance(service, Service):
         raise PackerError(f"Not a Service: '{attr}' in {service_file}")
@@ -64,7 +76,7 @@ def pack_deployment(
     try:
         lambda_dirname = "lambda_code"
         pack_lambda_deployment(
-            join(build_d, lambda_dirname), service, service_file, verbose=verbose
+            join(build_d, lambda_dirname), service, package, libs, verbose=verbose
         )
         pack_iac(build_d, lambda_dirname, service, dev_pipeline, verbose=verbose)
     except Exception as e:
@@ -95,7 +107,9 @@ def pack_iac(
     state.gen_iac(build_d)
 
 
-def pack_lambda_deployment(build_d: str, service: Service, service_file, verbose=False):
+def pack_lambda_deployment(
+    build_d: str, service: Service, package: str, libs: str, *, verbose=False
+):
     """Build the lambda source component of the deploy object"""
 
     # --> C9 Executables
@@ -107,28 +121,33 @@ def pack_lambda_deployment(build_d: str, service: Service, service_file, verbose
         exe_dest = join(build_d, EXE_PATH, name + "." + c9e.FILE_EXT)
         c9e.dump(executable, exe_dest)
 
+    # --> Lambda entrypoint
     with open(join(build_d, "main.py"), "w") as f:
         f.write(LAMBDA_MAIN)
 
-    # --> Python source/libs for Foreign calls
-    os.makedirs(join(build_d, SRC_PATH), exist_ok=True)
-    root = dirname(service_file)
-    for include in service.include:
-        full_path = join(root, include)
-        if os.path.isfile(include):
-            copy(full_path, join(build_d, SRC_PATH, basename(include)))
-        else:
-            copytree(
-                full_path,
-                join(build_d, SRC_PATH, basename(normpath(include))),
-                dirs_exist_ok=True,
-            )
+    # --> Python libs
+    if libs:
+        copytree(libs, join(build_d, LIB_PATH), dirs_exist_ok=True)
+
+    # --> Main package Python src (for Foreign calls)
+    copytree(package, join(build_d, SRC_PATH), dirs_exist_ok=True)
+
+
+def copy_all(root, path, dest_path):
+    full_path = join(root, path)
+    if os.path.isfile(full_path):
+        copy(full_path, join(dest_path, basename(path)))
+    else:
+        copytree(
+            full_path, join(dest_path, basename(normpath(path))), dirs_exist_ok=True,
+        )
 
 
 LAMBDA_MAIN = f"""
 import sys
 
 sys.path.append("{SRC_PATH}")
+sys.path.append("{LIB_PATH}")
 
 import c9.controllers.ddb
 import c9.executors.awslambda

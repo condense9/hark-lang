@@ -1,23 +1,43 @@
-all: cleansrc pkg/service.py build
+C9_VERSION = 0.1.0
+LIBS = libs
+BUILD = build
+
+all: cleansrc pkg/service.py build ## Build everything
 
 pkg/service.py: README.md
 	md-tangle -f -v README.md
 	black service.py
 	mv service.py pkg/service.py
 
+deps:  ## All dependencies
+	mkdir -p $(LIBS)
+	poetry build
+	pip install --target $(LIBS) ../../dist/c9-$(C9_VERSION).tar.gz
+
 # We only depend on C9 - this step could be installing requirements.txt
 build:
-	cp -r ../../src/c9 pkg
-	c9 compile --dev pkg.service SERVICE -o build
+	c9 --dev --libs=$(LIBS) --output=$(BUILD) compile pkg.service SERVICE pkg
 
 cleansrc:  ## Clean everything except terraform things
-	find build -type f ! -path "*/.terraform/*" ! -name "*.tfstate*" -delete
+	find $(BUILD) ! -path "*/.terraform/*" ! -name "*.tfstate*" -delete
 
 clean:  ## Clean everything (including .terraform, ...)
-	rm -rf build
+	rm -rf $(BUILD)
+	rm -rf $(LIBS)
 
-deploy:  ## deploy the service
-	chmod +x build/deploy.sh
-	cd build && ./deploy.sh
+deploy:  ## Deploy the service
+	chmod +x $(BUILD)/deploy.sh
+	cd $(BUILD) && ./deploy.sh
 
-.PHONY: clean cleansrc build deploy
+check:  ## Check that infra has been created
+	awslocal lambda list-functions
+	awslocal dynamodb list-tables
+
+
+.PHONY: clean cleansrc build deploy check
+
+# Self documenting!
+_PADDING = 20
+.PHONY: help
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-$(_PADDING)s\033[0m %s\n", $$1, $$2}'

@@ -40,7 +40,6 @@ class Service:
         name: str,
         *,
         handlers: List[Union[Func, Tuple[str, Func]]],
-        include=List[Path],
         dev_pipeline: list = None,
         prod_pipeline: list = None,
     ):
@@ -50,7 +49,6 @@ class Service:
         self.handlers = []
         self.prod_pipeline = prod_pipeline if prod_pipeline else DEFAULT_PIPELINE_PROD
         self.dev_pipeline = dev_pipeline if dev_pipeline else DEFAULT_PIPELINE_DEV
-        self.include = include
         # handler names can be specified or not
         for h in handlers:
             if isinstance(h, Func):

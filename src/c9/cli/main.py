@@ -1,7 +1,8 @@
 """C9 Compiler.
 
 Usage:
-  c9 [options] (build | compile) <file> <attribute>
+  c9 [options] build <module> <attribute>
+  c9 [options] compile <module> <attribute> <package>
   c9 [options] run <file> [<arg>...]
 
 Commands:
@@ -10,7 +11,7 @@ Commands:
   run      Run a C9E executable.
 
 Arguments:
-  FILE        Python file containing the Service object.
+  MODULE      Python module (eg a.b.c) containing the Service object.
   ATTRIBUTE   Name of the Service object in FILE.
 
 Options:
@@ -22,10 +23,13 @@ Options:
   -o FILE, --output=FILE   Output file (derived from ATTRIBUTE otherwise).
 
   (compile only)
-  --split-handlers  Generate one service object for each executable.
+  PACKAGE           Top level Python package to include
   --dev             Use the development synthesis pipeline.
+  --libs=LIBS       Directory with python libaries to include
+  --split-handlers  Generate one service object for each executable.
 
   (run only)
+  FILE          C9E executable file to run
   --moddir=DIR  Directory with Python modules this executable uses.
   ARG...        Arguments to pass to the executable [default = None].
 
@@ -75,15 +79,8 @@ from ..machine import c9e
 from ..runtimes import local
 
 
-def dir_exists(x):
-    return x == "" or os.path.exists(x)
-
-
-def file_does_not_exist(x):
-    return not os.path.exists(x)
-
-
 def _run(args):
+    # FIXME
     exe_path = args["<file>"]
     moddir = args["--moddir"]
     args = args["<arg>"]
@@ -102,50 +99,28 @@ def _run(args):
 
 
 def _build(args):
+    # FIXME
     if not args["--output"]:
         args["--output"] = args["<attribute>"].lower() + ".c9e"
 
-    schema = Schema(
-        {
-            "<file>": Use(open, error=f"{args['<file>']} is not readable"),
-            "--output": Use(file_does_not_exist),
-        },
-        ignore_extra_keys=True,
-    )
-    try:
-        schema.validate(args)
-    except SchemaError as e:
-        exit(e)
-
     packer.pack_handler(
-        args["<file>"], args["<attribute>"], args["--output"], verbose=args["--verbose"]
+        args["<module>"],
+        args["<attribute>"],
+        args["--output"],
+        verbose=args["--verbose"],
     )
 
 
 def _compile(args):
-    if not args["--output"]:
-        args["--output"] = args["<attribute>"].lower()
-
-    schema = Schema(
-        {
-            "--output": Use(
-                dir_exists, error=f"Directory \"{args['--output']}\" doesn't exist",
-            ),
-        },
-        ignore_extra_keys=True,
-    )
-    try:
-        schema.validate(args)
-    except SchemaError as e:
-        exit(e)
-
     if args["--split-handlers"]:
         raise NotImplementedError("Split handlers not implemented yet!")
 
     packer.pack_deployment(
-        args["<file>"],
+        args["<module>"],
         args["<attribute>"],
-        args["--output"],
+        args["<package>"],
+        build_d=args["--output"],
+        libs=args["--libs"],
         dev_pipeline=args["--dev"],
         verbose=args["--verbose"],
     )
@@ -153,7 +128,8 @@ def _compile(args):
 
 def main():
     args = docopt(__doc__, version=__version__)
-    # print(args)
+    if args["--verbose"]:
+        print(args)
 
     if args["run"]:
         _run(args)
