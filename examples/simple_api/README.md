@@ -50,7 +50,11 @@ def index(event, context):
     
 @HttpHandler("POST", "/echo")
 def echo_it(event, context):
-    return OkJson(event)
+    return return_it(event)
+
+@Foreign
+def return_it(event):
+    return dict(statusCode=200, body=event)
 ```
 
 And create the service:

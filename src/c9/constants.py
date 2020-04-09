@@ -5,10 +5,10 @@
 HANDLER_MODULE = "main"
 
 # Name of the function to handle new events
-FN_HANDLE_NEW = "handle_new"
+FN_HANDLE_NEW = "c9_handle_new"
 
 # Name of the function to handle existing machines
-FN_HANDLE_EXISTING = "handle_existing"
+FN_HANDLE_EXISTING = "c9_handle_existing"
 
 # Qualified name of the handler for new events
 HANDLE_NEW = f"{HANDLER_MODULE}.{FN_HANDLE_NEW}"
@@ -26,3 +26,6 @@ EXE_PATH = "exe"
 
 # Name of the file containing infrastructure outputs (in the lambda directory)
 OUTPUTS_FILENAME = "outputs.json"
+
+# Name of DynamoDB table used for C9 sessions
+C9_DDB_TABLE_NAME = "C9Sessions"

@@ -26,6 +26,7 @@ from pynamodb.constants import BINARY, DEFAULT_ENCODING
 from pynamodb.exceptions import UpdateError
 from pynamodb.models import Model
 
+from ..constants import C9_DDB_TABLE_NAME
 from ..machine.state import State
 
 logger = logging.getLogger()
@@ -98,7 +99,7 @@ class Session(Model):
     """
 
     class Meta:
-        table_name = "C9Sessions"
+        table_name = C9_DDB_TABLE_NAME
         region = "eu-west-2"
         host = DDB_HOST
 

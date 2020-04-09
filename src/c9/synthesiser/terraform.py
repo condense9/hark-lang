@@ -18,10 +18,13 @@ from .synthesiser import (
 )
 from .synthstate import SynthState
 from ..constants import (
+    C9_DDB_TABLE_NAME,
     LAMBDA_DIRNAME,
     OUTPUTS_FILENAME,
     HANDLE_NEW,
     HANDLE_EXISTING,
+    FN_HANDLE_NEW,
+    FN_HANDLE_EXISTING,
 )
 
 TF_FILE = "main.tf.json"
@@ -252,27 +255,26 @@ def finalise(state):
             source="spring-media/lambda/aws",
             version="5.0.0",
             filename=LAMBDA_ZIP,
-            function_name="c9_handle_existing",
+            function_name=FN_HANDLE_EXISTING,
             handler=HANDLE_EXISTING,
             runtime="python3.8",
         ),
         subdir=FUNCTIONS_DIR,
     )
 
-    c9_handler_new = TfModule(
-        "c9_new_handler",
+    c9_table = TfModule(
+        "c9_sessions_table",
         dict(
-            source="spring-media/lambda/aws",
-            version="5.0.0",
-            filename=LAMBDA_ZIP,
-            function_name="c9_handle_new",
-            handler=HANDLE_NEW,
-            runtime="python3.8",
+            source="terraform-aws-modules/dynamodb-table/aws",
+            version="0.4.0",
+            name=C9_DDB_TABLE_NAME,
+            hash_key="session_id",
+            attributes=[dict(name="session_id", type="S")],
         ),
-        subdir=FUNCTIONS_DIR,
+        subdir=NORMAL_INFRA_DIR,
     )
 
-    iac = [c9_handler_existing, c9_handler_new] + state.iac
+    iac = [c9_handler_existing, c9_table] + state.iac
 
     deploy_commands = DEPLOY_SCRIPT.split("\n")
 

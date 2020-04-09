@@ -121,7 +121,8 @@ def retrieve_mfcall(ops, searchpaths):
 def find_function(modname, fnname, searchpaths: list):
     """Find the specified python function """
     # print(f"Loading {modname}.{fnname} from {searchpaths}")
-    spec = importlib.machinery.PathFinder.find_spec(modname, path=searchpaths)
+    # spec = importlib.machinery.PathFinder.find_spec(modname, path=searchpaths)
+    spec = importlib.util.find_spec(modname)
     if not spec:
         raise LoadError(f"Can't find {modname}.{fnname} in {searchpaths}")
     m = spec.loader.load_module()

@@ -23,7 +23,12 @@ def index(event, context):
 
 @HttpHandler("POST", "/echo")
 def echo_it(event, context):
-    return OkJson(event)
+    return return_it(event)
+
+
+@Foreign
+def return_it(event):
+    return dict(statusCode=200, body=event)
 
 
 SERVICE = c9.service.Service("Simple To-Do List", handlers=[add_todo, index, echo_it],)

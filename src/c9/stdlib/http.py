@@ -1,5 +1,6 @@
 """Event handler decorators"""
 
+import json
 
 from .. import infrastructure as inf
 from ..lang.func import FuncModifier, Func, Foreign

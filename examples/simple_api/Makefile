@@ -33,12 +33,13 @@ check:  ## Check that infra has been created
 	awslocal lambda list-functions
 	awslocal dynamodb list-tables
 
-test:
+test:  ## Invoke the echo_it function for testing
 	awslocal lambda invoke \
 		--function-name echo_it \
 		--payload '{"hello": "world"}' \
 		response.json
 	cat response.json
+	rm response.json
 
 .PHONY: clean cleansrc deps build deploy check test
 

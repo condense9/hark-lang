@@ -51,20 +51,16 @@ def handle_existing(run_controller, event, context):
         event["do_probe"],
     )
     if controller.finished:
-        return json.dumps(
-            dict(
-                session_id=event["session_id"],
-                machine_id=event["machine_id"],
-                finished=True,
-                result=controller.result,
-            )
-        )
+        return controller.result
     else:
         return json.dumps(
             dict(
-                session_id=event["session_id"],
-                machine_id=event["machine_id"],
-                finished=False,
+                statusCode=200,
+                body=dict(
+                    session_id=event["session_id"],
+                    machine_id=event["machine_id"],
+                    finished=False,
+                ),
             )
         )
 
@@ -77,14 +73,14 @@ def handle_new(run_controller, event, context):
     zipfile = join(constants.EXE_PATH, handler_name + ".c9e")
     executable = c9e.load(zipfile, [constants.SRC_PATH, constants.LIB_PATH])
 
-    args = [event, context]
+    args = [context, event]  # reverse order! FIXME?
 
     executor = LambdaExecutor(handler_name)
     controller = run_controller(
         executor,
         executable,
         args,
-        timeout=os.environ["C9_TIMEOUT"] + 2,  # hackhackhack
+        timeout=int(os.environ["C9_TIMEOUT"]) + 2,  # hackhackhack
         do_probe=True,
         # Other args...
     )
@@ -93,8 +89,11 @@ def handle_new(run_controller, event, context):
     else:
         return json.dumps(
             dict(
-                session_id=event["session_id"],
-                machine_id=event["machine_id"],
-                finished=False,
+                statusCode=200,
+                body=dict(
+                    session_id=event["session_id"],
+                    machine_id=event["machine_id"],
+                    finished=False,
+                ),
             )
         )

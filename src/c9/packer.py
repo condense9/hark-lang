@@ -134,7 +134,7 @@ def pack_lambda_deployment(
         copytree(libs, join(build_d, LIB_PATH), dirs_exist_ok=True)
 
     # --> Main package Python src (for Foreign calls)
-    copytree(package, join(build_d, SRC_PATH), dirs_exist_ok=True)
+    copytree(package, join(build_d, SRC_PATH, basename(package)), dirs_exist_ok=True)
 
 
 def copy_all(root, path, dest_path):
