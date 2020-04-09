@@ -64,6 +64,10 @@ class Foreign(Func):
         self.fn = self._wrapper
         self.original_function = fn
 
+    @property
+    def __name__(self):
+        return self.original_function.__name__
+
     def _wrapper(self, *args):
         return ForeignCall(self.original_function, *args)
 
