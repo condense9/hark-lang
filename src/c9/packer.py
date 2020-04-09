@@ -35,7 +35,7 @@ def _import_module(path):
     return m
 
 
-def pack_handler(handler_file: str, handler_attr: str, dest: str):
+def pack_handler(handler_file: str, handler_attr: str, dest: str, verbose=False):
     """Try to import handler from"""
     m = _import_module(handler_file)
     exe_name = m.__name__ if handler_attr == "main" else handler_attr
@@ -51,7 +51,9 @@ def pack_handler(handler_file: str, handler_attr: str, dest: str):
         raise PackerError from e
 
 
-def pack_deployment(service_file: str, attr: str, build_d: str, dev_pipeline: bool):
+def pack_deployment(
+    service_file: str, attr: str, build_d: str, dev_pipeline=False, verbose=False
+):
     """Pack a service for deployment """
     m = _import_module(service_file)
     service = getattr(m, attr)
@@ -61,31 +63,39 @@ def pack_deployment(service_file: str, attr: str, build_d: str, dev_pipeline: bo
 
     try:
         lambda_dirname = "lambda_code"
-        pack_lambda_deployment(join(build_d, lambda_dirname), service, service_file)
-        pack_iac(build_d, lambda_dirname, service, dev_pipeline)
+        pack_lambda_deployment(
+            join(build_d, lambda_dirname), service, service_file, verbose=verbose
+        )
+        pack_iac(build_d, lambda_dirname, service, dev_pipeline, verbose=verbose)
     except Exception as e:
         raise PackerError from e
 
 
-def pack_iac(build_d: str, lambda_dirname, service: Service, dev_pipeline):
+def pack_iac(
+    build_d: str, lambda_dirname, service: Service, dev_pipeline, verbose=False
+):
     handlers = [h[1] for h in service.handlers]  # (name, handler) tuple
     resources = compiler.get_resources_set(handlers)
     state = SynthState(service.name, resources, [], [], lambda_dirname)
 
     pipeline = service.dev_pipeline if dev_pipeline else service.prod_pipeline
 
-    print("Resources:", resources)
+    if verbose:
+        print("Resources:\n - " + "\n - ".join(map(str, resources)))
+
     for synth in pipeline:
         state = synth(state)
 
     if state.resources:
         warnings.warn(f"Some resources were not synthesised! {state.resources}")
 
-    print("IAC:", state.iac)
+    if verbose:
+        print("IAC:\n - " + "\n - ".join(map(str, state.iac)))
+
     state.gen_iac(build_d)
 
 
-def pack_lambda_deployment(build_d: str, service: Service, service_file):
+def pack_lambda_deployment(build_d: str, service: Service, service_file, verbose=False):
     """Build the lambda source component of the deploy object"""
 
     # --> C9 Executables

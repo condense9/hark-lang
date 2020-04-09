@@ -8,8 +8,6 @@ from typing import List, Dict
 
 from .. import infrastructure as inf
 from .synthesiser import (
-    DEFAULT_REGION,
-    OUTPUTS_FILENAME,
     Synthesiser,
     SynthesisException,
     TextSynth,
@@ -18,6 +16,7 @@ from .synthesiser import (
     one_to_many,
     surjective_map,
 )
+from .outputs import OUTPUTS_FILENAME
 from .synthstate import SynthState
 
 TF_FILE = "main.tf.json"
@@ -99,7 +98,7 @@ class GetC9Output(TextSynth):
     def __init__(self, infra_name):
         # https://programminghistorian.org/en/lessons/json-and-jq
         jq_script = f".{infra_name} | {{{infra_name}: .value}}"
-        text = f"jq -r '{jq_script}' {TF_OUTPUTS_FILENAME}"
+        text = f"jq -r '{jq_script}' {NORMAL_INFRA_DIR}/{TF_OUTPUTS_FILENAME}"
         super().__init__(GET_OUTPUTS_SCRIPT, text)
 
 
@@ -109,19 +108,24 @@ class GetC9Output(TextSynth):
 def make_function(state, res):
     name = res.infra_name
     fn = res.infra_spec
-    return TfModule(
-        name,
-        dict(
-            source="spring-media/lambda/aws",
-            version="5.0.0",
-            filename=LAMBDA_ZIP,
-            function_name=fn.name,
-            handler="main.event_handler",  # TODO make this not hardcoded
-            runtime=fn.runtime,
-            environment={"variables": dict(C9_HANDLER=fn.name, C9_TIMEOUT=fn.timeout)},
+    return [
+        TfModule(
+            name,
+            dict(
+                source="spring-media/lambda/aws",
+                version="5.0.0",
+                filename=LAMBDA_ZIP,
+                function_name=fn.name,
+                handler="main.event_handler",  # TODO make this not hardcoded
+                runtime=fn.runtime,
+                environment={
+                    "variables": dict(C9_HANDLER=fn.name, C9_TIMEOUT=fn.timeout)
+                },
+            ),
+            subdir=FUNCTIONS_DIR,
         ),
-        subdir=FUNCTIONS_DIR,
-    )
+        TfOutputs(name, {"module": f"${{module.{name}}}",}, subdir=FUNCTIONS_DIR),
+    ]
 
 
 def make_bucket(state, res):
@@ -178,9 +182,11 @@ def make_dynamodb(state, res):
     ]
 
 
-functions = partial(bijective_map, inf.Function, make_function)
+functions = partial(one_to_many, inf.Function, make_function)
 buckets = partial(one_to_many, inf.ObjectStore, make_bucket)
 dynamodbs = partial(one_to_many, inf.KVStore, make_dynamodb)
+
+# API need to know the function invoke ARN so must go in FUNCTIONS_DIR
 # api = partial(surjective_map, inf.HttpEndpoint, make_api) # TODO
 
 
@@ -220,11 +226,11 @@ def provider_localstack(state):
                     skip_metadata_api_check=True,
                     s3_force_path_style=True,
                     # Endpoints: https://github.com/localstack/localstack#overview
-                    endpoints=dict(
-                        # --
-                        s3="http://localhost:4566",
-                        dynamodb="http://localhost:4566",
-                    ),
+                    endpoints={
+                        "s3": "http://localhost:4566",
+                        "dynamodb": "http://localhost:4566",
+                        "lambda": "http://localhost:4566",
+                    },
                 ),
                 NORMAL_INFRA_DIR,
             )
@@ -256,7 +262,7 @@ def finalise(state):
         pushd {NORMAL_INFRA_DIR}
             terraform init
             terraform apply
-            terraform output -json > ../{TF_OUTPUTS_FILENAME}
+            terraform output -json > {TF_OUTPUTS_FILENAME}
         popd
 
         bash ./{GET_OUTPUTS_SCRIPT} | jq -s 'add' > {state.code_dir}/{OUTPUTS_FILENAME}
@@ -270,6 +276,7 @@ def finalise(state):
         pushd {FUNCTIONS_DIR}
             terraform init
             terraform apply
+            terraform output -json > {TF_OUTPUTS_FILENAME}
         popd
     """.split(
         "\n"

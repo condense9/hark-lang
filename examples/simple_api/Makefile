@@ -1,4 +1,3 @@
-
 all: cleansrc pkg/service.py build
 
 pkg/service.py: README.md
@@ -6,7 +5,9 @@ pkg/service.py: README.md
 	black service.py
 	mv service.py pkg/service.py
 
-build: pkg/service.py
+# We only depend on C9 - this step could be installing requirements.txt
+build:
+	cp -r ../../src/c9 pkg
 	c9 compile --dev pkg.service SERVICE -o build
 
 cleansrc:  ## Clean everything except terraform things

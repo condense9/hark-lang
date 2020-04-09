@@ -117,7 +117,9 @@ def _build(args):
     except SchemaError as e:
         exit(e)
 
-    packer.pack_handler(args["<file>"], args["<attribute>"], args["--output"])
+    packer.pack_handler(
+        args["<file>"], args["<attribute>"], args["--output"], verbose=args["--verbose"]
+    )
 
 
 def _compile(args):
@@ -141,7 +143,11 @@ def _compile(args):
         raise NotImplementedError("Split handlers not implemented yet!")
 
     packer.pack_deployment(
-        args["<file>"], args["<attribute>"], args["--output"], args["--dev"]
+        args["<file>"],
+        args["<attribute>"],
+        args["--output"],
+        dev_pipeline=args["--dev"],
+        verbose=args["--verbose"],
     )
 
 

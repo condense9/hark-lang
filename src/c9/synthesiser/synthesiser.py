@@ -28,6 +28,9 @@ class TextSynth(Synthesiser):
     def generate(self):
         return self.text
 
+    def __repr__(self):
+        return f"<{type(self).__name__} {self.filename}>"
+
 
 def get_region():
     # Would be nice for this to be more easily configurable / obvious
@@ -103,18 +106,3 @@ def one_to_many(resource_type, f_map, state: SynthState) -> SynthState:
         state.deploy_commands,
         state.code_dir,
     )
-
-
-################################################################################
-# Outputs (possibly different module...)
-
-OUTPUTS_FILENAME = "outputs.json"
-
-# Each synthesiser is responsible for writing the outputs file as part of its
-# deployment process.
-
-
-def load_outputs(inf_name: str) -> dict:
-    with open(OUTPUTS_FILENAME, "r") as f:
-        outputs = json.load(f)
-    return outputs[inf_name]

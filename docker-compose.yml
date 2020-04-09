@@ -9,7 +9,8 @@ services:
       - "${PORT_WEB_UI-8080}:${PORT_WEB_UI-8080}"
     environment:
       - SERVICES=serverless,logs,edge
-      - DEBUG=${DEBUG- }
+      - DEBUG=1
+      - DEFAULT_REGION=eu-west-2
       - DATA_DIR=${DATA_DIR- }
       - PORT_WEB_UI=${PORT_WEB_UI- }
       - LAMBDA_EXECUTOR=${LAMBDA_EXECUTOR- }

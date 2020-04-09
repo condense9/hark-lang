@@ -113,7 +113,7 @@ class InfrastructureNode(ForeignCall):
         self.infra_spec = SimpleNamespace(**self.init_spec(name, *args, **kwargs))
 
         # load_outputs is the foreign function!
-        super().__init__(synthesiser.load_outputs, self.infra_name)
+        super().__init__(synthesiser.outputs.load_infra_outputs, self.infra_name)
 
     def __hash__(self):
         return hash(self.infra_name)
