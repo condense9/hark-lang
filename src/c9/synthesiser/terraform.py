@@ -2,6 +2,7 @@
 
 import json
 import os
+from os.path import dirname, join
 import warnings
 from functools import partial
 from typing import List, Dict
@@ -11,6 +12,7 @@ from .synthesiser import (
     Synthesiser,
     SynthesisException,
     TextSynth,
+    FileSynth,
     bijective_map,
     get_region,
     one_to_many,
@@ -37,7 +39,7 @@ TF_OUTPUTS_FILENAME = "tf_outputs.json"
 GET_OUTPUTS_SCRIPT = "get_outputs.sh"
 
 
-class TfBlock(Synthesiser):
+class TfBlock(TextSynth):
     """Generate a block of terraform JSON"""
 
     names = []
@@ -48,17 +50,18 @@ class TfBlock(Synthesiser):
         TfBlock.names.append(name)
         self.name = name
         self.params = params
-        self.inputs = inputs
-        self.filename = f"{subdir}/{name}.tf.json"
 
-    def generate(self):
         # credit: https://stackoverflow.com/questions/40401886/how-to-create-a-nested-dictionary-from-a-list-in-python/40402031
-        tree_dict = self.inputs
-        for key in reversed(self.params):
+        tree_dict = inputs
+        for key in reversed(params):
             tree_dict = {key: tree_dict}
+
         # Terraform can be written in JSON :)
         # https://www.terraform.io/docs/configuration/syntax-json.html
-        return json.dumps(tree_dict, indent=2)
+        text = json.dumps(tree_dict, indent=2)
+        filename = f"{subdir}/{name}.tf.json"
+
+        super().__init__(filename, text)
 
     def __repr__(self):
         params = " ".join(self.params)
@@ -78,6 +81,11 @@ class TfOutput(TfBlock):
         )
 
 
+class TfResource(TfBlock):
+    def __init__(self, kind, name, inputs, subdir=NORMAL_INFRA_DIR):
+        super().__init__(f"{kind}_{name}", ["resource", kind, name], inputs, subdir)
+
+
 class TfOutputs(TfBlock):
     """Create a TF outputs block.
 
@@ -86,12 +94,9 @@ class TfOutputs(TfBlock):
 
     """
 
-    def __init__(self, infra_name, mappings: Dict[str, str], subdir=NORMAL_INFRA_DIR):
+    def __init__(self, infra_name, value, subdir=NORMAL_INFRA_DIR):
         super().__init__(
-            f"outputs_{infra_name}",
-            ["output", infra_name],
-            dict(value=mappings),
-            subdir,
+            f"outputs_{infra_name}", ["output", infra_name], dict(value=value), subdir,
         )
 
 
@@ -106,33 +111,68 @@ class GetC9Output(TextSynth):
     def __init__(self, infra_name):
         # https://programminghistorian.org/en/lessons/json-and-jq
         jq_script = f".{infra_name} | {{{infra_name}: .value}}"
-        text = f"jq -r '{jq_script}' {NORMAL_INFRA_DIR}/{TF_OUTPUTS_FILENAME}"
+        text = f"jq -r '{jq_script}' {TF_OUTPUTS_FILENAME}"
         super().__init__(GET_OUTPUTS_SCRIPT, text)
 
 
 ################################################################################
 
 
-def make_function(state, res):
+def _iam_role_for_function(name):
+    return TfResource(
+        "aws_iam_role",
+        name,
+        dict(
+            name=name,
+            assume_role_policy=json.dumps(
+                dict(
+                    Version="2012-10-17",
+                    Statement=[
+                        {
+                            "Action": "sts:AssumeRole",
+                            "Principal": {"Service": "lambda.amazonaws.com"},
+                            "Effect": "Allow",
+                            "Sid": "",
+                        }
+                    ],
+                )
+            ),
+        ),
+        subdir=FUNCTIONS_DIR,
+    )
+
+
+def make_function(state, res, layers=False):
     name = res.infra_name
     fn = res.infra_spec
     return [
-        TfModule(
+        TfResource(
+            "aws_lambda_function",
             name,
             dict(
-                source="spring-media/lambda/aws",
-                version="5.0.0",
+                # layers=[c9]
                 filename=LAMBDA_ZIP,
                 function_name=fn.name,
                 handler=HANDLE_NEW,
                 runtime=fn.runtime,
+                memory_size=fn.memory,
+                timeout=fn.timeout,
+                role=f"${{aws_iam_role.{name}.arn}}",  # below
                 environment={
                     "variables": dict(C9_HANDLER=fn.name, C9_TIMEOUT=fn.timeout)
                 },
             ),
             subdir=FUNCTIONS_DIR,
         ),
-        TfOutputs(name, {"module": f"${{module.{name}}}",}, subdir=FUNCTIONS_DIR),
+        _iam_role_for_function(name),
+        TfOutputs(
+            name,
+            {
+                "arn": f"${{aws_lambda_function.{name}.arn}}",
+                "role": f"${{aws_iam_role.{name}.arn}}",
+            },
+            subdir=FUNCTIONS_DIR,
+        ),
     ]
 
 
@@ -246,23 +286,70 @@ def provider_localstack(state):
     )
 
 
-def finalise(state):
-    resources = []  # TODO check it's actually taken them all
+def c9_layer(state):
+    # https://medium.com/@adhorn/getting-started-with-aws-lambda-layers-for-python-6e10b1f9a5d
+    # But not supported on localstack :(
+    name = "c9_runtime"
+    iac = state.iac + [
+        TfResource(
+            "aws_lambda_layer_version",
+            name,
+            dict(
+                filename=C9_LAYER_ZIP,
+                layer_name=name,
+                compatible_runtimes=["python3.8"],
+            ),
+            subdir=FUNCTIONS_DIR,
+        )
+    ]
+    return SynthState(state.service_name, state.resources, iac, state.deploy_commands)
 
-    c9_handler_existing = TfModule(
-        "c9_existing_handler",
+
+def roles(state):
+    policy = TfModule("c9_policy", dict(source="../tf_modules/c9_policy"))
+    attachments = [
+        TfResource(
+            "aws_iam_role_policy_attachment",
+            "policy_{fn.infra_name}",
+            {
+                # --
+                "role": f"${{module.{fn.infra_name}.arn}}",
+                "policy_arn": f"${{module.c9_policy.arn}}",
+            },
+        )
+        for fn in state.filter_resources(inf.Function)
+    ]
+    iac = state.iac + [policy] + attachments
+    return SynthState(state.service_name, state.resources, iac, state.deploy_commands)
+
+
+def c9_infra(state):
+    """Add the C9 bits to state"""
+    # Seems there's a disgusting bug in localstack where the /function_name/
+    # must be different from the resource name, or you get EntityAlreadyExists
+    # for the IAM role.
+    name = "c9_main_handle_existing"
+    if name in [i.name for i in state.iac]:
+        return state
+
+    c9_handler_existing = TfResource(
+        "aws_lambda_function",
+        name,
         dict(
-            source="spring-media/lambda/aws",
-            version="5.0.0",
+            # layers=[c9]
             filename=LAMBDA_ZIP,
             function_name=FN_HANDLE_EXISTING,
             handler=HANDLE_EXISTING,
             runtime="python3.8",
+            memory_size=128,
+            timeout=300,
+            role=f"${{aws_iam_role.{name}.arn}}",
         ),
         subdir=FUNCTIONS_DIR,
     )
+    role = _iam_role_for_function(name)
 
-    c9_table = TfModule(
+    table = TfModule(
         "c9_sessions_table",
         dict(
             source="terraform-aws-modules/dynamodb-table/aws",
@@ -274,24 +361,29 @@ def finalise(state):
         subdir=NORMAL_INFRA_DIR,
     )
 
-    iac = [c9_handler_existing, c9_table] + state.iac
+    iac = state.iac + [c9_handler_existing, role, table]
+    return SynthState(state.service_name, state.resources, iac, state.deploy_commands)
 
-    deploy_commands = DEPLOY_SCRIPT.split("\n")
 
-    return SynthState(state.service_name, resources, iac, deploy_commands)
+def finalise(state):
+    resources = []  # TODO check it's actually taken them all
+    modules = FileSynth(join(dirname(__file__), "tf_modules"))
+    iac = [modules] + state.iac
+    return SynthState(state.service_name, resources, iac, DEPLOY_SCRIPT.split("\n"))
 
 
 DEPLOY_SCRIPT = f"""
 pushd {NORMAL_INFRA_DIR}
     terraform init
     terraform apply
-    terraform output -json > {TF_OUTPUTS_FILENAME}
+    terraform output -json > ../{TF_OUTPUTS_FILENAME}
 popd
 
 bash ./{GET_OUTPUTS_SCRIPT} | jq -s 'add' > {LAMBDA_DIRNAME}/{OUTPUTS_FILENAME}
+mv {TF_OUTPUTS_FILENAME} {LAMBDA_DIRNAME}
 
 pushd {LAMBDA_DIRNAME}
-    zip -r ../{FUNCTIONS_DIR}/{LAMBDA_ZIP} . -x "*__pycache__*"
+    zip -r -q ../{FUNCTIONS_DIR}/{LAMBDA_ZIP} . -x "*__pycache__*"
 popd
 
 cp {NORMAL_INFRA_DIR}/provider.tf.json {FUNCTIONS_DIR}

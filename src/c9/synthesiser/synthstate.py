@@ -1,7 +1,7 @@
 """Hold state in the synthesis pipeline"""
 
 import os
-from os.path import dirname, join
+from os.path import join
 
 
 class SynthState:
@@ -17,12 +17,7 @@ class SynthState:
     def gen_iac(self, path):
         """Write the IAC to files in path"""
         for generator in self.iac:
-            the_dir = dirname(generator.filename)
-            if the_dir:
-                os.makedirs(join(path, the_dir), exist_ok=True)
-            with open(join(path, generator.filename), "a") as f:
-                f.write(generator.generate())
-                f.write("\n")
+            generator.generate(path)
 
         with open(join(path, "deploy.sh"), "w") as f:
             f.write("#!/usr/bin/env bash\n")

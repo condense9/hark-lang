@@ -1,6 +1,8 @@
 """Common synthesisers and utilities"""
 
 import os
+from os.path import dirname, join, basename
+from shutil import copy, copytree
 from functools import partial
 
 from .synthstate import SynthState
@@ -14,19 +16,41 @@ class SynthesisException(Exception):
 
 
 class Synthesiser:
-    pass
+    def generate(self, path):
+        raise NotImplementedError
+
+
+class FileSynth(Synthesiser):
+    """Copy a file/dir into the synthesised dir"""
+
+    def __init__(self, source):
+        self.source = source
+
+    def generate(self, path):
+        """Copy self.source to path"""
+        if os.path.isdir(path):
+            copytree(self.source, join(path, basename(self.source)), dirs_exist_ok=True)
+        else:
+            copy(self.souce, join(path, basename(self.source)))
 
 
 class TextSynth(Synthesiser):
     """General purpose text synthesiser"""
 
-    def __init__(self, filename, text):
+    def __init__(self, filename, text, mode="a"):
         self.name = hash(filename + text)
         self.filename = filename
         self.text = text
+        self.mode = mode
 
-    def generate(self):
-        return self.text
+    def generate(self, path):
+        """Write self.text to path/self.filename"""
+        output_dir = dirname(self.filename)
+        if output_dir:
+            os.makedirs(join(path, output_dir), exist_ok=True)
+        with open(join(path, self.filename), self.mode) as f:
+            f.write(self.text)
+            f.write("\n")
 
     def __repr__(self):
         return f"<{type(self).__name__} {self.filename}>"

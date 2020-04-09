@@ -20,7 +20,7 @@ build: cleansrc pkg/service.py  ## Build the deployment
 	c9 --dev --libs=$(LIBS) --output=$(BUILD) compile pkg.service SERVICE pkg
 
 cleansrc:  ## Clean everything except terraform things
-	find $(BUILD) ! -path "*/.terraform/*" ! -name "*.tfstate*" -delete
+	-find $(BUILD) ! -path "*/.terraform/*" ! -name "*.tfstate*" -delete
 
 clean:  ## Clean everything (including .terraform, ...)
 	rm -rf $(BUILD)

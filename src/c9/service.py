@@ -21,16 +21,29 @@ from .synthesiser import terraform as tf
 # are available with a special method... TBD. Basically remote state.
 
 SLC_PIPELINE = [slc.functions, slc.buckets, slc.dynamodbs, slc.api, slc.finalise]
-TF_PIPELINE = [tf.functions, tf.buckets, tf.dynamodbs, tf.provider_aws, tf.finalise]
+
+TF_PIPELINE_AWS = [
+    # tf.c9_layer,
+    # tf.layered_functions,
+    tf.functions,
+    tf.buckets,
+    tf.dynamodbs,
+    tf.provider_aws,
+    # tf.roles,
+    # tf.logs,
+    tf.c9_infra,
+    tf.finalise,
+]
 TF_PIPELINE_LOCAL = [
     tf.functions,
     tf.buckets,
     tf.dynamodbs,
     tf.provider_localstack,
+    tf.c9_infra,
     tf.finalise,
 ]
 
-DEFAULT_PIPELINE_PROD = TF_PIPELINE
+DEFAULT_PIPELINE_PROD = TF_PIPELINE_AWS
 DEFAULT_PIPELINE_DEV = TF_PIPELINE_LOCAL
 
 
