@@ -21,4 +21,9 @@ def index(event, context):
     return OkJson(lib.list_todos(DB, event, context))
 
 
-SERVICE = c9.service.Service("Simple To-Do List", handlers=[add_todo, index],)
+@HttpHandler("POST", "/echo")
+def echo_it(event, context):
+    return OkJson(event)
+
+
+SERVICE = c9.service.Service("Simple To-Do List", handlers=[add_todo, index, echo_it],)

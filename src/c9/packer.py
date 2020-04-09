@@ -14,10 +14,17 @@ from .lang import Func
 from .machine import c9e
 from .service import Service
 from .synthesiser.synthstate import SynthState
-
-SRC_PATH = "src"
-LIB_PATH = "lib"
-EXE_PATH = "exe"
+from .constants import (
+    LAMBDA_DIRNAME,
+    HANDLER_MODULE,
+    FN_HANDLE_NEW,
+    FN_HANDLE_EXISTING,
+    HANDLE_NEW,
+    HANDLE_EXISTING,
+    SRC_PATH,
+    LIB_PATH,
+    EXE_PATH,
+)
 
 
 class PackerError(Exception):
@@ -74,21 +81,18 @@ def pack_deployment(
         raise PackerError(f"Not a Service: '{attr}' in {service_file}")
 
     try:
-        lambda_dirname = "lambda_code"
         pack_lambda_deployment(
-            join(build_d, lambda_dirname), service, package, libs, verbose=verbose
+            join(build_d, LAMBDA_DIRNAME), service, package, libs, verbose=verbose
         )
-        pack_iac(build_d, lambda_dirname, service, dev_pipeline, verbose=verbose)
+        pack_iac(build_d, service, dev_pipeline, verbose=verbose)
     except Exception as e:
         raise PackerError from e
 
 
-def pack_iac(
-    build_d: str, lambda_dirname, service: Service, dev_pipeline, verbose=False
-):
+def pack_iac(build_d: str, service: Service, dev_pipeline, verbose=False):
     handlers = [h[1] for h in service.handlers]  # (name, handler) tuple
     resources = compiler.get_resources_set(handlers)
-    state = SynthState(service.name, resources, [], [], lambda_dirname)
+    state = SynthState(service.name, resources, [], [])
 
     pipeline = service.dev_pipeline if dev_pipeline else service.prod_pipeline
 
@@ -122,7 +126,7 @@ def pack_lambda_deployment(
         c9e.dump(executable, exe_dest)
 
     # --> Lambda entrypoint
-    with open(join(build_d, "main.py"), "w") as f:
+    with open(join(build_d, f"{HANDLER_MODULE}.py"), "w") as f:
         f.write(LAMBDA_MAIN)
 
     # --> Python libs
@@ -152,11 +156,11 @@ sys.path.append("{LIB_PATH}")
 import c9.controllers.ddb
 import c9.executors.awslambda
 
-def c9_handler(event, context):
+def {FN_HANDLE_EXISTING}(event, context):
     run_method = c9.controllers.ddb.run_existing
     return c9.executors.awslambda.handle_existing(run_method, event, context)
 
-def event_handler(event, context):
+def {FN_HANDLE_NEW}(event, context):
     run_method = c9.controllers.ddb.run
     return c9.executors.awslambda.handle_new(run_method, event, context)
 """

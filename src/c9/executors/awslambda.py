@@ -1,8 +1,9 @@
 import json
 import logging
+import os
 from os.path import join
 
-from .. import packer
+from .. import constants
 from ..lambda_utils import get_lambda_client
 from ..machine import c9e
 
@@ -38,8 +39,8 @@ def handle_existing(run_controller, event, context):
     """Handle the AWS lambda event for an existing session, returning a JSON response"""
     logging.info(f"Invoked - {event}")
 
-    zipfile = join(packer.EXE_PATH, event["executable_name"] + ".c9e")
-    executable = c9e.load(zipfile, [packer.SRC_PATH])
+    zipfile = join(constants.EXE_PATH, event["executable_name"] + ".c9e")
+    executable = c9e.load(zipfile, [constants.SRC_PATH, constants.LIB_PATH])
 
     executor = LambdaExecutor(event["lambda_name"])
     controller = run_controller(
@@ -73,10 +74,10 @@ def handle_new(run_controller, event, context):
     handler_name = os.environ["C9_HANDLER"]
     logging.info(f"Invoked - {handler_name}, {event}")
 
-    zipfile = join(packer.EXE_PATH, handler_name + ".c9e")
-    executable = c9e.load(zipfile, [packer.SRC_PATH])
+    zipfile = join(constants.EXE_PATH, handler_name + ".c9e")
+    executable = c9e.load(zipfile, [constants.SRC_PATH, constants.LIB_PATH])
 
-    args = []  # TODO
+    args = [event, context]
 
     executor = LambdaExecutor(handler_name)
     controller = run_controller(

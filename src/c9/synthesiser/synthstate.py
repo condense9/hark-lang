@@ -5,12 +5,11 @@ from os.path import dirname, join
 
 
 class SynthState:
-    def __init__(self, name, resources: set, iac, deploy_commands, code_dir):
+    def __init__(self, name, resources: set, iac, deploy_commands):
         self.service_name = name.replace(" ", "-")
         self.resources = set(resources)
         self.iac = iac
         self.deploy_commands = deploy_commands
-        self.code_dir = code_dir
 
     def filter_resources(self, rtype) -> set:
         return [r for r in self.resources if isinstance(r, rtype)]

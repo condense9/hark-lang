@@ -12,7 +12,7 @@ pkg/service.py: README.md
 deps:  ## Install runtime Python dependencies
 	mkdir -p $(LIBS)
 	poetry build
-	pip install --target $(LIBS) ../../dist/c9-$(C9_VERSION).tar.gz
+	pip install --upgrade --target $(LIBS) ../../dist/c9-$(C9_VERSION).tar.gz
 
 # We only depend on C9 - this step could be installing requirements.txt
 build: pkg/service.py  ## Build the deployment
@@ -33,11 +33,14 @@ check:  ## Check that infra has been created
 	awslocal lambda list-functions
 	awslocal dynamodb list-tables
 
-invoke:
-	awslocal lambda invoke --function-name index response.json
+test:
+	awslocal lambda invoke \
+		--function-name echo_it \
+		--payload '{"hello": "world"}' \
+		response.json
+	cat response.json
 
-
-.PHONY: clean cleansrc build deploy check invoke deps
+.PHONY: clean cleansrc deps build deploy check test
 
 # Self documenting!
 _PADDING = 20

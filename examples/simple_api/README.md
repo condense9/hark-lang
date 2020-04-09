@@ -47,6 +47,10 @@ def add_todo(event, context):
 @HttpHandler("GET", "/")
 def index(event, context):
     return OkJson(lib.list_todos(DB, event, context))
+    
+@HttpHandler("POST", "/echo")
+def echo_it(event, context):
+    return OkJson(event)
 ```
 
 And create the service:
@@ -54,7 +58,7 @@ And create the service:
 ```python tangle:service.py
 SERVICE = c9.service.Service(
     "Simple To-Do List",
-    handlers=[add_todo, index],
+    handlers=[add_todo, index, echo_it],
 )
 ```
 

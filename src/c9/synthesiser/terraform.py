@@ -16,8 +16,13 @@ from .synthesiser import (
     one_to_many,
     surjective_map,
 )
-from .outputs import OUTPUTS_FILENAME
 from .synthstate import SynthState
+from ..constants import (
+    LAMBDA_DIRNAME,
+    OUTPUTS_FILENAME,
+    HANDLE_NEW,
+    HANDLE_EXISTING,
+)
 
 TF_FILE = "main.tf.json"
 LAMBDA_ZIP = "lambda.zip"
@@ -116,7 +121,7 @@ def make_function(state, res):
                 version="5.0.0",
                 filename=LAMBDA_ZIP,
                 function_name=fn.name,
-                handler="main.event_handler",  # TODO make this not hardcoded
+                handler=HANDLE_NEW,
                 runtime=fn.runtime,
                 environment={
                     "variables": dict(C9_HANDLER=fn.name, C9_TIMEOUT=fn.timeout)
@@ -204,7 +209,6 @@ def provider_aws(state):
             )
         ],
         state.deploy_commands,
-        state.code_dir,
     )
 
 
@@ -236,52 +240,63 @@ def provider_localstack(state):
             )
         ],
         state.deploy_commands,
-        state.code_dir,
     )
 
 
 def finalise(state):
     resources = []  # TODO check it's actually taken them all
 
-    c9_handler = TfModule(
-        "lambda_c9_handler",
+    c9_handler_existing = TfModule(
+        "c9_existing_handler",
         dict(
             source="spring-media/lambda/aws",
             version="5.0.0",
             filename=LAMBDA_ZIP,
-            function_name="c9_handler",
-            handler="main.c9_handler",
+            function_name="c9_handle_existing",
+            handler=HANDLE_EXISTING,
             runtime="python3.8",
         ),
         subdir=FUNCTIONS_DIR,
     )
 
-    iac = [c9_handler] + state.iac
-
-    deploy_commands = f"""
-        pushd {NORMAL_INFRA_DIR}
-            terraform init
-            terraform apply
-            terraform output -json > {TF_OUTPUTS_FILENAME}
-        popd
-
-        bash ./{GET_OUTPUTS_SCRIPT} | jq -s 'add' > {state.code_dir}/{OUTPUTS_FILENAME}
-
-        pushd {state.code_dir}
-            zip -r ../{FUNCTIONS_DIR}/{LAMBDA_ZIP} . -x "*__pycache__*"
-        popd
-
-        cp {NORMAL_INFRA_DIR}/provider.tf.json {FUNCTIONS_DIR}
-
-        pushd {FUNCTIONS_DIR}
-            terraform init
-            terraform apply
-            terraform output -json > {TF_OUTPUTS_FILENAME}
-        popd
-    """.split(
-        "\n"
+    c9_handler_new = TfModule(
+        "c9_new_handler",
+        dict(
+            source="spring-media/lambda/aws",
+            version="5.0.0",
+            filename=LAMBDA_ZIP,
+            function_name="c9_handle_new",
+            handler=HANDLE_NEW,
+            runtime="python3.8",
+        ),
+        subdir=FUNCTIONS_DIR,
     )
 
-    return SynthState(
-        state.service_name, resources, iac, deploy_commands, state.code_dir
-    )
+    iac = [c9_handler_existing, c9_handler_new] + state.iac
+
+    deploy_commands = DEPLOY_SCRIPT.split("\n")
+
+    return SynthState(state.service_name, resources, iac, deploy_commands)
+
+
+DEPLOY_SCRIPT = f"""
+pushd {NORMAL_INFRA_DIR}
+    terraform init
+    terraform apply
+    terraform output -json > {TF_OUTPUTS_FILENAME}
+popd
+
+bash ./{GET_OUTPUTS_SCRIPT} | jq -s 'add' > {LAMBDA_DIRNAME}/{OUTPUTS_FILENAME}
+
+pushd {LAMBDA_DIRNAME}
+    zip -r ../{FUNCTIONS_DIR}/{LAMBDA_ZIP} . -x "*__pycache__*"
+popd
+
+cp {NORMAL_INFRA_DIR}/provider.tf.json {FUNCTIONS_DIR}
+
+pushd {FUNCTIONS_DIR}
+    terraform init
+    terraform apply
+    terraform output -json > {TF_OUTPUTS_FILENAME}
+popd
+"""

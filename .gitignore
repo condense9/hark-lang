@@ -4,6 +4,7 @@
 iterm_sessions
 
 test/handlers/*.zip
+examples/*/libs
 
 .serverless
 

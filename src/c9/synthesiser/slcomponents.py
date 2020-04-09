@@ -70,7 +70,7 @@ def make_function(state: SynthState, fn: inf.Function):
         fn.name,
         dict(
             code=state.code_dir,
-            handler="main.event_handler",
+            handler="main.handle_new",
             env=dict(C9_HANDLER=fn.name, C9_TIMEOUT=fn.timeout),
             memory=fn.memory,
             timeout=fn.timeout,
@@ -159,7 +159,7 @@ def finalise(state: SynthState) -> SynthState:
         "c9_main",
         dict(
             code=state.code_dir,
-            handler="main.c9_handler",  # TODO is this ok?
+            handler="main.handle_existing",  # TODO is this ok?
             memory=128,
             timeout=10,
             runtime="python3.8",

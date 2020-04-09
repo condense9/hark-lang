@@ -11,7 +11,7 @@ import json
 import os
 import os.path
 
-OUTPUTS_FILENAME = "outputs.json"
+from ..constants import OUTPUTS_FILENAME
 
 # Cache
 OUTPUTS = None

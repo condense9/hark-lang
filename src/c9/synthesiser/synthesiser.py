@@ -60,7 +60,6 @@ def bijective_map(resource_type, f_inject, state: SynthState) -> SynthState:
         state.resources,
         state.iac + components,
         state.deploy_commands,
-        state.code_dir,
     )
 
 
@@ -82,7 +81,6 @@ def surjective_map(resource_type, f_map, state: SynthState) -> SynthState:
         state.resources,
         state.iac + [new_component],
         state.deploy_commands,
-        state.code_dir,
     )
 
 
@@ -104,5 +102,4 @@ def one_to_many(resource_type, f_map, state: SynthState) -> SynthState:
         state.resources,
         state.iac + components,
         state.deploy_commands,
-        state.code_dir,
     )

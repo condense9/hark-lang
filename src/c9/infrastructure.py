@@ -1,77 +1,14 @@
 """InfrastructureNode"""
 from dataclasses import dataclass as dc
 from functools import partial, update_wrapper, wraps
-
-# class DynamoDB(Constructor):
-#     def __init__(self, name, **kwargs):
-#         super().__init__(self)
-#         self.infrastructure.append[]
-#     def construct(self, )
 from types import SimpleNamespace
 from typing import List, Tuple
 
 import yaml
 
-from . import synthesiser
 from .compiler import compiler_utils
 from .lang import Foreign, ForeignCall
-
-# FIXME how to compile infrastructure references?
-# class InfrastructureNode:
-#     def __init__(self, name):
-#         self.name = name
-
-#     def __repr__(self):
-#         return f"<{type(self).__name__} {self.name}>"
-
-
-################################################################################
-## High level infrastructure dependencies
-#
-# These can be constrained - interface TBD.
-#
-# They are used to generate Serverless Components.
-
-
-# class HttpEndpoint:
-#     def __init__(self, name, method, path, handler):
-#         # super().__init__(name)
-#         self.method = method
-#         self.path = path
-#         self.handler = handler
-
-
-class ObjectStore:
-    def __init__(
-        self,
-        name,
-        acl="private",
-        accelerated=False,
-        cors_rules=None,
-        allowed_origins=None,
-    ):
-        """An object store.
-
-        accelerated: enable upload acceleration for S3 buckets
-
-        If cors_rules is unset, a default set of cors rules are used. If
-        allowed_origins is set, the AllowedOrigins property will use it
-
-        """
-        super().__init__(name)
-        self.accelerated = accelerated
-        self.acl = acl
-        if cors_rules:
-            self.cors_rules = cors_rules
-        else:
-            self.cors_rules = dict(
-                AllowedHeaders=["*"],
-                AllowedMethods=["PUT", "POST", "DELETE"],
-                AllowedOrigins=[],
-                MaxAgeSeconds=3000,
-            )
-            if allowed_origins:
-                self.cors_rules["AllowedOrigins"] = allowed_origins
+from .synthesiser import outputs
 
 
 class Infrastructure:
@@ -113,7 +50,7 @@ class InfrastructureNode(ForeignCall):
         self.infra_spec = SimpleNamespace(**self.init_spec(name, *args, **kwargs))
 
         # load_outputs is the foreign function!
-        super().__init__(synthesiser.outputs.load_infra_outputs, self.infra_name)
+        super().__init__(outputs.load_infra_outputs, self.infra_name)
 
     def __hash__(self):
         return hash(self.infra_name)
