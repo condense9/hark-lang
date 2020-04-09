@@ -101,7 +101,9 @@ class Infrastructure:
 class InfrastructureNode(ForeignCall):
     """Represents Infrastructure that can be used as a Node in the DAG
 
-    (And referred to at runtime)
+    This is a foreigncall! At run-time, `load_outputs` is called with the
+    infrastructure name, and the result will be a dict of attributes that user
+    code can use to access the resource.
     """
 
     runtime_attributes = []
@@ -110,8 +112,8 @@ class InfrastructureNode(ForeignCall):
         self.infra_name = Infrastructure.make_name(self, name)
         self.infra_spec = SimpleNamespace(**self.init_spec(name, *args, **kwargs))
 
-        # This is a foreigncall!
-        super().__init__(synthesiser.load_outputs, self.infra_name, name)
+        # load_outputs is the foreign function!
+        super().__init__(synthesiser.load_outputs, self.infra_name)
 
     def __hash__(self):
         return hash(self.infra_name)

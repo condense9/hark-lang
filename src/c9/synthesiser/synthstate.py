@@ -13,7 +13,7 @@ class SynthState:
         self.code_dir = code_dir
 
     def filter_resources(self, rtype) -> set:
-        return [r.infra_spec for r in self.resources if isinstance(r, rtype)]
+        return [r for r in self.resources if isinstance(r, rtype)]
 
     def gen_iac(self, path):
         """Write the IAC to files in path"""

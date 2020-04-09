@@ -21,6 +21,7 @@ class TextSynth(Synthesiser):
     """General purpose text synthesiser"""
 
     def __init__(self, filename, text):
+        self.name = hash(filename + text)
         self.filename = filename
         self.text = text
 
@@ -38,6 +39,7 @@ def get_region():
 
 def bijective_map(resource_type, f_inject, state: SynthState) -> SynthState:
     # f_inject :: SynthState -> resource_type -> IacObject
+    # resources: Union[Infrastructure, InfrastructureNode]
     resources = [r for r in state.filter_resources(resource_type)]
     if not resources:
         return state
@@ -106,15 +108,13 @@ def one_to_many(resource_type, f_map, state: SynthState) -> SynthState:
 ################################################################################
 # Outputs (possibly different module...)
 
+OUTPUTS_FILENAME = "outputs.json"
 
-def write_outputs(inf_name, values):
-    pass
+# Each synthesiser is responsible for writing the outputs file as part of its
+# deployment process.
 
 
-def load_outputs(inf_name, original_name):
-    # TODO
-    # eg args: KVStore_todos, todos
-    outputs = json.loads("outputs.json")
-    if "name" not in outputs:
-        outputs["name"] = original_name
-    return outputs
+def load_outputs(inf_name: str) -> dict:
+    with open(OUTPUTS_FILENAME, "r") as f:
+        outputs = json.load(f)
+    return outputs[inf_name]

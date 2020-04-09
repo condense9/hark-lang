@@ -89,7 +89,7 @@ def pack_lambda_deployment(build_d: str, service: Service, service_file):
     """Build the lambda source component of the deploy object"""
 
     # --> C9 Executables
-    os.makedirs(join(build_d, EXE_PATH))
+    os.makedirs(join(build_d, EXE_PATH), exist_ok=True)
     for name, handler in service.handlers:
         executable = compiler.link(
             compiler.compile_all(handler), name, entrypoint_fn=handler.label
@@ -101,14 +101,18 @@ def pack_lambda_deployment(build_d: str, service: Service, service_file):
         f.write(LAMBDA_MAIN)
 
     # --> Python source/libs for Foreign calls
-    os.makedirs(join(build_d, SRC_PATH))
+    os.makedirs(join(build_d, SRC_PATH), exist_ok=True)
     root = dirname(service_file)
     for include in service.include:
         full_path = join(root, include)
         if os.path.isfile(include):
             copy(full_path, join(build_d, SRC_PATH, basename(include)))
         else:
-            copytree(full_path, join(build_d, SRC_PATH, basename(normpath(include))))
+            copytree(
+                full_path,
+                join(build_d, SRC_PATH, basename(normpath(include))),
+                dirs_exist_ok=True,
+            )
 
 
 LAMBDA_MAIN = f"""
