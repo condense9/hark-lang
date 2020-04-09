@@ -51,9 +51,7 @@ def pack_handler(handler_file: str, handler_attr: str, dest: str):
         raise PackerError from e
 
 
-def pack_deployment(
-    service_file: str, attr: str, build_d: str,
-):
+def pack_deployment(service_file: str, attr: str, build_d: str, dev_pipeline: bool):
     """Pack a service for deployment """
     m = _import_module(service_file)
     service = getattr(m, attr)
@@ -64,18 +62,20 @@ def pack_deployment(
     try:
         lambda_dirname = "lambda_code"
         pack_lambda_deployment(join(build_d, lambda_dirname), service, service_file)
-        pack_iac(build_d, lambda_dirname, service)
+        pack_iac(build_d, lambda_dirname, service, dev_pipeline)
     except Exception as e:
         raise PackerError from e
 
 
-def pack_iac(build_d: str, lambda_dirname, service: Service):
+def pack_iac(build_d: str, lambda_dirname, service: Service, dev_pipeline):
     handlers = [h[1] for h in service.handlers]  # (name, handler) tuple
     resources = compiler.get_resources_set(handlers)
     state = SynthState(service.name, resources, [], [], lambda_dirname)
 
+    pipeline = service.dev_pipeline if dev_pipeline else service.prod_pipeline
+
     print("Resources:", resources)
-    for synth in service.pipeline:
+    for synth in pipeline:
         state = synth(state)
 
     if state.resources:

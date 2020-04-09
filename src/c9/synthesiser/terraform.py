@@ -49,6 +49,8 @@ class TfBlock(Synthesiser):
         tree_dict = self.inputs
         for key in reversed(self.params):
             tree_dict = {key: tree_dict}
+        # Terraform can be written in JSON :)
+        # https://www.terraform.io/docs/configuration/syntax-json.html
         return json.dumps(tree_dict, indent=2)
 
     def __repr__(self):
@@ -182,12 +184,58 @@ dynamodbs = partial(one_to_many, inf.KVStore, make_dynamodb)
 # api = partial(surjective_map, inf.HttpEndpoint, make_api) # TODO
 
 
+def provider_aws(state):
+    return SynthState(
+        state.service_name,
+        state.resources,
+        state.iac
+        + [
+            TfBlock(
+                "provider",
+                ["provider", "aws"],
+                dict(region=get_region()),
+                NORMAL_INFRA_DIR,
+            )
+        ],
+        state.deploy_commands,
+        state.code_dir,
+    )
+
+
+def provider_localstack(state):
+    return SynthState(
+        state.service_name,
+        state.resources,
+        state.iac
+        + [
+            TfBlock(
+                "provider",
+                ["provider", "aws"],
+                dict(
+                    region=get_region(),
+                    access_key="",
+                    secret_key="",
+                    skip_credentials_validation=True,
+                    skip_requesting_account_id=True,
+                    skip_metadata_api_check=True,
+                    s3_force_path_style=True,
+                    # Endpoints: https://github.com/localstack/localstack#overview
+                    endpoints=dict(
+                        # --
+                        s3="http://localhost:4566",
+                        dynamodb="http://localhost:4566",
+                    ),
+                ),
+                NORMAL_INFRA_DIR,
+            )
+        ],
+        state.deploy_commands,
+        state.code_dir,
+    )
+
+
 def finalise(state):
     resources = []  # TODO check it's actually taken them all
-
-    frontmatter = TfBlock(
-        "provider", ["provider", "aws"], dict(region=get_region()), NORMAL_INFRA_DIR
-    )
 
     c9_handler = TfModule(
         "lambda_c9_handler",
@@ -202,7 +250,7 @@ def finalise(state):
         subdir=FUNCTIONS_DIR,
     )
 
-    iac = [frontmatter, c9_handler] + state.iac
+    iac = [c9_handler] + state.iac
 
     deploy_commands = f"""
         pushd {NORMAL_INFRA_DIR}

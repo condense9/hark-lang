@@ -7,7 +7,7 @@ pkg/service.py: README.md
 	mv service.py pkg/service.py
 
 build: pkg/service.py
-	c9 compile pkg.service SERVICE -o build
+	c9 compile --dev pkg.service SERVICE -o build
 
 cleansrc:  ## Clean everything except terraform things
 	find build -type f ! -path "*/.terraform/*" ! -name "*.tfstate*" -delete

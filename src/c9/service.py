@@ -21,24 +21,35 @@ from .synthesiser import terraform as tf
 # are available with a special method... TBD. Basically remote state.
 
 SLC_PIPELINE = [slc.functions, slc.buckets, slc.dynamodbs, slc.api, slc.finalise]
-TF_PIPELINE = [tf.functions, tf.buckets, tf.dynamodbs, tf.finalise]
+TF_PIPELINE = [tf.functions, tf.buckets, tf.dynamodbs, tf.provider_aws, tf.finalise]
+TF_PIPELINE_LOCAL = [
+    tf.functions,
+    tf.buckets,
+    tf.dynamodbs,
+    tf.provider_localstack,
+    tf.finalise,
+]
 
-DEFAULT_PIPELINE = SLC_PIPELINE
+DEFAULT_PIPELINE_PROD = TF_PIPELINE
+DEFAULT_PIPELINE_DEV = TF_PIPELINE_LOCAL
 
 
 class Service:
     def __init__(
         self,
         name: str,
+        *,
         handlers: List[Union[Func, Tuple[str, Func]]],
         include=List[Path],
-        pipeline: list = None,
+        dev_pipeline: list = None,
+        prod_pipeline: list = None,
     ):
         # outputs: TODO
         # export_methods: List[Func] TODO
         self.name = name
         self.handlers = []
-        self.pipeline = pipeline if pipeline else DEFAULT_PIPELINE
+        self.prod_pipeline = prod_pipeline if prod_pipeline else DEFAULT_PIPELINE_PROD
+        self.dev_pipeline = dev_pipeline if dev_pipeline else DEFAULT_PIPELINE_DEV
         self.include = include
         # handler names can be specified or not
         for h in handlers:

@@ -1,8 +1,8 @@
 """C9 Compiler.
 
 Usage:
-  c9 [options] (build | compile) [--output=<file>] <file> <attribute>
-  c9 [options] run [--moddir=<dir>] <file> [<arg>...]
+  c9 [options] (build | compile) <file> <attribute>
+  c9 [options] run <file> [<arg>...]
 
 Commands:
   build    Generate a C9E executable file for the handler.
@@ -21,8 +21,9 @@ Options:
   (build, compile)
   -o FILE, --output=FILE   Output file (derived from ATTRIBUTE otherwise).
 
-  (service only)
+  (compile only)
   --split-handlers  Generate one service object for each executable.
+  --dev             Use the development synthesis pipeline.
 
   (run only)
   --moddir=DIR  Directory with Python modules this executable uses.
@@ -116,7 +117,7 @@ def _build(args):
     except SchemaError as e:
         exit(e)
 
-    packer.pack_deployment(args["<file>"], args["<attribute>"], args["--output"])
+    packer.pack_handler(args["<file>"], args["<attribute>"], args["--output"])
 
 
 def _compile(args):
@@ -139,7 +140,9 @@ def _compile(args):
     if args["--split-handlers"]:
         raise NotImplementedError("Split handlers not implemented yet!")
 
-    packer.pack_deployment(args["<file>"], args["<attribute>"], args["--output"])
+    packer.pack_deployment(
+        args["<file>"], args["<attribute>"], args["--output"], args["--dev"]
+    )
 
 
 def main():

@@ -55,7 +55,6 @@ And create the service:
 SERVICE = c9.service.Service(
     "Simple To-Do List",
     handlers=[add_todo, index],
-    pipeline=c9.service.TF_PIPELINE,
     include=[os.path.dirname(__file__)]
 )
 ```
