@@ -9,13 +9,13 @@ pkg/service.py: README.md
 	black service.py
 	mv service.py pkg/service.py
 
-deps:  ## All dependencies
+deps:  ## Install runtime Python dependencies
 	mkdir -p $(LIBS)
 	poetry build
 	pip install --target $(LIBS) ../../dist/c9-$(C9_VERSION).tar.gz
 
 # We only depend on C9 - this step could be installing requirements.txt
-build:
+build: pkg/service.py  ## Build the deployment
 	c9 --dev --libs=$(LIBS) --output=$(BUILD) compile pkg.service SERVICE pkg
 
 cleansrc:  ## Clean everything except terraform things
@@ -33,8 +33,11 @@ check:  ## Check that infra has been created
 	awslocal lambda list-functions
 	awslocal dynamodb list-tables
 
+invoke:
+	awslocal lambda invoke --function-name index response.json
 
-.PHONY: clean cleansrc build deploy check
+
+.PHONY: clean cleansrc build deploy check invoke deps
 
 # Self documenting!
 _PADDING = 20
