@@ -8,6 +8,7 @@ The outputs file is a JSON dict mapping {infrastructure name -> properties}.
 """
 
 import json
+import logging
 import os
 import os.path
 

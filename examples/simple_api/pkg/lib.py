@@ -40,7 +40,8 @@ def create_todo(db_props, event, context):
 
 @Foreign
 def list_todos(db_props, event, context):
-    table = dynamodb.Table(db_props["name"])
+    print(db_props)
+    table = dynamodb.Table(db_props["id"])
 
     # fetch all todos from the database
     result = table.scan()

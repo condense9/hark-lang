@@ -21,10 +21,11 @@ class Infrastructure:
     def make_name(inst, name):
         full_name = f"{type(inst).__name__}_{name}"
 
-        if full_name in Infrastructure._used_names:
-            raise ValueError(full_name)
+        # Commented out - seems like it causes issues on Lambda...
+        # if full_name in Infrastructure._used_names:
+        #     raise ValueError(full_name)
+        # Infrastructure._used_names.append(full_name)
 
-        Infrastructure._used_names.append(full_name)
         return full_name
 
     def __init__(self, name, *args, **kwargs):
@@ -96,7 +97,7 @@ class Function(Infrastructure):
 
 
 class KVStore(InfrastructureNode):
-    runtime_attributes = ["name"]
+    runtime_attributes = ["id"]
 
     def init_spec(self, name, attrs: dict, keys: dict, allow_deletion=False) -> dict:
         return dict(name=name, attrs=attrs, keys=keys, allow_deletion=allow_deletion)
