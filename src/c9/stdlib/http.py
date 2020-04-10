@@ -31,9 +31,10 @@ def OkJson(value):
 
 
 @Foreign
-def Error(value):
+def ErrorJson(error):
     """Generic HTTP 500"""
-    return make_response(500, "Error", {})
+    body = json.dumps(dict(error=error))
+    return make_response(500, body, {"content-type": "application/json"})
 
 
 class HttpHandler(FuncModifier):

@@ -13,9 +13,8 @@ Infrastructure:
 import c9.service
 from c9.lang import *
 from c9.infrastructure import KVStore
-from c9.stdlib.http import HttpHandler, OkJson, Error
-from c9.stdlib import C9List
-import os.path
+from c9.stdlib.http import HttpHandler, OkJson, ErrorJson
+from c9.stdlib import Eq
 
 from . import lib
 ```
@@ -42,7 +41,9 @@ Easy.
 @HttpHandler("POST", "todos")
 def add_todo(event, context):
     new_todo = lib.create_todo(DB, event, context)
-    return If(new_todo, OkJson(new_todo), Error(500))
+    return If(Eq(new_todo, False),
+              ErrorJson(500, "Failed inserting into DB"),
+              OkJson(new_todo))
 
 @HttpHandler("GET", "todos")
 def index(event, context):
@@ -72,10 +73,11 @@ SERVICE = c9.service.Service(
 ### Compile the service
 
 ```shell
-c9c service service.py SERVICE -o build
+make deps build
 ```
 
 The result is a folder (`build`) with
-- the source code to implement the service (ie this file)
+- the lambda source code to implement the service
+- Terraform infrastructure as code
 - a `deploy.sh` script to deploy it
 

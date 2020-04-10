@@ -25,7 +25,7 @@ def create_todo(db_props, event, context):
     table = dynamodb.Table(db_props["id"])
 
     item = {
-        "id": str(uuid.uuid1()),
+        "todo_id": str(uuid.uuid1()),
         "text": data["text"],
         "checked": False,
         "createdAt": timestamp,
