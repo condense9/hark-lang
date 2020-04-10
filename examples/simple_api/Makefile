@@ -47,6 +47,15 @@ test:  ## Invoke the echo_it function for testing
 	cat response.json
 	rm response.json
 
+test-prod:  ## Invoke the echo_it function for testing
+	aws lambda invoke \
+		--function-name echo_it \
+		--payload '{"hello": "world"}' \
+		response.json
+	cat response.json
+	rm response.json
+
+
 
 .PHONY: clean cleansrc deps build deploy check test
 

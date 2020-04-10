@@ -22,7 +22,7 @@ def create_todo(db_props, event, context):
 
     timestamp = str(time.time())
 
-    table = dynamodb.Table(db_props["name"])
+    table = dynamodb.Table(db_props["id"])
 
     item = {
         "id": str(uuid.uuid1()),
