@@ -118,61 +118,27 @@ class GetC9Output(TextSynth):
 ################################################################################
 
 
-def _iam_role_for_function(name):
-    return TfResource(
-        "aws_iam_role",
-        name,
-        dict(
-            name=name,
-            assume_role_policy=json.dumps(
-                dict(
-                    Version="2012-10-17",
-                    Statement=[
-                        {
-                            "Action": "sts:AssumeRole",
-                            "Principal": {"Service": "lambda.amazonaws.com"},
-                            "Effect": "Allow",
-                            "Sid": "",
-                        }
-                    ],
-                )
-            ),
-        ),
-        subdir=FUNCTIONS_DIR,
-    )
-
-
 def make_function(state, res, layers=False):
     name = res.infra_name
     fn = res.infra_spec
     return [
-        TfResource(
-            "aws_lambda_function",
+        TfModule(
             name,
             dict(
-                # layers=[c9]
-                filename=LAMBDA_ZIP,
+                source="../tf_modules/c9_lambda",
                 function_name=fn.name,
+                filename=LAMBDA_ZIP,
                 handler=HANDLE_NEW,
-                runtime=fn.runtime,
                 memory_size=fn.memory,
                 timeout=fn.timeout,
-                role=f"${{aws_iam_role.{name}.arn}}",  # below
+                runtime="python3.8",
                 environment={
                     "variables": dict(C9_HANDLER=fn.name, C9_TIMEOUT=fn.timeout)
                 },
             ),
             subdir=FUNCTIONS_DIR,
         ),
-        _iam_role_for_function(name),
-        TfOutputs(
-            name,
-            {
-                "arn": f"${{aws_lambda_function.{name}.arn}}",
-                "role": f"${{aws_iam_role.{name}.arn}}",
-            },
-            subdir=FUNCTIONS_DIR,
-        ),
+        TfOutputs(name, {"this": f"${{module.{name}}}"}, subdir=FUNCTIONS_DIR,),
     ]
 
 
@@ -266,17 +232,21 @@ def provider_localstack(state):
                 ["provider", "aws"],
                 dict(
                     region=get_region(),
-                    access_key="",
+                    access_key="foo",
                     secret_key="",
                     skip_credentials_validation=True,
                     skip_requesting_account_id=True,
                     skip_metadata_api_check=True,
                     s3_force_path_style=True,
                     # Endpoints: https://github.com/localstack/localstack#overview
+                    # https://www.terraform.io/docs/providers/aws/guides/custom-service-endpoints.html
                     endpoints={
                         "s3": "http://localhost:4566",
                         "dynamodb": "http://localhost:4566",
                         "lambda": "http://localhost:4566",
+                        "iam": "http://localhost:4566",
+                        "cloudwatchlogs": "http://localhost:4566",
+                        "apigateway": "http://localhost:4566",
                     },
                 ),
                 NORMAL_INFRA_DIR,
@@ -323,31 +293,24 @@ def roles(state):
     return SynthState(state.service_name, state.resources, iac, state.deploy_commands)
 
 
-def c9_infra(state):
+def _add_c9_infra(state):
     """Add the C9 bits to state"""
-    # Seems there's a disgusting bug in localstack where the /function_name/
-    # must be different from the resource name, or you get EntityAlreadyExists
-    # for the IAM role.
-    name = "c9_main_handle_existing"
-    if name in [i.name for i in state.iac]:
+    if FN_HANDLE_EXISTING in [i.name for i in state.iac]:
         return state
 
-    c9_handler_existing = TfResource(
-        "aws_lambda_function",
-        name,
+    c9_handler_existing = TfModule(
+        FN_HANDLE_EXISTING,
         dict(
-            # layers=[c9]
+            source="../tf_modules/c9_lambda",
             filename=LAMBDA_ZIP,
             function_name=FN_HANDLE_EXISTING,
             handler=HANDLE_EXISTING,
             runtime="python3.8",
             memory_size=128,
             timeout=300,
-            role=f"${{aws_iam_role.{name}.arn}}",
         ),
         subdir=FUNCTIONS_DIR,
     )
-    role = _iam_role_for_function(name)
 
     table = TfModule(
         "c9_sessions_table",
@@ -361,11 +324,12 @@ def c9_infra(state):
         subdir=NORMAL_INFRA_DIR,
     )
 
-    iac = state.iac + [c9_handler_existing, role, table]
+    iac = state.iac + [c9_handler_existing, table]
     return SynthState(state.service_name, state.resources, iac, state.deploy_commands)
 
 
 def finalise(state):
+    state = _add_c9_infra(state)
     resources = []  # TODO check it's actually taken them all
     modules = FileSynth(join(dirname(__file__), "tf_modules"))
     iac = [modules] + state.iac

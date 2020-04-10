@@ -31,7 +31,6 @@ TF_PIPELINE_AWS = [
     tf.provider_aws,
     # tf.roles,
     # tf.logs,
-    tf.c9_infra,
     tf.finalise,
 ]
 TF_PIPELINE_LOCAL = [
@@ -39,7 +38,6 @@ TF_PIPELINE_LOCAL = [
     tf.buckets,
     tf.dynamodbs,
     tf.provider_localstack,
-    tf.c9_infra,
     tf.finalise,
 ]
 
