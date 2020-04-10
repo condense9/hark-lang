@@ -39,20 +39,26 @@ Next, what events have we got?
 Easy.
 
 ```python tangle:service.py
-@HttpHandler("POST", "/new-todo")
+@HttpHandler("POST", "todos")
 def add_todo(event, context):
     new_todo = lib.create_todo(DB, event, context)
     return If(new_todo, OkJson(new_todo), Error(500))
 
-@HttpHandler("GET", "/")
+@HttpHandler("GET", "todos")
 def index(event, context):
     return OkJson(lib.list_todos(DB, event, context))
     
-@HttpHandler("POST", "/echo")
+@HttpHandler("POST", "echo")
 @Foreign
 def echo_it(event, context):
     return dict(statusCode=200, body=event)
 ```
+
+This will create an API with two resources:
+- *todos*
+- *echo*
+
+And the *todos* resource has two methods (GET and POST).
 
 And create the service:
 

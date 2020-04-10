@@ -16,7 +16,7 @@ from .synthesiser import (
     bijective_map,
     get_region,
     one_to_many,
-    surjective_map,
+    many_to_many,
 )
 from .synthstate import SynthState
 from ..constants import (
@@ -27,10 +27,12 @@ from ..constants import (
     HANDLE_EXISTING,
     FN_HANDLE_NEW,
     FN_HANDLE_EXISTING,
+    LIB_PATH,
 )
+from .api_spec import get_api_spec
 
-TF_FILE = "main.tf.json"
-LAMBDA_ZIP = "lambda.zip"
+LAMBDA_ZIP = "c9_handler.zip"
+LAYER_ZIP = "c9_layer.zip"
 
 NORMAL_INFRA_DIR = "tf_infra"
 FUNCTIONS_DIR = "tf_functions"
@@ -48,8 +50,8 @@ class TfBlock(TextSynth):
         if name in TfBlock.names:
             raise ValueError(f"TF block name '{name}' already used")
         TfBlock.names.append(name)
-        self.name = name
         self.params = params
+        self.inputs = inputs
 
         # credit: https://stackoverflow.com/questions/40401886/how-to-create-a-nested-dictionary-from-a-list-in-python/40402031
         tree_dict = inputs
@@ -70,6 +72,7 @@ class TfBlock(TextSynth):
 
 class TfModule(TfBlock):
     def __init__(self, name, inputs, subdir=NORMAL_INFRA_DIR):
+        self.module_name = name
         super().__init__(name, ["module", name], inputs, subdir)
 
 
@@ -83,6 +86,8 @@ class TfOutput(TfBlock):
 
 class TfResource(TfBlock):
     def __init__(self, kind, name, inputs, subdir=NORMAL_INFRA_DIR):
+        self.kind = kind
+        self.resource_name = name
         super().__init__(f"{kind}_{name}", ["resource", kind, name], inputs, subdir)
 
 
@@ -118,16 +123,40 @@ class GetC9Output(TextSynth):
 ################################################################################
 
 
-def make_function(state, res, layers=False):
+def _get_layer_name(state):
+    return f"c9_{state.service_name}"
+
+
+def _maybe_get_c9_layer(state) -> list:
+    """Get a reference to the c9 layer if it exists"""
+    layer_name = _get_layer_name(state)
+    existing_layers = [
+        i.inputs["layer_name"]
+        for i in state.iac
+        if isinstance(i, TfResource) and i.kind == "aws_lambda_layer_version"
+    ]
+    if layer_name in existing_layers:
+        return [f"${{aws_lambda_layer_version.{layer_name}.arn}}"]
+    else:
+        return []
+
+
+def make_function(state, res):
     name = res.infra_name
     fn = res.infra_spec
+
+    # Use the layer if it exists
+    c9_layer = _maybe_get_c9_layer(state)
+
     return [
         TfModule(
             name,
             dict(
+                layers=c9_layer,
                 source="../tf_modules/c9_lambda",
                 function_name=fn.name,
                 filename=LAMBDA_ZIP,
+                source_code_hash=f'${{filebase64sha256("{LAMBDA_ZIP}")}}',
                 handler=HANDLE_NEW,
                 memory_size=fn.memory,
                 timeout=fn.timeout,
@@ -196,12 +225,94 @@ def make_dynamodb(state, res):
     ]
 
 
+def make_api(state, endpoints: List[inf.HttpEndpoint]) -> list:
+    # API need to know the function invoke ARN so must go in FUNCTIONS_DIR
+    lambdas = [e.infra_spec.handler for e in endpoints]
+    c9_api_module = "../tf_modules/c9_api"
+
+    for i in state.iac:
+        if isinstance(i, TfModule) and i.inputs["source"] == c9_api_module:
+            raise SynthesisException("Got more than one API!")
+
+    # https://www.1strategy.com/blog/2017/06/06/how-to-use-amazon-api-gateway-proxy/
+    # Ok, HttpEndpoint now means a REST resource.
+    #  gateway: api*
+    #    api: resource*, deployment*
+    #      deployment: uhh
+    #      resource: name (e.g. 'todos'), *method
+    #        method: http-verb, handler
+    #
+    # We'll have one API. Multiple resouces, given by the "path" in
+    # HttpEndpoint. Each resource has one or more method.
+
+    api_name = f"c9_api_{state.service_name}"
+    api_hash = "foo"  # TODO
+    api = TfResource(
+        "aws_api_gateway_rest_api", api_name, dict(name=api_name), subdir=FUNCTIONS_DIR,
+    )
+
+    deployment_name = f"deployment_{api_name}"
+
+    resource_name = lambda path: f"resource_{path}".replace("/", "_")
+    resource_paths = list(set([e.infra_spec.path for e in endpoints]))
+    resources = [
+        TfResource(
+            "aws_api_gateway_resource",
+            resource_name(path),
+            dict(
+                rest_api_id=f"${{aws_api_gateway_rest_api.{api_name}.id}}",
+                parent_id=f"${{aws_api_gateway_rest_api.{api_name}.root_resource_id}}",
+                path_part=path,
+            ),
+            subdir=FUNCTIONS_DIR,
+        )
+        for path in resource_paths
+    ]
+
+    methods = [
+        TfModule(
+            e.infra_name,
+            dict(
+                source="../tf_modules/c9_method",
+                method=e.infra_spec.method,
+                path=e.infra_spec.path,
+                handler=e.infra_spec.handler,
+                rest_api_id=f"${{aws_api_gateway_rest_api.{api_name}.id}}",
+                resource_id=f"${{aws_api_gateway_resource.{resource_name(e.infra_spec.path)}.id}}",
+            ),
+            subdir=FUNCTIONS_DIR,
+        )
+        for e in endpoints
+    ]
+
+    deployment = TfResource(
+        "aws_api_gateway_deployment",
+        deployment_name,
+        dict(
+            rest_api_id=f"${{aws_api_gateway_rest_api.{api_name}.id}}",
+            stage_name="latest",
+            description=f"C9 API {api_name} - {api_hash}",
+            # Prevent race-conditions
+            # https://www.terraform.io/docs/providers/aws/r/api_gateway_deployment.html
+            depends_on=[f"module.{m.module_name}" for m in methods],
+        ),
+        subdir=FUNCTIONS_DIR,
+    )
+    deployment_output = TfOutputs(
+        deployment_name,
+        dict(
+            deployment=f"${{aws_api_gateway_deployment.{deployment_name}.invoke_url}}"
+        ),
+        subdir=FUNCTIONS_DIR,
+    )
+
+    return [api, deployment, deployment_output] + resources + methods
+
+
 functions = partial(one_to_many, inf.Function, make_function)
 buckets = partial(one_to_many, inf.ObjectStore, make_bucket)
 dynamodbs = partial(one_to_many, inf.KVStore, make_dynamodb)
-
-# API need to know the function invoke ARN so must go in FUNCTIONS_DIR
-# api = partial(surjective_map, inf.HttpEndpoint, make_api) # TODO
+api = partial(many_to_many, inf.HttpEndpoint, make_api)
 
 
 def provider_aws(state):
@@ -217,7 +328,8 @@ def provider_aws(state):
                 NORMAL_INFRA_DIR,
             )
         ],
-        state.deploy_commands,
+        state.deploy_commands
+        + [f"cp {NORMAL_INFRA_DIR}/provider.tf.json {FUNCTIONS_DIR}"],
     )
 
 
@@ -252,40 +364,47 @@ def provider_localstack(state):
                 NORMAL_INFRA_DIR,
             )
         ],
-        state.deploy_commands,
+        state.deploy_commands
+        + [f"cp {NORMAL_INFRA_DIR}/provider.tf.json {FUNCTIONS_DIR}"],
     )
 
 
 def c9_layer(state):
     # https://medium.com/@adhorn/getting-started-with-aws-lambda-layers-for-python-6e10b1f9a5d
     # But not supported on localstack :(
-    name = "c9_runtime"
+    name = _get_layer_name(state)
     iac = state.iac + [
         TfResource(
             "aws_lambda_layer_version",
             name,
             dict(
-                filename=C9_LAYER_ZIP,
-                layer_name=name,
-                compatible_runtimes=["python3.8"],
+                filename=LAYER_ZIP, layer_name=name, compatible_runtimes=["python3.8"],
             ),
             subdir=FUNCTIONS_DIR,
         )
     ]
-    return SynthState(state.service_name, state.resources, iac, state.deploy_commands)
+    deploy_commands = state.deploy_commands + [
+        f"mv {LAMBDA_DIRNAME}/{LIB_PATH} python",
+        f'zip -r -g -q {FUNCTIONS_DIR}/{LAYER_ZIP} python -x "*__pycache__*"',
+    ]
+    return SynthState(state.service_name, state.resources, iac, deploy_commands)
 
 
 def roles(state):
-    policy = TfModule("c9_policy", dict(source="../tf_modules/c9_policy"))
+    policy_name = "c9_policy"
+    policy = TfModule(
+        policy_name, dict(source="../tf_modules/c9_policy"), subdir=FUNCTIONS_DIR
+    )
     attachments = [
         TfResource(
             "aws_iam_role_policy_attachment",
-            "policy_{fn.infra_name}",
+            f"policy_{fn.infra_name}",
             {
                 # --
-                "role": f"${{module.{fn.infra_name}.arn}}",
-                "policy_arn": f"${{module.c9_policy.arn}}",
+                "role": f"${{module.{fn.infra_name}.role_name}}",
+                "policy_arn": f"${{module.{policy_name}.arn}}",
             },
+            subdir=FUNCTIONS_DIR,
         )
         for fn in state.filter_resources(inf.Function)
     ]
@@ -295,13 +414,12 @@ def roles(state):
 
 def _add_c9_infra(state):
     """Add the C9 bits to state"""
-    if FN_HANDLE_EXISTING in [i.name for i in state.iac]:
-        return state
-
+    c9_layer = _maybe_get_c9_layer(state)
     c9_handler_existing = TfModule(
         FN_HANDLE_EXISTING,
         dict(
             source="../tf_modules/c9_lambda",
+            layers=c9_layer,
             filename=LAMBDA_ZIP,
             function_name=FN_HANDLE_EXISTING,
             handler=HANDLE_EXISTING,
@@ -332,8 +450,9 @@ def finalise(state):
     state = _add_c9_infra(state)
     resources = []  # TODO check it's actually taken them all
     modules = FileSynth(join(dirname(__file__), "tf_modules"))
-    iac = [modules] + state.iac
-    return SynthState(state.service_name, resources, iac, DEPLOY_SCRIPT.split("\n"))
+    iac = state.iac + [modules]
+    deploy_commands = state.deploy_commands + DEPLOY_SCRIPT.split("\n")
+    return SynthState(state.service_name, resources, iac, deploy_commands)
 
 
 DEPLOY_SCRIPT = f"""
@@ -349,8 +468,6 @@ mv {TF_OUTPUTS_FILENAME} {LAMBDA_DIRNAME}
 pushd {LAMBDA_DIRNAME}
     zip -r -q ../{FUNCTIONS_DIR}/{LAMBDA_ZIP} . -x "*__pycache__*"
 popd
-
-cp {NORMAL_INFRA_DIR}/provider.tf.json {FUNCTIONS_DIR}
 
 pushd {FUNCTIONS_DIR}
     terraform init

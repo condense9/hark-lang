@@ -39,7 +39,9 @@ def Error(value):
 class HttpHandler(FuncModifier):
     """Add an HttpEndpoint infrastructure resource to func"""
 
-    def __init__(self, method: str, path: str):
+    def __init__(self, method: str, path: str, query=None, body=None):
+        self.query = query if query else {}
+        self.body = body if body else {}
         self.method = method
         self.path = path
 
@@ -48,7 +50,14 @@ class HttpHandler(FuncModifier):
         fn.infrastructure.extend(
             [
                 # The Endpoint handler is the Function name!
-                inf.HttpEndpoint(endpoint_name, self.method, self.path, fn.__name__),
+                inf.HttpEndpoint(
+                    endpoint_name,
+                    self.method,
+                    self.path,
+                    fn.__name__,
+                    self.query,
+                    self.body,
+                ),
                 inf.Function(fn.__name__),
             ]
         )

@@ -47,6 +47,11 @@ resource "aws_cloudwatch_log_group" "lambda" {
   retention_in_days = var.log_retention_in_days
 }
 
+# Required to write logs
+resource "aws_iam_role_policy_attachment" "basic" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
 
 
 # resource "aws_iam_role_policy_attachment" "vpc_attachment" {

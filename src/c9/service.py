@@ -22,19 +22,20 @@ from .synthesiser import terraform as tf
 
 SLC_PIPELINE = [slc.functions, slc.buckets, slc.dynamodbs, slc.api, slc.finalise]
 
+# Pipeline order matters!
 TF_PIPELINE_AWS = [
-    # tf.c9_layer,
-    # tf.layered_functions,
+    tf.c9_layer,
     tf.functions,
+    tf.api,
     tf.buckets,
     tf.dynamodbs,
     tf.provider_aws,
-    # tf.roles,
-    # tf.logs,
+    tf.roles,
     tf.finalise,
 ]
 TF_PIPELINE_LOCAL = [
     tf.functions,
+    # tf.api, TODO Not supported yet https://github.com/spulec/moto/issues/2730
     tf.buckets,
     tf.dynamodbs,
     tf.provider_localstack,

@@ -95,15 +95,26 @@ def surjective_map(resource_type, f_map, state: SynthState) -> SynthState:
 
     new_component = f_map(state, resources)
 
-    # Each surjective map should only be called once...
-    for c in state.iac:
-        if c.component_type == new_component.component_type:
-            raise warnings.warn(f"{c.component_type} is already synthesised")
-
     return SynthState(
         state.service_name,
         state.resources,
         state.iac + [new_component],
+        state.deploy_commands,
+    )
+
+
+def many_to_many(resource_type, f_map, state: SynthState) -> SynthState:
+    # f_map :: SynthState -> [resource_type] -> [IacObject]
+    resources = [r for r in state.filter_resources(resource_type)]
+    if not resources:
+        return state
+
+    new_components = f_map(state, resources)
+
+    return SynthState(
+        state.service_name,
+        state.resources,
+        state.iac + new_components,
         state.deploy_commands,
     )
 
@@ -115,7 +126,12 @@ def one_to_many(resource_type, f_map, state: SynthState) -> SynthState:
 
     components = flatten(list(map(partial(f_map, state), resources)))
 
-    existing = [c.name for c in state.iac]
+    try:
+        existing = [c.name for c in state.iac]
+    except AttributeError as e:
+        culprit = next(c for c in state.iac if not hasattr(c, "name"))
+        raise Exception(f"***Couldn't get name - {culprit}") from e
+
     for c in components:
         if c.name in existing:
             raise warnings.warn(f"{resource_type} {c.name} is already synthesised")

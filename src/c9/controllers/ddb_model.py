@@ -87,10 +87,8 @@ class MachineMap(MapAttribute):
 
 if "LOCALSTACK_HOSTNAME" in os.environ:
     DDB_HOST = "http://" + os.environ["LOCALSTACK_HOSTNAME"] + ":4569"
-elif "C9_TARGET_AWS" in os.environ:
-    raise NotImplementedError
 else:
-    DDB_HOST = "http://localhost:4569"
+    DDB_HOST = None
 
 
 class Session(Model):
@@ -100,7 +98,7 @@ class Session(Model):
 
     class Meta:
         table_name = C9_DDB_TABLE_NAME
-        region = "eu-west-2"
+        region = "eu-west-2"  # FIXME inject??
         host = DDB_HOST
 
     # Very simple, SINGLE-ENTRY, global lock for the whole session. Brutal -

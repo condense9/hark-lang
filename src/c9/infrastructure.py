@@ -67,9 +67,27 @@ class InfrastructureNode(ForeignCall):
 # InfrastructureNode classes.
 
 
+# class HttpEndpointPath:
+#     def __init__(self, url, query, body)
+
+
 class HttpEndpoint(Infrastructure):
-    def init_spec(self, name, method, path, handler):
-        return dict(name=name, method=method, path=path, handler=handler)
+    def init_spec(self, name, method, path, handler, path_params, body_params):
+        # query and body: dict { param_name -> param_type }
+        # TODO optional params
+        if not path_params:
+            path_params = {}
+        if not body_params:
+            body_params = {}
+        return dict(
+            name=name,
+            method=method,
+            path=path,
+            handler=handler,
+            body_params=body_params,
+            path_params=path_params,
+            query_params={},
+        )
 
 
 class Function(Infrastructure):

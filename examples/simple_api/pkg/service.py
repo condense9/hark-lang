@@ -10,18 +10,18 @@ from . import lib
 DB = KVStore("todos", attrs=dict(todo_id="S"), keys=dict(todo_id="HASH"),)
 
 
-@HttpHandler("POST", "/new-todo")
+@HttpHandler("POST", "todos")
 def add_todo(event, context):
     new_todo = lib.create_todo(DB, event, context)
     return If(new_todo, OkJson(new_todo), Error(500))
 
 
-@HttpHandler("GET", "/")
+@HttpHandler("GET", "todos")
 def index(event, context):
     return OkJson(lib.list_todos(DB, event, context))
 
 
-@HttpHandler("POST", "/echo")
+@HttpHandler("POST", "echo")
 @Foreign
 def echo_it(event, context):
     return dict(statusCode=200, body=event)

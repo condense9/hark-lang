@@ -17,7 +17,12 @@ deps:  ## Install runtime Python dependencies
 
 # We only depend on C9 - this step could be installing requirements.txt
 build: cleansrc pkg/service.py  ## Build the deployment
-	c9 --dev --libs=$(LIBS) --output=$(BUILD) compile pkg.service SERVICE pkg
+	c9 -v compile --dev --libs=$(LIBS) --output=$(BUILD) pkg.service SERVICE pkg
+
+# We only depend on C9 - this step could be installing requirements.txt
+build-prod: cleansrc pkg/service.py  ## Build the deployment
+	c9 -v compile --libs=$(LIBS) --output=$(BUILD) pkg.service SERVICE pkg
+
 
 cleansrc:  ## Clean everything except terraform things
 	-find $(BUILD) ! -path "*/.terraform/*" ! -name "*.tfstate*" -delete
