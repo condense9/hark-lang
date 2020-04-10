@@ -378,7 +378,10 @@ def c9_layer(state):
             "aws_lambda_layer_version",
             name,
             dict(
-                filename=LAYER_ZIP, layer_name=name, compatible_runtimes=["python3.8"],
+                source_code_hash=f'${{filebase64sha256("{LAYER_ZIP}")}}',
+                filename=LAYER_ZIP,
+                layer_name=name,
+                compatible_runtimes=["python3.8"],
             ),
             subdir=FUNCTIONS_DIR,
         )
@@ -419,6 +422,7 @@ def _add_c9_infra(state):
         FN_HANDLE_EXISTING,
         dict(
             source="../tf_modules/c9_lambda",
+            source_code_hash=f'${{filebase64sha256("{LAMBDA_ZIP}")}}',
             layers=c9_layer,
             filename=LAMBDA_ZIP,
             function_name=FN_HANDLE_EXISTING,
