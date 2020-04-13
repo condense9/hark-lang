@@ -2,4 +2,5 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+mdbook build
 netlify deploy --prod
