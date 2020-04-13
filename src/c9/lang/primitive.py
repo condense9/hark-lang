@@ -161,23 +161,3 @@ class ForeignCall(Node):
 
 class Do(Node):
     """Do multiple things (PROGN)"""
-
-
-################################################################################
-
-
-# A "Type" is a function. So a string name (address) and a body. Some Types are
-# builtin, which means their implementations are defined in machine.py, and they
-# are skipped during the compile phase (no def/body generated for them).
-#
-# The compiler needs to know which machine it is targetting, so that it can skip
-# generating definitions. 03/12/20
-
-
-# How about... when a Node is called, it returns other Nodes. Then we'd get easy
-# composition. Quote just returns itself. There are some primitive nodes, which
-# return themselves, but others could return more nodes?! So in compiling, every
-# non-primitive node calls itself and compiles the results.
-#
-# No. That's reimplementing what already exists - abstraction through defun.
-# Cond can easily be defun'd, using the If primitive.
