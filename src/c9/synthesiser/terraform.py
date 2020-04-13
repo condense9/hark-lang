@@ -309,6 +309,13 @@ def make_api(state, endpoints: List[inf.HttpEndpoint]) -> list:
     return [api, deployment, deployment_output] + resources + methods
 
 
+# def make_bucket_trigger(state, ...) -> list:
+#     # https://www.terraform.io/docs/providers/aws/r/s3_bucket_notification.html
+#     return TfResource
+
+# bucket_trigger = partial(one_to_many, inf.BucketTrigger, make_bucket_trigger)
+
+
 functions = partial(one_to_many, inf.Function, make_function)
 buckets = partial(one_to_many, inf.ObjectStore, make_bucket)
 dynamodbs = partial(one_to_many, inf.KVStore, make_dynamodb)

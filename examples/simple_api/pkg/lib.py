@@ -22,7 +22,7 @@ def create_todo(db_props, event, context):
 
     timestamp = str(time.time())
 
-    table = dynamodb.Table(db_props["id"])
+    table = dynamodb.Table(db_props.id)
 
     item = {
         "todo_id": str(uuid.uuid1()),
@@ -41,7 +41,7 @@ def create_todo(db_props, event, context):
 @Foreign
 def list_todos(db_props, event, context):
     print(db_props)
-    table = dynamodb.Table(db_props["id"])
+    table = dynamodb.Table(db_props.id)
 
     # fetch all todos from the database
     result = table.scan()

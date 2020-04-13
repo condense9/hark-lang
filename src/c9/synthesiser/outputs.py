@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import os.path
+from types import SimpleNamespace
 
 from ..constants import OUTPUTS_FILENAME
 
@@ -27,4 +28,4 @@ def load_infra_outputs(inf_name: str) -> dict:
         with open(filename, "r") as f:
             OUTPUTS = json.load(f)
 
-    return OUTPUTS[inf_name]
+    return SimpleNamespace(**OUTPUTS[inf_name])
