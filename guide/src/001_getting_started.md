@@ -71,7 +71,7 @@ default: build
 
 deps:  ## Install runtime Python dependencies
 	mkdir -p pip_libs
-	pip install --upgrade --target site_packages -r requirements.txt
+	pip install --upgrade --target pip_libs -r requirements.txt
 
 build:  ## Build the deployment
 	c9 compile $(DEV) --libs=pip_libs --output=build my_etl.service SERVICE my_etl
@@ -81,7 +81,7 @@ deploy:
     cd build && ./deploy.sh
     
 clean:
-	rm -rf site_packages
+	rm -rf pip_libs
     rm -rf build
     
 .PHONY: deps build deploy clean
