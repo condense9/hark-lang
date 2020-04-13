@@ -15,6 +15,10 @@ Only
 Not much? Nope. Enough to do simple things, and more complex things should be
 done with Foreign functions for now.
 
+Lists are made up of "Atoms" and other lists. Anything that isn't a list is an
+Atom. For example, `1` is an atom, and so is `"hello world"`, but `[1, "hello
+world"]` is of course a list.
+
 
 ## Instructions Reference
 
@@ -55,5 +59,48 @@ Operands
 
 Call a Python function with the given number of arguments popped from the stack,
 and push the result.
+
+
+### `Eq`
+
+Removes two items from the stack and pushes `True` onto the stack if they're
+equal, `False` otherwise.
+
+### `Atomp`
+
+Replace the top item of the stack with `True` if it is an Atom (i.e., anything
+other than a list).
+
+### `Nullp`
+
+Replace the top item of the stack with `True` if it is Null (a list of length
+0).
+
+### `Cons`
+
+Take the top two items (a, b) off the stack and replace them with something
+according to the following:
+
+```
+ a,   [b]  -> [a, b]   -- a is an atom, b is a list
+ a,    b   -> [a, b]   -- a and b are both atoms
+ otherwise -> error    
+```
+
+This allows us to do list construction. NOTE that the last rule implies we can
+only construct lists one level deep. This is a known bug and will be fixed ;).
+
+### `First`
+
+Pop the top item off the stack, assume it's a list, and push just the first
+element from it.
+
+This, along with `Rest` allow us to do arbitrary list deconstruction.
+
+### `Rest`
+
+Pop the top item off the stack, assume it's a list, and push everything except
+the first element.
+
 
 ### ... and more!

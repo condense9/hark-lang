@@ -1,7 +1,7 @@
 # Getting Started
 
-C9 is a Python 3.8 library, and it's probably best to install it in a virtual
-environment for your project.
+C9 is a Python 3.8 library and CLI application, and it's probably best to
+install it in a virtual environment for your project.
 
 Once installed, check:
 
@@ -9,7 +9,7 @@ Once installed, check:
 $ c9 --version
 ```
 
-Let's have a quick look at the usage (particularly, look at the `compile` command).
+Have a quick look at the usage (particularly, look at the `compile` command).
 
 ```shell
 $ c9 --help
@@ -45,8 +45,8 @@ my_etl/
 | requirements.txt     | Python pip requirements                               |
 
 
-The C9 Service must be defined in a Python package ("`my_etl`" above), something
-like this:
+The C9 Service must be defined in a Python package ("`my_etl`" above), and must
+define the service name and the handlers to include:
 
 ```python
 # service.py
@@ -60,7 +60,7 @@ SERVICE = c9.Service("My ETL service", handlers=[...])
 
 There is a bit of manual work involved in building the service, primarily
 because C9 doesn't define how to manage your Python dependencies. The `--libs`
-parameter for `compile` specifies where to find your dependencies.
+parameter for `c9 compile` specifies where to find your dependencies.
 
 Here's an example `Makefile` to accomplish that:
 

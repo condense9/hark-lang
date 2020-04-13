@@ -6,18 +6,23 @@
 - Infrastructure
 - Functions
 - Compilation
+- Synthesis
 
 **Services** are the central concept that tie everything together.
 
 Services are comprised of a number of **Handlers**.
 
-Handlers are C9 functions which are executed in response to an **Event**.
+Handlers are C9 **Functions** which are executed in response to an **Event**.
 
 Events are very generally defined as anything that can happen at any time, and
 they may have some data attached to them describing the Event. Examples of Events:
 
 - An API call (data: the request parameters)
-- An object is uploaded to an S3 bucket (data: the bucket name, the object key, ...**
+- An object is uploaded to an S3 bucket (data: the bucket name, the object key, ...)
+
+Handlers can call other Functions (C9 or Foreign, synchronously or
+asynchronously), and may return a value (required for some events, like API
+calls). Handlers can have infrastructure attached to them.
 
 **Infrastructure** is (an abstraction of) some cloud infrastructure or resource.
 Examples:

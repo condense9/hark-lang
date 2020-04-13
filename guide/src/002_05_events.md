@@ -12,14 +12,17 @@ Handlers are created with decorators.
 Define a C9 Func that is called when a particular HTTP/REST endpoint is called.
 
 ```python
-@HttpHandler(method, resource)
+from c9.http import HttpHandler, OkJson
+
+@HttpHandler(<method>, <resource>)
 def the_handler(event, context):
     # ... this is a C9 Func
+    return OkJson({"message": "success!"})
 ```
 
 | Parameter | Type                             | Example         |
 |-----------|----------------------------------|-----------------|
-| method    | HTTP verb (str)                  | GET, POST, ...  |
+| method    | HTTP verb                        | GET, POST, ...  |
 | resource  | REST resource (no leading slash) | "pets", "books" |
 
 The handler will be called with the raw AWS Lambda (event, context) tuple, and

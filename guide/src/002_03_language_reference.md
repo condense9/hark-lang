@@ -1,14 +1,18 @@
 # Language Reference
 
-Here is a C9 function called `process`:
+Here is an example C9 function called `process` which shows off most of the
+language:
 
 ```python
+from c9.lang import *
+from c9.stdlib import *
+
 @Func
 def process(obj):
     metadata = get_metadata(obj)
     chunks = get_chunks(obj)
     results = Map(process_chunk, chunks)
-    return If(Null(results),
+    return If(Nullp(results),
               False,
               save_to_db(metadata, results))
 ```
@@ -16,14 +20,11 @@ def process(obj):
 It takes an argument, `obj`, extracts some metadata and some "chunks" of data,
 processes those chunks, and saves the results to a database.
 
-C9 primitives come in three shapes:
-- decorators
-- keywords
-- data types
+In C9, all primitives and standard library items are capitalised (@Func, Map,
+If, Nullp in `process`).
 
-There's also a standard library of useful things.
-
-In C9, all primitives are capitalised.
+Instead of the two star imports at the top, you may import things individually
+if you prefer.
 
 
 ## Decorators
@@ -33,9 +34,12 @@ In C9, all primitives are capitalised.
 This declares that the decorated function is a C9 function, and *not Python*.
 
 The important thing to remember is that in a C9 function, you can **only** use
-C9 primitives or other C9 functions -- you can't call python functions. The
+C9 primitives or other C9 functions—you can't call python functions. The
 `process` function is only valid C9 if the functions it refers to
 (`get_metadata`, `get_chunks`, ...) are also C9 functions.
+
+**Rule:** Only positional arguments are allowed—no varargs, keyword args
+(yet!)
 
 So, for example, this is valid, though extremely boring:
 
@@ -54,23 +58,21 @@ Mainly showing `foo` can be called directly from `bar`.
 
 ### `@Foreign`
 
-This declares that the decorated function is a *Python* that is *callable* from
-any C9 function. This is mostly syntax sugar for the *ForeignCall* keyword
-(below**.
+This declares that the decorated function is a *Python* function that is
+*callable* from any C9 function. This is mostly syntax sugar for the
+`ForeignCall` keyword (below).
 
-**Rule:** Only positional arguments are allowed -- no varargs, keyword args
-(*yet!)
-
-This is more interesting.
+**Rule:** Only positional arguments are allowed—no varargs, keyword args
+(yet!)
 
 ```python
 @Foreign
 def do_something(image_data):
     # do things with numpy ... 
     
-@Func
+@Foreign
 def read_image(image_name):
-    # ...
+    # read a file from disk/S3 ...
 
 @Func
 def main(image_name):
@@ -97,22 +99,22 @@ There are not many! There are two "kinds".
 
 Compiler keywords (`import c9.lang`):
 
-- If
-- Quote
-- Funcall
-- ForeignCall
-- Do
-- Asm
+- [If](002_03_language_reference.html#if)
+- [Quote](002_03_language_reference.html#quote)
+- [Funcall](002_03_language_reference.html#funcall)
+- [ForeignCall](002_03_language_reference.html#foreigncall)
+- [Do](002_03_language_reference.html#do)
+- [Asm](002_03_language_reference.html#asm)
 
 Built-in machine instructions (`import c9.stdlib`):
 
-- Wait
-- Eq
-- Atomp
-- Nullp
-- Cons
-- First
-- Rest
+- [Wait](002_02_machine.html#wait)
+- [Eq](002_02_machine.html#eq)
+- [Atomp](002_02_machine.html#atomp)
+- [Nullp](002_02_machine.html#nullp)
+- [Cons](002_02_machine.html#cons)
+- [First](002_02_machine.html#first)
+- [Rest](002_02_machine.html#rest)
 
 The difference is that the second keywords compile directly into the machine
 instruction of the same name, while the first don't. That's not really important
