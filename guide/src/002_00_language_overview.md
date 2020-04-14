@@ -25,7 +25,3 @@ So it has a built-in [foreign function
 interface](https://en.wikipedia.org/wiki/Foreign_function_interface), letting
 you implement the heavy lifting in your language of choice (currently only the
 Python FFI is implemented...).
-
-So, actually, you'll still be writing in at least two langauges—sorry,
-[https://condense9.com](https://condense9.com) blatantly lied.
-

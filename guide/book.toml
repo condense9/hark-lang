@@ -8,3 +8,5 @@ title = "The C9 Language"
 
 [output.html]
 curly_quotes = true
+
+[output.linkcheck]
