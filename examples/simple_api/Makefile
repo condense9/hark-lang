@@ -24,6 +24,11 @@ build-prod: cleansrc pkg/service.py  ## Build the deployment
 	c9 -v compile --libs=$(LIBS) --output=$(BUILD) pkg.service SERVICE pkg
 
 
+graph:
+	c9 graph pkg.service add_todo | dot -Tpng -o add_todo.png
+	c9 graph pkg.service index | dot -Tpng -o index.png
+
+
 cleansrc:  ## Clean everything except terraform things
 	-find $(BUILD) ! -path "*/.terraform/*" ! -name "*.tfstate*" -delete
 

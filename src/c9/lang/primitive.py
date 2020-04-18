@@ -47,12 +47,15 @@ class Node:
 
     def __repr__(self):
         kind = type(self).__name__
-        return f"<{kind} {self.name}>"
+        return f"<{self.name}.{kind}>"
 
     def __eq__(self, other):
         return type(self) == type(other) and all(
             a == b for a, b in zip(self.operands, other.operands)
         )
+
+    def __hash__(self):
+        return hash(self._name)
 
 
 class Symbol(Node):
@@ -64,8 +67,11 @@ class Symbol(Node):
     """
 
     def __init__(self, name):
-        super().__init__(name)
+        super().__init__()
         self.symbol_name = name
+
+    def __repr__(self):
+        return f"<{self.name}.Symbol {self.symbol_name}>"
 
     @property
     def descendents(self):
@@ -92,10 +98,13 @@ class Quote(Node):
         return []
 
     def __repr__(self):
-        return f"<Quote {self.value}>"
+        return f"<{self.name}.Quote {self.value}>"
 
     def __eq__(self, other):
         return isinstance(other, Quote) and self.unquote() == other.unquote()
+
+    def __hash__(self):
+        return hash(self._name)
 
 
 class If(Node):
@@ -110,7 +119,7 @@ class If(Node):
         self.els = self.operands[2]
 
     def __repr__(self):
-        return f"<If {self.cond} ? {self.then} : {self.els}>"
+        return f"<{self.name}.If {self.cond} ? {self.then} : {self.els}>"
 
 
 class Asm(Node):
@@ -148,6 +157,16 @@ class Funcall(Node):
             )
         super().__init__(function, *args)
         self.blocking = blocking
+        self.function = function
+        self.args = args
+        if isinstance(function, Quote):
+            self.function_name = function.__name__
+        else:
+            self.function_name = function.symbol_name
+
+    def __repr__(self):
+        kind = type(self).__name__
+        return f"<{self.name}.{kind} {self.function_name} {self.operands[1:]}>"
 
 
 class ForeignCall(Node):

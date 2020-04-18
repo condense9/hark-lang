@@ -1,7 +1,7 @@
 """Decorators to make functions"""
 
 import inspect
-from .primitive import Quote, Funcall, ForeignCall, Node
+from .primitive import Quote, Funcall, ForeignCall, Node, Symbol
 
 
 class Func(Quote):
@@ -29,6 +29,7 @@ class Func(Quote):
                     # b_reduce. To be variadic the machine would need a bit of
                     # runtime logic.
                     raise Exception("Can't handle varargs (yet)")
+        self.placeholders = [Symbol(param.name) for param in sig.parameters.values()]
         self.fn = fn
         self.constraints = None  # Unused for now.
 
@@ -53,7 +54,7 @@ class Func(Quote):
         return self.fn.__name__
 
     def __repr__(self):
-        return f"<Func {self.label}>"
+        return f"<{self.name}.Func {self.label}>"
 
 
 class Foreign(Func):
@@ -72,7 +73,7 @@ class Foreign(Func):
         return ForeignCall(self.original_function, *args)
 
     def __repr__(self):
-        return f"<Foreign {self.label}>"
+        return f"<{self.name}.Foreign {self.label}>"
 
 
 class AsyncFunc(Func):

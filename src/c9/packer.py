@@ -44,6 +44,10 @@ def _import_module(path):
     return m
 
 
+def import_handler(module_path, attribute):
+    return getattr(_import_module(module_path), attribute)
+
+
 def pack_handler(handler_file: str, handler_attr: str, dest: str, verbose=False):
     """Try to import handler from"""
     m = _import_module(handler_file)

@@ -4,11 +4,13 @@ Usage:
   c9 [options] build <module> <attribute>
   c9 [options] compile <module> <attribute> <package>
   c9 [options] run <file> [<arg>...]
+  c9 [options] graph [--legend] <module> <attribute>
 
 Commands:
   build    Generate a C9E executable file for the handler.
   compile  Generate a deployable service object.
   run      Run a C9E executable.
+  graph    Build a graph of a function execution
 
 Arguments:
   MODULE      Python module (eg a.b.c) containing the Service object.
@@ -33,6 +35,8 @@ Options:
   --moddir=DIR  Directory with Python modules this executable uses.
   ARG...        Arguments to pass to the executable [default = None].
 
+  (graph only)
+  --legend  Include the legend [default = False]
 
 ===
 
@@ -68,6 +72,7 @@ Generate a foo.zip for SERVICE, also packaging "fileb.py" and "dir".
 
 import os.path
 import sys
+import logging
 
 from docopt import docopt
 from schema import And, Or, Schema, SchemaError, Use
@@ -75,6 +80,7 @@ from schema import And, Or, Schema, SchemaError, Use
 from .. import __version__
 from .. import packer
 from ..machine import c9e
+from ..synthesiser import visualise
 
 from ..runtimes import local
 
@@ -111,6 +117,12 @@ def _build(args):
     )
 
 
+def _graph(args):
+    fn = packer.import_handler(args["<module>"], args["<attribute>"])
+    graph = visualise.make_complete_graph(fn, include_legend=args["--legend"])
+    print(graph.source)
+
+
 def _compile(args):
     if args["--split-handlers"]:
         raise NotImplementedError("Split handlers not implemented yet!")
@@ -129,7 +141,8 @@ def _compile(args):
 def main():
     args = docopt(__doc__, version=__version__)
     if args["--verbose"]:
-        print(args)
+        logging.basicConfig(level=logging.INFO)
+        logging.info(args)
 
     if args["run"]:
         _run(args)
@@ -137,6 +150,8 @@ def main():
         _compile(args)
     elif args["build"]:
         _build(args)
+    elif args["graph"]:
+        _graph(args)
     else:
         raise NotImplementedError
 

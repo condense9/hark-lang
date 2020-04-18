@@ -1,5 +1,6 @@
 """Shared utilities"""
 
+import logging
 import itertools
 from collections import deque
 
@@ -28,7 +29,7 @@ def traverse_dag(fn: l.Func, only=None):
         visited.append(this_fn)
 
         if not isinstance(this_fn, l.Func):
-            raise Exception(f"{this_fn} is not Node (bad compile tree)")
+            raise Exception(f"{this_fn} is not Func (bad compile tree)")
 
         if not only or isinstance(this_fn, only):
             yield this_fn
@@ -46,3 +47,22 @@ def traverse_dag(fn: l.Func, only=None):
                         raise Exception(f"{n} is not Node (bad compile tree)")
                     if not only or isinstance(n, only):
                         yield n
+
+
+def traverse_fn(fn: l.Func):
+    to_visit = deque([fn])
+    nodes = []
+    logging.info("Top Node: %s", str(fn))
+
+    while to_visit:
+        this_node = to_visit.pop()
+
+        for n in this_node.operands:
+            logging.info("Node: %s", str(n))
+            if n not in nodes:
+                nodes.append(n)
+            if isinstance(n, (l.Funcall, l.ForeignCall, l.If, l.Do, l.Asm)):
+                # if not isinstance(n, (l.Func)):
+                to_visit.append(n)
+
+    return nodes
