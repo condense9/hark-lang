@@ -27,9 +27,11 @@ b = \"bla\"""",
     # --
     "f x = (g x) + 1",
     # --
-    "a = f x y"
+    "a = f x y",
     # --
-    # "f a = h a 2 \nf a = ((h a) 2)",
+    "f a = h a 2 \nf a = ((h a) 2)",
+    # --
+    "f = 5 `mod` 2",
 ]
 
 EXPR_TESTS = [
@@ -58,11 +60,9 @@ class C9Indenter(Indenter):
 
 def main(make_tree=False):
     # https://github.com/lark-parser/lark/blob/master/examples/python_parser.py
-    parser = lark.Lark.open(
-        "c9_func.lark", parser="lalr", postlex=C9Indenter(), start="expression"
-    )
+    parser = lark.Lark.open("c9_func.lark", parser="lalr", postlex=C9Indenter())
 
-    for i, t in enumerate(EXPR_TESTS):
+    for i, t in enumerate(TESTS):
         print("------------------------------------------------------------")
         print(t)
         print(":")

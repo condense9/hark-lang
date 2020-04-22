@@ -47,24 +47,26 @@ def_lhs  : def_name [binding*]
 def_name : IDENTIFIER
 binding  : IDENTIFIER
 
-?expression : application
-            | atom
+expression     : term*
+bracketed_expr : "(" term* ")"
+inline_expr    : term operator term
+
+?term : atom | bracketed_expr | inline_expr
 
 ?atom : literal
       | def_name
-      | bracketed_expr
 
 literal : string | number
 
-application    : expression parameter*
-parameter      : atom
-bracketed_expr : "(" expression ")"
+// application : def_name parameter*
+// parameter   : expression
+
 
 operator : "+" -> add
          | "-" -> subtract
          | "*" -> multiply
          | "/" -> divide
-         | /`[a-zA-A_]`/ -> op
+         | /`[a-zA-A_]*`/ -> op
 
 
 // list  : "[" [ expression ("," expression)* ] "]"
