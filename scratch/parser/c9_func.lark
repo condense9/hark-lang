@@ -1,0 +1,104 @@
+// ruby-doc.org/docs/ruby-doc-bundle/Manual/man-1.4/yacc.html
+//
+// Kinda like Ruby.
+//
+// Considerations
+// - paradigm (functional)
+// - assignment... ??
+// - scope
+// - easy of implementation
+//
+// Features
+// - easy FFI (import a Python module and call functions in it)
+// - ? lambdas (objects that can be evaluated with arguments substituted in)
+// - function definition (named lambda expressions)
+// - handle JSON-like data
+// - ? closures (lambdas that capture lexical scope)
+//
+// Syntax must support
+// - function definition
+// - value binding (in a given scope, this is just an anonymous lambda application)
+// - ? async/await
+//
+// Design decisions
+// - variables are immutable (no reassignment, so line-order is irrelevant)
+// - functions are pure
+// - side-effects achieved through foreign calls (or built-in specials)
+
+
+// https ://www.haskell.org/onlinereport/syntax-iso.html
+// https ://wiki.haskell.org/Foreign_Function_Interface
+
+start : service
+
+service      : "service" service_name [_NEWLINE body]
+             | body
+service_name : IDENTIFIER
+body         : [topdecl] (_NEWLINE topdecl)*
+topdecl      : decl
+             | import
+
+import      : "import" import_name
+import_name : IDENTIFIER
+
+decl     : def_lhs "=" def_rhs
+def_rhs  : expression
+def_lhs  : def_name [binding*]
+def_name : IDENTIFIER
+binding  : IDENTIFIER
+
+?expression : application
+            | atom
+
+?atom : literal
+      | def_name
+      | bracketed_expr
+
+literal : string | number
+
+application    : expression parameter*
+parameter      : atom
+bracketed_expr : "(" expression ")"
+
+operator : "+" -> add
+         | "-" -> subtract
+         | "*" -> multiply
+         | "/" -> divide
+         | /`[a-zA-A_]`/ -> op
+
+
+// list  : "[" [ expression ("," expression)* ] "]"
+// tuple : "(" [ expression ("," expression)* ] ")"
+// dict  : "{" [ pair  ("," pair)*  ] "}"
+// pair  : expression ":" expression
+
+string : ESCAPED_STRING
+number : SIGNED_NUMBER
+
+// Terminators (Lark terminators, that is)
+
+IDENTIFIER : /[a-zA-Z_][a-zA-Z0-9_]*/
+
+COMMENT : /#[^\n]*/
+
+
+CR       : /\r/
+LF       : /\n/
+_NEWLINE : ( /\r?\n[\t ]*/ | COMMENT )+
+
+%ignore COMMENT
+
+
+// Ruby-style symbol data-type
+SYMBOL : /:[a-zA-Z_][a-zA-Z0-9_]*/
+
+// https ://github.com/lark-parser/lark/blob/master/lark/grammars/common.lark
+%import common.ESCAPED_STRING
+%import common.SIGNED_NUMBER
+
+WS_INLINE : (" "|/\t/)+
+WS        : /[ \t\f\r\n]/+
+
+%ignore WS_INLINE
+
+%declare _INDENT _DEDENT
