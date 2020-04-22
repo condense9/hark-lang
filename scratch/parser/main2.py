@@ -31,7 +31,9 @@ b = \"bla\"""",
     # --
     "f a = h a 2 \nf a = ((h a) 2)",
     # --
-    "f = 5 `mod` 2",
+    "f = null",
+    # --
+    "f x = 1 + f x * 3",
 ]
 
 EXPR_TESTS = [
@@ -63,7 +65,7 @@ def main(make_tree=False):
     parser = lark.Lark.open("c9_func.lark", parser="lalr", postlex=C9Indenter())
 
     for i, t in enumerate(TESTS):
-        print("------------------------------------------------------------")
+        print(f"-[{i}]------------------------------------------------------")
         print(t)
         print(":")
         tree = parser.parse(t)

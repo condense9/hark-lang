@@ -31,10 +31,10 @@
 
 start : service
 
-service      : "service" service_name [_NEWLINE body]
+?service     : "service" service_name [_NEWLINE body]
              | body
 service_name : IDENTIFIER
-body         : [topdecl] (_NEWLINE topdecl)*
+?body        : [topdecl] (_NEWLINE topdecl)*
 topdecl      : decl
              | import
 
@@ -47,37 +47,62 @@ def_lhs  : def_name [binding*]
 def_name : IDENTIFIER
 binding  : IDENTIFIER
 
-expression     : term*
-bracketed_expr : "(" term* ")"
-inline_expr    : term operator term
+?expression : exp_0
 
-?term : atom | bracketed_expr | inline_expr
+// homepage.divms.uiowa.edu/~fleck/HaskellexprBNF.pdf
+// www.haskell.org/onlinereport/decls.html#fixity
+//
+// generator :
+// exp.0     : nexp.0 | lexp.0 | rexp.0
+// nexp.0    : exp.1 [qop_n.0 exp.1]
+// lexp.0    : (lexp.0 | exp.1) qop_l.0 | exp.1
+// rexp.0    : exp.1 qop_r.0 (rexp.0 | exp.1)
 
-?atom : literal
-      | def_name
+?exp_0 : exp_1 [qop_n_0 exp_1]
 
-literal : string | number
+?exp_1  : exp_2 | lexp_1
+?lexp_1 : (lexp_1 | exp_2) qop_l_1 exp_2
 
-// application : def_name parameter*
-// parameter   : expression
+?exp_2  : exp_3 | lexp_2
+?lexp_2 : (lexp_2 | exp_3) qop_l_2 exp_3
+
+qop_n_0    : "<"  -> lt
+           | ">"  -> gt
+           | "==" -> eq
+qop_l_1    : "+"  -> add
+           | "-"  -> subtract
+qop_l_2    : "*"  -> mutiply
+           | "/"  -> divide
+// qop_r_9 : "."  -> compose
 
 
-operator : "+" -> add
-         | "-" -> subtract
-         | "*" -> multiply
-         | "/" -> divide
-         | /`[a-zA-A_]*`/ -> op
+?exp_3 : fexp
 
+?fexp : [ fexp ] aexp
 
-// list  : "[" [ expression ("," expression)* ] "]"
-// tuple : "(" [ expression ("," expression)* ] ")"
-// dict  : "{" [ pair  ("," pair)*  ] "}"
-// pair  : expression ":" expression
+?aexp : qvar
+      | literal
+      | parexp
+      | list
+      | tuple
+      | dict
+
+?parexp  : "(" expression ")"
+?literal : string | number
+null     : NULL
+qvar     : IDENTIFIER
+
+list  : "[" [ [expression] ("," expression)* ] "]"
+tuple : "(" [ expression ("," expression)+ ] ")"
+dict  : "{" [ pair  ("," pair)*  ] "}"
+pair  : expression ":" expression
 
 string : ESCAPED_STRING
 number : SIGNED_NUMBER
 
 // Terminators (Lark terminators, that is)
+
+NULL : "null"
 
 IDENTIFIER : /[a-zA-Z_][a-zA-Z0-9_]*/
 
