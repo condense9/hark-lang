@@ -71,9 +71,16 @@ def f:
         b = 2
     in a
     """,
-    # -- func
-    "def f x: 1 + f (x - 1) * 3",
+    # -- funcs
+    """
+def f x: 1 + f (x - 1) * 3
+def g x: 5 + x
+def h x: f (g x)
+def hh: f . g . h
+    """,
 ]
+
+# SERVICE_TESTS
 
 
 # CLOSURE = """

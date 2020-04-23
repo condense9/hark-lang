@@ -34,7 +34,7 @@
 ?service     : "service" service_name [_NEWLINE body]
 service_name : IDENTIFIER
 ?body        : topform (_NEWLINE [topform])*
-topform      : def
+?topform     : def
              | import
 
 import      : "import" import_name
@@ -65,17 +65,20 @@ def_binding : IDENTIFIER
 ?exp_1  : exp_2 | lexp_1
 ?lexp_1 : (lexp_1 | exp_2) qop_l_1 exp_2
 
-?exp_2  : exp_top | lexp_2
-?lexp_2 : (lexp_2 | exp_top) qop_l_2 exp_top
+?exp_2  : exp_3 | lexp_2
+?lexp_2 : (lexp_2 | exp_3) qop_l_2 exp_3
 
-qop_n_0    : "<"  -> lt
-           | ">"  -> gt
-           | "==" -> eq
-qop_l_1    : "+"  -> add
-           | "-"  -> subtract
-qop_l_2    : "*"  -> mutiply
-           | "/"  -> divide
-// qop_r_9 : "."  -> compose
+?exp_3  : exp_top | rexp_3
+?rexp_3 : exp_top qop_r_3 (rexp_3 | exp_top)
+
+qop_n_0 : "<"  -> lt
+        | ">"  -> gt
+        | "==" -> eq
+qop_l_1 : "+"  -> add
+        | "-"  -> subtract
+qop_l_2 : "*"  -> mutiply
+        | "/"  -> divide
+qop_r_3 : "."  -> compose
 
 
 ?exp_top : fexp
