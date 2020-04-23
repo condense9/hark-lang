@@ -20,6 +20,7 @@ from .. import lang as l
 from .. import machine as m
 from .compiler_utils import traverse_dag, flatten
 from .. import infrastructure as inf
+from ..machine.types import C9Type
 
 
 class CompileError(Exception):
@@ -38,10 +39,16 @@ class CodeObject:
             if isinstance(i, CodeObject):
                 raise Exception("Got CodeObject - did you forget `.code`?")
             if not isinstance(i, m.Instruction):
-                raise Exception(f"Bad code {i} ({type(i)})")
+                raise Exception(f"{i} is {type(i)}, not Instruction")
             for o in i.operands:
                 if not isinstance(o, (str, int, list)) and not callable(o):
                     raise Exception(f"Bad operand {o} ({type(o)})")
+
+    def listing(self):
+        print(" /")
+        for i, instr in enumerate(self.code):
+            print(f" | {i:4} | {instr}")
+        print(" \\")
 
 
 @singledispatch
@@ -55,6 +62,12 @@ def _(node: l.Quote) -> CodeObject:
     """Quote: just unquote it and push the value"""
     # print("3232432", node, node.unquote())
     return CodeObject([m.PushV(node.unquote())])
+
+
+@compile_node.register
+def _(node: C9Type) -> CodeObject:
+    """If it's in the compile tree, then it's a literal"""
+    return CodeObject([m.PushV(node)])
 
 
 @compile_node.register
@@ -138,16 +151,11 @@ def compile_all(fn: l.Func) -> Dict[str, List[m.Instruction]]:
     return {n.label: compile_function(n) for n in traverse_dag(fn, only=l.Func)}
 
 
-def compile_function(fn: l.Func) -> List[m.Instruction]:
+def compile_function(bindings, top_node) -> List[m.Instruction]:
     """Compile function into machine instructions"""
-    if not isinstance(fn, l.Func):
-        raise TypeError(fn)
-    # Bind the arguments so they can be used later
-    bindings, placeholders = list(
-        zip(*[(m.Bind(i), l.Symbol(i)) for i in range(fn.num_args)])
-    )
-    node = fn.b_reduce(placeholders)
-    fn_compiled = compile_node(node)
+    assert all(isinstance(b, str) for b in bindings)
+    bindings = [PushB(b) for b in bindings]  # reverse?
+    fn_compiled = compile_node(top_node)
     body = [
         # --
         *bindings,
@@ -156,7 +164,7 @@ def compile_function(fn: l.Func) -> List[m.Instruction]:
         # --
     ]
 
-    return body
+    return CodeObject(body)
 
 
 def get_resources(fn: l.Func) -> set:

@@ -1,30 +1,21 @@
-# Machine
-# - Controller
-# - Evaluation
-#
-# Push/pop values (by name)
-# MFCall a particular system operation
-# OR, Call a peripheral method
+"""The C9 virtual machine
 
-# Program
-# - System Operations (uniquely identifiable, peripheral operations)
-# - Code
+To implement closures, just note - a closure is just an unnamed function with
+some bindings. Those bindings may be explicit, or not, but are taken from the
+current lexical environment. Lexical bindings are introduced by function
+definitions, or let-bindings.
 
-
-# Deployment
-#
-# - Set up the peripherals required (if the Program includes Docker, set up ECS)
-# -
-
-
-# Peripheral
-#   call method
+"""
 
 from functools import singledispatchmethod
 from typing import Any, Dict, List
 
 from .controller import Controller
 from .executable import Executable
+from .instruction import Instruction
+from .instructionset import *
+from .state import State
+from .probe import Probe
 
 
 def traverse(o, tree_types=(list, tuple)):
@@ -37,233 +28,12 @@ def traverse(o, tree_types=(list, tuple)):
         yield o
 
 
-class NoMoreFrames(Exception):
-    pass
-
-
-class Instruction:
-    op_types = []
-    check_op_types = True
-
-    def __init__(self, *operands):
-        self.name = type(self).__name__
-        good_length = len(operands) == len(self.op_types)
-        # this is horrible:
-        good_types = all(
-            [
-                callable(a) if b == callable else isinstance(a, b)
-                for a, b in zip(operands, self.op_types)
-            ]
-        )
-        if self.check_op_types and not (good_length and good_types):
-            raise Exception(f"Bad operands - {operands}")
-        self.operands = operands
-
-    def __repr__(self):
-        ops = ", ".join(map(str, self.operands))
-        name = self.name.upper()
-        return f"{name:8} {ops}"
-
-    def __eq__(self, other):
-        return type(self) == type(other) and all(
-            a == b for a, b in zip(self.operands, other.operands)
-        )
-
-    @classmethod
-    def from_name(cls, name, *ops):
-        """Instantiate a machine instruction with name and operands"""
-        # contract: self.name can be looked up here.
-        return globals()[name](*ops)
-
-
-################################################################################
-## Instruction Set
-
-I = Instruction
-
-
-# Synchronous can be implemented on top of async. Therefore, there is no "jump
-# to function" instruction. Actually, that's not true. What does the machine do?
-# Execute something now (sync), or wait (basically stop)?
-# class Call(I):
-#     """Call a (named) function asynchronously"""
-
-
-class Jump(I):
-    """Move execution to a different point, relative to the current point"""
-
-    op_types = [int]
-
-
-class JumpIE(I):
-    """Relative jump, only if top two elements on the stack are equal"""
-
-    op_types = [int]
-
-
-# TODO class JumpLong ?
-
-
-class Perphhhhh(I):
-    """We need an instruction to call 'into' peripherals.
-
-    Peripherals need some way of registering (?)...
-
-    """
-
-
-class Bind(I):
-    """Take the top value off the stack and bind it to a register"""
-
-    op_types = [int]
-
-
-class PushV(I):
-    """Push an immediate value onto the stack"""
-
-    op_types = [object]
-
-
-class PushB(I):
-    """Push a bound value onto the stack"""
-
-    op_types = [int]
-
-
-class Pop(I):
-    """Remove top value from the stack and discard it"""
-
-
-class Wait(I):
-    """Wait until the Nth item on the stack has resolved. May terminate"""
-
-    op_types = [int]
-
-
-class MFCall(I):
-    """Call a *foreign* function"""
-
-    op_types = [callable, int]
-
-    def __eq__(self, other):
-        # https://stackoverflow.com/questions/36852912/is-it-possible-to-know-if-two-python-functions-are-functionally-equivalent
-        # Can't always check equality of functions! Best effort:
-        return (
-            type(self) == type(other)
-            and self.operands[0].__name__ == other.operands[0].__name__
-            and self.operands[1] == other.operands[1]
-        )
-
-
-class Return(I):
-    """Return to the call site"""
-
-
-# This is the /application/ of a function - first arg on the stack must
-# /evaluate to/ a Func, which is the /reference to/ a function.
-class Call(I):
-    """Call a function (sync)"""
-
-    op_types = [int]
-
-
-class ACall(I):
-    """Call a function (async)"""
-
-    op_types = [int]
-
-
-# I think we'll need a "stream" datatype
-
-## These are "built-in" primitive instructions
-
-
-class Eq(I):
-    """Check whether the top two items on the stack are equal"""
-
-
-class Atomp(I):
-    """Check whether something is an atom"""
-
-
-class Cons(I):
-    """Cons two elements together"""
-
-
-class First(I):
-    """CAR (first element) of a list"""
-
-
-class Rest(I):
-    """CDR (all elements after first) of a list"""
-
-
-class Nullp(I):
-    """Check whether the top item on the stack is NIL"""
-
-
-################################################################################
-## The Machine
-
-
-class Probe:
-    """A machine debug probe"""
-
-    def log(self, msg):
-        pass
-
-    def on_step(self, m):
-        pass
-
-    def on_run(self, m):
-        pass
-
-    def on_stopped(self, m):
-        pass
-
-    def on_return(self, m):
-        pass
-
-    def on_enter(self, m, fn_name: str):
-        pass
-
-
-class ChainedFuture:
-    """A chainable future
-
-    TODO document interface. See chain_resolve and LocalFuture for now.
-
-    """
-
-
-def chain_resolve(future: ChainedFuture, value, run_waiting_machine) -> bool:
-    """Resolve a future, and the next in the chain, if any"""
-    actually_resolved = True
-
-    with future.lock:
-        if isinstance(value, ChainedFuture):
-            if value.resolved:
-                value = value.value  # pull the value out of the future
-            else:
-                actually_resolved = False
-                value.chain = future
-
-        if actually_resolved:
-            future.resolved = True
-            future.value = value
-            if future.chain:
-                chain_resolve(future.chain, value, run_waiting_machine)
-            for machine, offset in future.continuations:
-                run_waiting_machine(machine, offset, value)
-
-    return actually_resolved
-
-
 class C9Machine:
-    """This is the Machine, the CPU.
+    """Virtual Machine to execute C9 bytecode.
 
     The machine operates in the context of a Controller. There may be multiple
-    machines connected to the same controller.
+    machines connected to the same controller. All machines share the same
+    executable, defined by the controller.
 
     There is one Machine per compute node. There may be multiple compute nodes.
 
@@ -272,11 +42,14 @@ class C9Machine:
 
     """
 
-    def __init__(self, controller: Controller):
+    def __init__(
+        self, controller: Controller, executable: Executable, state: State, probe: Probe
+    ):
         self.controller = controller
-        executable = controller.executable
         self.imem = executable.code
         self.locations = executable.locations
+        self.state = state
+        self.probe = probe
         # No entrypoint argument - just set the IP in the state
 
     @property
@@ -303,8 +76,6 @@ class C9Machine:
             self.state.stopped = True
 
     def run(self):
-        self.state = self.controller.get_state(self)
-        self.probe = self.controller.get_probe(self)
         self.probe.on_run(self)
         try:
             while not self.stopped:
@@ -316,13 +87,14 @@ class C9Machine:
     @singledispatchmethod
     def evali(self, i: Instruction):
         """Evaluate instruction"""
-        raise NotImplementedError()
+        assert isinstance(i, Instruction)
+        # Delegate to controller (implementation defined)
+        self.controller.evali(i, self)
 
     @evali.register
     def _(self, i: Bind):
         ptr = i.operands[0]
         val = self.state.ds_pop()
-        assert isinstance(ptr, int)
         self.state.set_bind(ptr, val)
 
     @evali.register
@@ -471,6 +243,9 @@ class C9Machine:
         return f"<Machine {id(self)}>"
 
 
+## Notes dumping ground (here madness lies)...
+
+
 # Foreign function calls produce futures. This allows evaluation to continue. We
 # assume that they are "long-running".
 #
@@ -511,10 +286,6 @@ class C9Machine:
 # stack, and jump back
 
 
-class MaxStepsReached(Exception):
-    """Max Execution steps limit reached"""
-
-
 # Call or MFCall: push values onto stack. Result will be top value on the stack
 # upon return. This is ok because the stack isn't shared.
 #
@@ -546,17 +317,3 @@ class MaxStepsReached(Exception):
 # it's becoming more like a very simple Forth-style stack machine. Be careful,
 # either approach could work - pick one. Forth: very flexible, but more complex.
 # Builtins: less flexible, but simpler.
-
-
-def print_instructions(exe: Executable):
-    print(" /")
-    for i, instr in enumerate(exe.code):
-        if i in exe.locations.values():
-            funcname = next(k for k in exe.locations.keys() if exe.locations[k] == i)
-            print(f" | ;; {funcname}:")
-        print(f" | {i:4} | {instr}")
-    print(" \\")
-
-
-if __name__ == "__main__":
-    raise Exception("Don't run this file - import it")

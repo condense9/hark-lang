@@ -303,7 +303,7 @@ class AwsController(Controller):
 ## Entrypoints
 
 
-def run_existing(executor, executable, session_id, machine_id, do_probe):
+def run_existing(executor, executable, session_id, machine_id, do_probe=True):
     """Run an existing session and machine"""
     session = db.Session.get(session_id)
     controller = AwsController(executor, executable, session, do_probe=do_probe)
@@ -311,16 +311,7 @@ def run_existing(executor, executable, session_id, machine_id, do_probe):
     return controller
 
 
-def run(
-    executor,
-    executable,
-    args,
-    *,
-    do_probe=True,
-    timeout=2,
-    sleep_interval=0.1,
-    start_async=False,
-):
+def run_new(executor, executable, args, *, do_probe=True, start_async=False):
     """Make a new session and run it from the top"""
     session = db.new_session()
     m = db.new_machine(session, args, top_level=True)
@@ -333,14 +324,22 @@ def run(
     else:
         controller.run_machine(m.machine_id)
 
+    return controller
+
+
+def wait_for_finish(
+    controller, sleep_interval=0.1, timeout=None,
+):
+    """Wait for the controller to finish, catching exceptions"""
     try:
         start_time = time.time()
         while not controller.finished:
             time.sleep(sleep_interval)
-            if time.time() - start_time > timeout:
+            if timeout and time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for machine to finish")
 
         # Only relevant for ThreadExecutor currently:
+        executor = controller.executor
         if hasattr(executor, "exception") and executor.exception:
             raise Exception from executor.exception.exc_value
 
@@ -350,5 +349,3 @@ def run(
     except Exception as e:
         warnings.warn("Unexpected Exception!! Returning controller for analysis")
         traceback.print_exc()
-
-    return controller

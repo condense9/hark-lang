@@ -76,6 +76,11 @@ def add_dependencies(graph, existing, n):
         then_link = graph.edge(item, then_item, **THEN_STYLE)
         else_link = graph.edge(item, else_item, **ELSE_STYLE)
 
+    elif isinstance(n, Do):
+        for o in n.operands:
+            operand_item = build_tree(graph, o, existing)
+            graph.edge(item, operand_item)
+
     elif isinstance(n, Funcall):
         for o in n.operands[1:]:
             operand_item = build_tree(graph, o, existing)
@@ -112,6 +117,7 @@ def build_fn_graph(graph, fn):
     node = fn.b_reduce(placeholders)
     existing = {}
 
+    # Put the args in their own subgraph so they are at the top
     sub = Digraph()
     sub.attr(rank="min")
     for p in placeholders:
@@ -120,20 +126,10 @@ def build_fn_graph(graph, fn):
         existing[p] = p.name
     graph.subgraph(sub)
 
-    sub = Digraph()
-    build_tree(sub, node, existing)
-    graph.subgraph(sub)
-    return graph
+    return build_tree(graph, node, existing)
 
 
-def make_complete_graph(root_fn, include_legend=True):
-    # if include_legend:
-    #     graph = GvGen("Legend")
-    #     graph.legendAppend(TASK_STYLE, "A C9 Function")
-    #     graph.legendAppend(FOREIGN_STYLE, "A Foreign function call")
-    # else:
-    #     graph = GvGen()
-
+def make_complete_graph(root_fn):
     graph = Digraph(comment=f"Graph for {root_fn.name}")
 
     for fn in traverse_dag(root_fn, only=Func):
@@ -144,6 +140,11 @@ def make_complete_graph(root_fn, include_legend=True):
             graph.subgraph(sub)
 
     return graph
+
+
+def print_dotviz(root_fn):
+    graph = make_complete_graph(root_fn)
+    print(graph.source)
 
 
 ###

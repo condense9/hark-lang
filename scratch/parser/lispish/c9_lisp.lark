@@ -1,0 +1,75 @@
+// https ://github.com/antlr/grammars-v4/blob/master/clojure/Clojure.g4
+// https ://www.braveclojure.com/core-functions-in-depth/
+
+start : file
+
+file : sexp*
+
+?sexp : atom
+      | "(" special_form ")"
+      | list
+      | map
+      | reader_macro
+
+?special_form : def | let | if | do
+
+list : "(" sexp* ")"     -> list_
+map  : "{" (sexp sexp)* "}" -> map_
+
+
+if : "if" sexp~3 -> if_
+
+// _cond :  TODO
+
+let     : "let" "(" binding* ")" sexp*
+binding : "(" symbol sexp ")"
+
+def        : "def" def_name "(" def_params ")" def_body  -> def_
+?def_name  : symbol
+def_params : sexp*
+?def_body  : sexp*
+
+do : "do" sexp*
+
+
+?reader_macro : quote
+
+quote : "'" sexp
+
+// sharp : "#'" sexp
+
+
+?atom : symbol
+      | string
+      | number
+      | true
+      | false
+      | nil
+
+symbol : IDENTIFIER
+true   : TRUE
+false  : FALSE
+string : ESCAPED_STRING
+number : SIGNED_NUMBER
+nil    : NIL
+
+// terminators, keywords
+
+// https ://github.com/lark-parser/lark/blob/master/lark/grammars/common.lark
+%import common.ESCAPED_STRING
+%import common.SIGNED_NUMBER
+
+TRUE  : "true"
+FALSE : "false"
+
+NIL : "nil"
+
+IDENTIFIER : /[^\t\n\f,\\ (){}0-9'"`]+/
+
+
+COMMENT : /;[^\n]*/
+
+WS : /[ \t\f\r\n]/+
+
+%ignore COMMENT
+%ignore WS

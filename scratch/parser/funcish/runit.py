@@ -1,24 +1,16 @@
 """runit.
 
 Usage:
-  runit <c9_file>
+  runit <c9_file> [args...]
 
 Arguments:
   C9_FILE  The file to run
+  ARGS     argv [default = []]
 
 """
 from parser import make_parser
+import transformer
 from docopt import docopt
-
-# Node : Branch | Terminal
-#
-# Branch : Funcall Node*
-#        | ForeignCall Node*
-#        | If cond then else
-#        | Do Node*
-#        | Asm (?)
-#
-# Terminal: Literal | Symbol
 
 
 def main():
@@ -30,6 +22,11 @@ def main():
 
     tree = parser.parse(content.strip() + "\n")
     print(tree.pretty())
+
+    functions = transformer.get_functions(tree)
+
+    # exe = link(functions)
+    # local.run(exe, args["args"])
 
 
 if __name__ == "__main__":

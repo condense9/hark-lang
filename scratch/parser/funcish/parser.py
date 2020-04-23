@@ -2,6 +2,7 @@ import lark
 from lark.indenter import Indenter
 
 
+# https://docs.python.org/3/reference/lexical_analysis.html#indentation
 class C9Indenter(Indenter):
     NL_type = "_NEWLINE"
     OPEN_PAREN_types = ["LPAR", "LSQB", "LBRACE"]

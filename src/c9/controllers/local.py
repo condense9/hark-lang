@@ -1,6 +1,7 @@
 """Local Implementation"""
 
 import concurrent.futures
+from functools import singledispatchmethod
 import logging
 import sys
 import threading
@@ -8,9 +9,14 @@ import time
 import traceback
 import warnings
 
-from ..machine import C9Machine, ChainedFuture, Controller, Probe, chain_resolve
+from ..machine import C9Machine
+from ..machine.controller import Controller
+from ..machine.future import ChainedFuture, chain_resolve
 from ..machine.state import State
+from ..machine.probe import Probe
 from ..machine import c9e
+from ..machine.instruction import Instruction
+from ..machine import instructionset as mi
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
 LOGGER = logging.getLogger()
@@ -90,11 +96,11 @@ class LocalController(Controller):
         return machine == self.top_level
 
     def new_machine(self, args, top_level=False):
-        m = C9Machine(self)
-        self._machine_idx += 1
-        state = State(*args)
         future = LocalFuture(self)
         probe = LocalProbe() if self.do_probe else Probe()
+        state = State(*args)
+        m = C9Machine(self, self.executable, state, probe)
+        self._machine_idx += 1
         self._machine_future[m] = future
         self._machine_state[m] = state
         self._machine_probe[m] = probe
@@ -165,6 +171,27 @@ class LocalController(Controller):
     @property
     def probes(self):
         return [self.get_probe(m) for m in self.machines]
+
+    @singledispatchmethod
+    def evali(self, i: Instruction, m):
+        """Evaluate instruction"""
+        assert isinstance(i, Instruction)
+        raise NotImplementedError
+
+    @evali.register
+    def _(self, i: mi.Print, m):
+        state = self.get_state(m)
+        val = state.ds_peek(0)
+        # Leave the value in the stack - print returns itself
+        print(f"OUT: {val}")
+
+    # def call_builtin(self, m, name):
+    #     if name == "print":
+    #         state = self.get_state(m)
+    #         val = state.ds_pop()
+    #         print(f"OUT ({self}) : {val}")
+    #     else:
+    #         raise Exception
 
 
 class ThreadDied(Exception):

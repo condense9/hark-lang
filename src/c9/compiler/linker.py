@@ -2,6 +2,7 @@
 
 from .. import machine as m
 from ..machine.executable import Executable
+from ..machine import types as mt
 
 
 class LinkError(Exception):
@@ -35,11 +36,11 @@ def link(defs, exe_name, *, entrypoint_fn="F_main", num_args=1) -> Executable:
         *preamble,
         *defs_code,
         # actual entrypoint:
-        m.PushV(entrypoint_fn),
+        m.PushV(mt.C9Symbol(entrypoint_fn)),
         m.Call(num_args),
         m.Wait(0),  # Always wait for the last value to resolve
         m.Return(),
         # NOTE -- no Return at the end. Nothing to return to!
     ]
 
-    return Executable(locations, code, name=exe_name)
+    return Executable(locations, code)

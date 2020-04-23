@@ -15,13 +15,7 @@ class LambdaExecutor:
     def run(self, executable, session_id, machine_id, do_probe):
         client = get_lambda_client()
         logging.info("Running lambda for executable: %s", executable.name)
-        payload = dict(
-            lambda_name=self.fn_name,
-            executable_name=executable.name,
-            session_id=session_id,
-            machine_id=machine_id,
-            do_probe=do_probe,
-        )
+        payload = dict(session_id=session_id, machine_id=machine_id)
         res = client.invoke(
             # --
             FunctionName=self.fn_name,
@@ -44,11 +38,7 @@ def handle_existing(run_controller, event, context):
 
     executor = LambdaExecutor(event["lambda_name"])
     controller = run_controller(
-        executor,
-        executable,
-        event["session_id"],
-        event["machine_id"],
-        event["do_probe"],
+        executor, executable, event["session_id"], event["machine_id"],
     )
     if controller.finished:
         return controller.result

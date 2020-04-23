@@ -80,9 +80,9 @@ from schema import And, Or, Schema, SchemaError, Use
 from .. import __version__
 from .. import packer
 from ..machine import c9e
-from ..synthesiser import visualise
+from .. import visualise
 
-from ..runtimes import local
+from ..runtimes import Threaded
 
 
 def _run(args):
@@ -100,7 +100,7 @@ def _run(args):
         print("\nHint: Try passing in --moddir")
         sys.exit(1)
     # Pass the arguments as a list, like argv
-    print(local.run(exe, [args]).result)
+    print(Threaded.run(exe, [args]).result)
     sys.exit(0)
 
 
@@ -119,8 +119,9 @@ def _build(args):
 
 def _graph(args):
     fn = packer.import_handler(args["<module>"], args["<attribute>"])
-    graph = visualise.make_complete_graph(fn, include_legend=args["--legend"])
-    print(graph.source)
+    if args["--legend"]:
+        raise NotImplementedError("Legend not implemented, sorry")
+    visualise.print_dotviz(fn)
 
 
 def _compile(args):

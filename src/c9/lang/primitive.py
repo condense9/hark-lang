@@ -9,6 +9,7 @@ Capabilities
 """
 import itertools
 from typing import List
+from ..machine import types as mt
 
 
 class Node:
@@ -32,7 +33,7 @@ class Node:
         self._name = f"N{Node._count}"
         # TODO - convert structured data. e.g. if the operand is a python list,
         # convert it into a (Cons) List.
-        self.operands = [Quote(o) if not isinstance(o, Node) else o for o in operands]
+        self.operands = operands
         self.infrastructure = []
 
     @property
@@ -151,7 +152,7 @@ class Funcall(Node):
     """
 
     def __init__(self, function, *args, blocking=True):
-        if not isinstance(function, (Quote, Symbol)):
+        if not isinstance(function, mt.C9Symbol):
             raise ValueError(
                 f"{function} is not a Quote/Symbol (it's {type(function)})"
             )
@@ -159,10 +160,7 @@ class Funcall(Node):
         self.blocking = blocking
         self.function = function
         self.args = args
-        if isinstance(function, Quote):
-            self.function_name = function.__name__
-        else:
-            self.function_name = function.symbol_name
+        self.function_name = str(function)
 
     def __repr__(self):
         kind = type(self).__name__
@@ -180,3 +178,7 @@ class ForeignCall(Node):
 
 class Do(Node):
     """Do multiple things (PROGN)"""
+
+    def __repr__(self):
+        kind = type(self).__name__
+        return f"<{self.name}.{kind} ({len(self.operands)} op)>"

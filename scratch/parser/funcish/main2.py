@@ -33,6 +33,7 @@ EXPR_TESTS = [
     "symb",
     "(g, a)",
     "g a",
+    "g a b c",
     "g (a, b, c)",
     # -- lists
     "lambda x b: 1",

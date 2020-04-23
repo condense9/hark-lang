@@ -7,11 +7,11 @@ class State:
     """Entirely represent the state of a machine execution."""
 
     def __init__(self, *values):
-        self._bindings = {}  # ........ current bindings
+        self._bindings = {}  # ........ local bindings
         self._bs = deque()  # ......... binding stack
         self._ds = deque(values)  # ... data stack
         self._es = deque()  # ......... execution stack
-        self.ip = 0
+        self.ip = 0  # ................ instruction pointer
         self.stopped = False
 
     def set_bind(self, ptr, value):

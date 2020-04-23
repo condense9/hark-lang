@@ -96,6 +96,7 @@ class Session(Model):
     A handler session
     """
 
+    # TODO - make this flexible
     class Meta:
         table_name = C9_DDB_TABLE_NAME
         region = "eu-west-2"  # FIXME inject??
@@ -122,6 +123,10 @@ class Session(Model):
     # saves a reference. So don't use a literal "[]"!
     futures = ListAttribute(of=FutureMap, default=list)
     machines = ListAttribute(of=MachineMap, default=list)
+
+
+def set_table_name(name):
+    Session.Meta.table_name = name
 
 
 def new_session() -> Session:
