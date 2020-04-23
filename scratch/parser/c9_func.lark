@@ -29,23 +29,21 @@
 // https ://www.haskell.org/onlinereport/syntax-iso.html
 // https ://wiki.haskell.org/Foreign_Function_Interface
 
-?start : exp
+?start : service
 
 ?service     : "service" service_name [_NEWLINE body]
-             | body
 service_name : IDENTIFIER
-?body        : [topform] (_NEWLINE topform)*
-topform      : decl
+?body        : topform (_NEWLINE [topform])*
+topform      : def
              | import
 
 import      : "import" import_name
 import_name : IDENTIFIER
 
-decl     : def_lhs "=" def_rhs
-def_rhs  : exp
-def_lhs  : def_name [binding*]
-def_name : IDENTIFIER
-binding  : IDENTIFIER
+def         : "def" def_name [def_binding*] ":" block
+def_name    : IDENTIFIER
+def_binding : IDENTIFIER
+
 
 
 // fn         : "def" name "(" arglist ")" ":" _NEWLINE (assignments)* return_expr
@@ -80,25 +78,29 @@ qop_l_2    : "*"  -> mutiply
 // qop_r_9 : "."  -> compose
 
 
-// "then" is required to resolve ambiguity - function application is whitespace
 ?exp_top : fexp
-         | "let" decls "in" block            -> let
-         | "if" exp block "else" block  -> cond
-         | "lambda" [binding*] block         -> lambda
-         | "do" block
+         | "let" decls "in" block               -> let
+         | "if" exp ":" then "else" ":" else  -> cond
+         | "lambda" [def_binding*] ":" block    -> lambda
+         | "do" ":" block
 
-// block introduces lexical scope and returns a single value
-block       : ":" (exp_block | _exp_list)
+then : block
+else : block
+
+// a block is one or more expressions
+block       : (exp_block | _exp_list)
 _exp_list   : exp (";" exp)*
 ?exp_block  : _NEWLINE _INDENT _block_item+ _DEDENT
 _block_item : exp _NEWLINE
             | _exp_list _NEWLINE
 
-decls       : let_binding
-            | let_binding _NEWLINE _INDENT let_binding _NEWLINE _DEDENT
-let_binding : name "=" value
-name        : IDENTIFIER
-value       : exp
+decls         : let_binding
+              | let_binding binding_block
+              | binding_block
+binding_block : _NEWLINE _INDENT (let_binding _NEWLINE)+ _DEDENT
+let_binding   : name "=" value
+name          : IDENTIFIER
+value         : exp
 
 
 ?fexp : [ fexp ] aexp
