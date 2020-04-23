@@ -1,17 +1,7 @@
 # import c9.lang as l
 import sys
 import lark
-from lark.indenter import Indenter
-
-# Node : Branch | Terminal
-#
-# Branch : Funcall Node*
-#        | ForeignCall Node*
-#        | If cond then else
-#        | Do Node*
-#        | Asm (?)
-#
-# Terminal: Literal | Symbol
+from parser import make_parser
 
 TESTS = [
     # --
@@ -56,7 +46,7 @@ EXPR_TESTS = [
 
 BODY_TESTS = [
     """
-def f:
+def f x:
     if a:
         print bla
         print bla; print bla
@@ -90,19 +80,8 @@ def hh: f . g . h
 # The language is imperative in some places, and not in others. "Do" block
 
 
-class C9Indenter(Indenter):
-    NL_type = "_NEWLINE"
-    OPEN_PAREN_types = ["LPAR", "LSQB", "LBRACE"]
-    CLOSE_PAREN_types = ["RPAR", "RSQB", "RBRACE"]
-    INDENT_type = "_INDENT"
-    DEDENT_type = "_DEDENT"
-    tab_len = 4  # replaces tabs with this many spaces
-
-
 def test(tests, start, make_tree):
-    parser = lark.Lark.open(
-        "c9_func.lark", parser="lalr", start=start, postlex=C9Indenter()
-    )
+    parser = make_parser(start=start)
     for i, t in enumerate(tests):
         print(f"------------------------------------------------------[{start}_{i}]-")
         print("\n".join(f"{i+1} | {l}" for i, l in enumerate(t.split("\n"))))

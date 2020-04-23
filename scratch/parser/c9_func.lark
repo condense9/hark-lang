@@ -29,15 +29,17 @@
 // https ://www.haskell.org/onlinereport/syntax-iso.html
 // https ://wiki.haskell.org/Foreign_Function_Interface
 
-?start : service
+?start : body
 
-?service     : "service" service_name [_NEWLINE body]
+?body    : (_NEWLINE | topform)*
+?topform : def
+         | import
+         | service
+
+service      : "service" service_name _NEWLINE
 service_name : IDENTIFIER
-?body        : topform (_NEWLINE [topform])*
-?topform     : def
-             | import
 
-import      : "import" import_name
+import      : "import" import_name _NEWLINE
 import_name : IDENTIFIER
 
 def         : "def" def_name [def_binding*] ":" block
@@ -82,10 +84,10 @@ qop_r_3 : "."  -> compose
 
 
 ?exp_top : fexp
-         | "let" decls "in" block               -> let
+         | "let" decls "in" block             -> let
          | "if" exp ":" then "else" ":" else  -> cond
-         | "lambda" [def_binding*] ":" block    -> lambda
-         | "do" ":" block
+         | "lambda" [def_binding*] ":" block  -> lambda
+         | "do" ":" block                     -> do
 
 then : block
 else : block
