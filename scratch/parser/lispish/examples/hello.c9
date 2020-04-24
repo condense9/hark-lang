@@ -1,4 +1,6 @@
-;; (python-fn "src" )
+(python hi :from pkg.example :as say-hi)
+(python format :from pkg.example)
 
 (def main ()
-  (print "hello world"))
+  (print (format "python formatting: {}, {}" 1 "foo"))
+  (say-hi))

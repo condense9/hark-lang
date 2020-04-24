@@ -23,19 +23,31 @@ class C9String(C9Atomic, str):
     pass
 
 
-class C9Bool(C9Atomic):
+class C9Bool(C9Atomic, str):
     pass
 
 
-class C9True(C9Bool):
+class C9Function(C9Atomic, str):
+    """A function defined in C9"""
+
+
+class C9Foreign(C9Atomic, str):
+    """A foreign function"""
+
+
+class C9Instruction(C9Atomic, str):
+    """A C9 machine instruction"""
+
+
+class C9True(C9Bool, str):
     pass
 
 
-class C9False(C9Bool):
+class C9False(C9Bool, str):
     pass
 
 
-class C9Null(C9Atomic):
+class C9Null(C9Atomic, str):
     """Singleton to represent Null"""
 
 

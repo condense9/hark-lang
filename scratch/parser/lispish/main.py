@@ -1,15 +1,15 @@
 # import c9.lang as l
+import itertools
+import logging
 import sys
 
-import itertools
-import lark
-from lark import Transformer, v_args, Tree, Token
-
 import c9.compiler as compiler
-import c9.lang as l
-import c9.machine.types as mt
-import c9.machine.instructionset as mi
 import c9.controllers.local as local
+import c9.lang as l
+import c9.machine.instructionset as mi
+import c9.machine.types as mt
+import lark
+from lark import Token, Transformer, Tree, v_args
 
 EXPR_TESTS = [
     # --
@@ -72,7 +72,7 @@ class ReadSexp(Transformer):
 
 @v_args(inline=True)
 class ReadLiterals(Transformer):
-    """Read the tree"""
+    """Read literals in the tree"""
 
     def number(self, value):
         return mt.C9Number(eval(value))
@@ -89,6 +89,9 @@ class ReadLiterals(Transformer):
     def nil(self, value):
         return mt.C9Null()
 
+    def m_quote(self, *sexp):
+        return Tree("quote", sexp)
+
 
 class Evaluate:
     def __init__(self, tree):
@@ -100,10 +103,6 @@ class Evaluate:
         result = ReadSexp().transform(value)
         return [mi.PushV(result)]
 
-    def m_quote(self, value):
-        result = ReadSexp().transform(value)
-        return [mi.PushV(result)]
-
     def atom(self, value):
         return Evaluate(value).code
 
@@ -111,31 +110,19 @@ class Evaluate:
         return [mi.PushV(value)]
 
     def symbol(self, value):
-        return [mi.PushB(mt.C9Symbol(value))]
+        return [mi.PushB(mt.C9Symbol(str(value)))]
 
     def list_(self, function, *args):
-        builtins = {
-            # --
-            "print": mi.Print,
-            "eq": mi.Eq,
-            "atomp": mi.Atomp,
-            "nullp": mi.Nullp,
-            "list": mi.List,
-            "first": mi.First,
-            "rest": mi.Rest,
-            "wait": mi.Wait,
-            "+": mi.Plus,
-            "*": mi.Plus,
-            "nth": mi.Nth,
-        }
+        # this is a function call. builtins take precedence. make it dynamic and
+        # evaluate the symbol at run time? Or try to figure out what the
+        # function is at compile-time?
+        #
+        # a symbol can be bound to a function. in (f x),
+        # exec precedence: locations -> foreigns -> builtins.
+        #
+        # at compile time there are two types of call - sync/async
         arg_code = flatten(Evaluate(arg).code for arg in args)
-
-        if function.data == "symbol" and str(function.children[0]) in builtins:
-            instruction = [builtins[function.children[0]](len(args))]
-        else:
-            instruction = Evaluate(function).code + [mi.Call(len(args))]
-
-        return arg_code + instruction
+        return arg_code + Evaluate(function).code + [mi.Call(len(args))]
 
     def if_(self, cond, then, els):
         cond_code = Evaluate(cond).code
@@ -167,9 +154,14 @@ class Evaluate:
 class CompileFile:
     def __init__(self, tree):
         self.defs = {}
+        self.foreigns = {}
         assert tree.data == "file"
         for c in tree.children:
             getattr(self, c.data)(*c.children)
+
+    def python(self, fn_name, mod_name, import_as=None):
+        dest_name = import_as if import_as else fn_name
+        self.foreigns[str(dest_name)] = (str(fn_name), str(mod_name))
 
     def def_(self, name, bindings, body):
         assert isinstance(name, Token)
@@ -193,8 +185,8 @@ def main(make_tree=False):
         print(tree.pretty())
 
         reader = ReadLiterals()
-        tree = reader.transform(tree)
-        evaluated = Evaluate(tree)
+        read_tree = reader.transform(tree)
+        evaluated = Evaluate(read_tree)
         # print("evaluated:", tree)
         print(evaluated.code)
 
@@ -207,29 +199,33 @@ def test():
         print(content)
         tree = parser.parse(content)
 
-    print(tree.pretty())
+    # print(tree.pretty())
 
     reader = ReadLiterals()
-    tree = reader.transform(tree)
-    main_compiled = CompileFile(tree)
+    read_tree = reader.transform(tree)
+    main_compiled = CompileFile(read_tree)
     # main_compiled.listing()
-    print(main_compiled.defs)
+    # print(main_compiled.defs)
+    # print(main_compiled.foreigns)
 
-    exe = compiler.link(main_compiled.defs, "main", entrypoint_fn="main")
-
+    exe = compiler.link(
+        main_compiled.defs, main_compiled.foreigns, "main", entrypoint_fn="main"
+    )
     print(exe.listing())
-    # compiled = {name: compiler.compile_function(f) for name, f in top.defs}
 
     try:
+        print("--[RUN]--")
         controller = local.run_exe(exe, sys.argv[2:], do_probe=True)
     finally:
         # for p in controller.probes:
         #     print("\n".join(p.logs))
         #     print("")
-        # print("-- END LOGS")
+        print("--[OUTPUT]--")
         print(controller.outputs[0])
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
     test()
     # main()

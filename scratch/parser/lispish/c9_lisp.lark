@@ -3,14 +3,24 @@
 
 start : file
 
-file : sexp*
+file : ( "(" top_form ")" )*
+
+?top_form : python
+          | def
+
+python : "python" IDENTIFIER ":from" IDENTIFIER [":as" IDENTIFIER]
+
+def        : "def" IDENTIFIER "(" def_params ")" def_body  -> def_
+def_params : IDENTIFIER*
+?def_body  : do_block
+
 
 ?sexp : atom
       | "(" special_form ")"
       | list
       | reader_macro
 
-?special_form : def | let | if | do | quote
+?special_form : let | if | do | quote
 
 list   : "(" sexp* ")"     -> list_
 // map : "{" (sexp sexp)* "}" -> map_
@@ -23,10 +33,6 @@ if : "if" sexp~3 -> if_
 let      : "let" "(" bindings ")" do_block
 bindings : binding*
 binding  : "(" IDENTIFIER sexp ")"
-
-def        : "def" IDENTIFIER "(" def_params ")" def_body  -> def_
-def_params : IDENTIFIER*
-?def_body  : do_block
 
 ?do      : "do" do_block
 do_block : sexp*

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 @dataclass
 class Executable:
     locations: dict
+    foreign: dict
     code: list
     # data: dict  # TODO
 

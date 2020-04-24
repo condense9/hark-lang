@@ -9,7 +9,7 @@ class LinkError(Exception):
     """Something went wrong while linking"""
 
 
-def link(defs, exe_name, *, entrypoint_fn="F_main", num_args=1) -> Executable:
+def link(defs, foreigns, exe_name, *, entrypoint_fn="F_main", num_args=1) -> Executable:
     """Link a bunch of definitions into a single executable"""
     if not isinstance(entrypoint_fn, str):
         raise ValueError(entrypoint_fn)
@@ -36,11 +36,11 @@ def link(defs, exe_name, *, entrypoint_fn="F_main", num_args=1) -> Executable:
         *preamble,
         *defs_code,
         # actual entrypoint:
-        m.PushV(mt.C9Symbol(entrypoint_fn)),
+        m.PushV(mt.C9Function(entrypoint_fn)),
         m.Call(num_args),
         m.Wait(0),  # Always wait for the last value to resolve
         m.Return(),
         # NOTE -- no Return at the end. Nothing to return to!
     ]
 
-    return Executable(locations, code)
+    return Executable(locations, foreigns, code)

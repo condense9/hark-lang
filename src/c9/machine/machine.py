@@ -7,6 +7,8 @@ definitions, or let-bindings.
 
 """
 
+import logging
+import importlib
 from functools import singledispatchmethod
 from typing import Any, Dict, List
 
@@ -16,6 +18,9 @@ from .instruction import Instruction
 from .instructionset import *
 from .state import State
 from .probe import Probe
+from . import types as mt
+
+LOG = logging.getLogger(__name__)
 
 
 def traverse(o, tree_types=(list, tuple)):
@@ -26,6 +31,20 @@ def traverse(o, tree_types=(list, tuple)):
                 yield subvalue
     else:
         yield o
+
+
+def load_function_from_module(fnname, modname):
+    """Load function
+
+    PYTHONPATH must be set up already.
+    """
+    spec = importlib.util.find_spec(modname)
+    if not spec:
+        raise LoadError(f"Can't find {modname}.{fnname}")
+    m = spec.loader.load_module()
+    fn = getattr(m, fnname)
+    LOG.info("Loaded %s", fn)
+    return fn
 
 
 class C9Machine:
@@ -42,12 +61,31 @@ class C9Machine:
 
     """
 
+    builtins = {
+        "print": Print,
+        "eq": Eq,
+        "atomp": Atomp,
+        "nullp": Nullp,
+        "list": List,
+        "first": First,
+        "rest": Rest,
+        "wait": Wait,
+        "+": Plus,
+        "*": Plus,
+        "nth": Nth,
+    }
+
     def __init__(
         self, controller: Controller, executable: Executable, state: State, probe: Probe
     ):
         self.controller = controller
         self.imem = executable.code
         self.locations = executable.locations
+        self.foreign = {}
+        for dest_name, (name, module) in executable.foreign.items():
+            self.foreign[dest_name] = load_function_from_module(name, module)
+        LOG.info("locations %s", self.locations.keys())
+        LOG.info("foreign %s", self.foreign.keys())
         self.state = state
         self.probe = probe
         # No entrypoint argument - just set the IP in the state
@@ -100,7 +138,16 @@ class C9Machine:
     @evali.register
     def _(self, i: PushB):
         ptr = i.operands[0]
-        val = self.state.get_bind(ptr)
+        if ptr in self.state.bound_names:
+            val = self.state.get_bind(ptr)
+        elif ptr in self.locations:
+            val = mt.C9Function(ptr)
+        elif ptr in self.foreign:
+            val = mt.C9Foreign(ptr)
+        elif ptr in C9Machine.builtins:
+            val = mt.C9Instruction(ptr)
+        else:
+            raise Exception(f"Nothing bound to {name}")
         self.state.ds_push(val)
 
     @evali.register
@@ -145,9 +192,23 @@ class C9Machine:
     def _(self, i: Call):
         # Arguments for the function must already be on the stack
         num_args = i.operands[0]
-        name = self.state.ds_pop()
-        self.probe.on_enter(self, name)
-        self.state.es_enter(self.locations[name])
+        fn = self.state.ds_pop()
+
+        if isinstance(fn, mt.C9Function):
+            self.probe.on_enter(self, fn)
+            self.state.es_enter(self.locations[fn])
+
+        elif isinstance(fn, mt.C9Foreign):
+            args = reversed([self.state.ds_pop() for _ in range(num_args)])
+            result = self.foreign[fn](*args)  # TODO convert types?
+            self.state.ds_push(result)
+
+        elif isinstance(fn, mt.C9Instruction):
+            instr = C9Machine.builtins[fn](num_args)
+            self.evali(instr)
+
+        else:
+            raise Exception(f"Don't know how to call {fn} ({type(fn)})")
 
     @evali.register
     def _(self, i: ACall):
@@ -161,14 +222,14 @@ class C9Machine:
         self.state.ds_push(future)
         self.controller.run_forked_machine(machine, self.locations[fn_name])
 
-    @evali.register
-    def _(self, i: MFCall):
-        func = i.operands[0]
-        num_args = i.operands[1]
-        args = reversed([self.state.ds_pop() for _ in range(num_args)])
-        # TODO convert args to python values???
-        result = func(*args)
-        self.state.ds_push(result)
+    # @evali.register
+    # def _(self, i: MFCall):
+    #     func = i.operands[0]
+    #     num_args = i.operands[1]
+    #     args = reversed([self.state.ds_pop() for _ in range(num_args)])
+    #     # TODO convert args to python values???
+    #     result = func(*args)
+    #     self.state.ds_push(result)
 
     @evali.register
     def _(self, i: Wait):

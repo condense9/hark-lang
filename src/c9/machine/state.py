@@ -20,6 +20,10 @@ class State:
     def get_bind(self, ptr):
         return self._bindings[ptr]
 
+    @property
+    def bound_names(self):
+        return list(self._bindings.keys())
+
     def ds_push(self, val):
         self._ds.append(val)
 

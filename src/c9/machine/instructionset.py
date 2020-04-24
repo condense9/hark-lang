@@ -152,6 +152,8 @@ class Atomp(I):
 class List(I):
     """Make a list"""
 
+    num_ops = 1
+
 
 class First(I):
     """CAR (first element) of a list"""
@@ -187,5 +189,3 @@ class Multiply(I):
 
 class Print(I):
     """Print the top value on the stack as a string"""
-
-    num_ops = 1
