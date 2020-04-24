@@ -3,7 +3,7 @@ import sys
 
 import itertools
 import lark
-from lark import Transformer, v_args
+from lark import Transformer, v_args, Tree, Token
 
 import c9.compiler as compiler
 import c9.lang as l
@@ -21,14 +21,17 @@ EXPR_TESTS = [
     "nil",
     "symb",
     "'symb",
-    "(g a)",
     "'(g a)",
-    '{1 2 3 "b"}',
+    "(g a)",
+    # '{1 2 3 "b"}',
     # -- specials
     "(if a 1 2)",
     "(if (f x) 1 (do 1 2))",
-    "(def f (x y) (print x) x)",
     "(let ((x 1) (y 2)) x)",
+]
+
+FILE_TESTS = [
+    "(def f (x y) (print x) x)",
 ]
 
 
@@ -50,11 +53,26 @@ def grouper(iterable, n, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
 
+def flatten(list_of_lists: list) -> list:
+    "Flatten one level of nesting"
+    return list(itertools.chain.from_iterable(list_of_lists))
+
+
 @v_args(inline=True)
-class TopT(Transformer):
-    def __init__(self):
-        self.defs = {}
-        super().__init__()
+class ReadSexp(Transformer):
+    def list_(self, *values):
+        return mt.C9List(values)
+
+    def symbol(self, value):
+        return mt.C9Symbol(str(value))
+
+    def literal(self, value):
+        return value
+
+
+@v_args(inline=True)
+class ReadLiterals(Transformer):
+    """Read the tree"""
 
     def number(self, value):
         return mt.C9Number(eval(value))
@@ -63,55 +81,105 @@ class TopT(Transformer):
         return mt.C9String(eval(value))
 
     def true(self, value):
-        return True
+        return mt.C9True()
 
     def false(self, value):
-        return False
+        return mt.C9False()
 
     def nil(self, value):
-        return None
+        return mt.C9Null()
 
-    def list_(self, function, *args):
-        # C9List??
-        if function == "print":
-            assert len(args) == 1
-            return l.Asm(args, [mi.Print()])
-        else:
-            return l.Funcall(function, *args)
 
-    def map_(self, *items):
-        return dict(grouper(items, 2))
-
-    def symbol(self, name):
-        return mt.C9Symbol(str(name))
+class Evaluate:
+    def __init__(self, tree):
+        self.defs = {}
+        print("eval", tree)
+        self.code = getattr(self, tree.data)(*tree.children)
 
     def quote(self, value):
-        return l.Quote(value)
+        result = ReadSexp().transform(value)
+        return [mi.PushV(result)]
+
+    def m_quote(self, value):
+        result = ReadSexp().transform(value)
+        return [mi.PushV(result)]
+
+    def atom(self, value):
+        return Evaluate(value).code
+
+    def literal(self, value):
+        return [mi.PushV(value)]
+
+    def symbol(self, value):
+        return [mi.PushB(mt.C9Symbol(value))]
+
+    def list_(self, function, *args):
+        builtins = {
+            # --
+            "print": mi.Print,
+            "eq": mi.Eq,
+            "atomp": mi.Atomp,
+            "nullp": mi.Nullp,
+            "list": mi.List,
+            "first": mi.First,
+            "rest": mi.Rest,
+            "wait": mi.Wait,
+            "+": mi.Plus,
+            "*": mi.Plus,
+            "nth": mi.Nth,
+        }
+        arg_code = flatten(Evaluate(arg).code for arg in args)
+
+        if isinstance(function, mt.C9Symbol) and function in builtins:
+            call = builtins[function](len(args))
+        else:
+            call = mi.Call(len(args))
+
+        function_code = Evaluate(function).code
+        return [*arg_code, *function_code, call]
 
     def if_(self, cond, then, els):
-        return l.If(cond, then, els)
+        cond_code = Evaluate(cond).code
+        else_code = Evaluate(els).code
+        then_code = Evaluate(then).code
+        return [
+            # --
+            *cond_code,
+            mi.PushV(mt.C9True()),
+            mi.JumpIE(len(else_code)),
+            *else_code,
+            mi.Jump(len(then_code)),  # to Return
+            *then_code,
+        ]
 
-    def do(self, *things):
-        return l.Do(things)
+    def do_block(self, *things):
+        return flatten(Evaluate(thing).code for thing in things)
 
-    def def_params(self, *params):
-        assert all(isinstance(name, mt.C9Symbol) for name in params)
-        return [param for param in params]
+    def let(self, bindings, body):
+        code = []
+        for b in bindings.children:
+            name, value = b.children[:]
+            assert isinstance(name, Token)
+            code += Evaluate(value).code + [mi.Bind(str(name))]
+        code += Evaluate(body).code
+        return code
 
-    # def def_body(self, *items):
-    #     return list(items)
+
+class CompileFile:
+    def __init__(self, tree):
+        self.defs = {}
+        self.code = getattr(self, tree.data)(*tree.children)
 
     def def_(self, name, bindings, body):
         assert isinstance(name, mt.C9Symbol)
-        assert isinstance(bindings, list)
-        self.defs[name] = (bindings, body)
-        return None
+        assert all(isinstance(name, mt.C9Symbol) for name in bindings)
+        self.defs[name] = (bindings, Evaluate(body))
 
 
 def main(make_tree=False):
     # https://github.com/lark-parser/lark/blob/master/examples/python_parser.py
 
-    start = "file"
+    start = "sexp"  # skip file
     parser = lark.Lark.open("c9_lisp.lark", parser="lalr", start=start)
 
     for i, t in enumerate(EXPR_TESTS[:14]):
@@ -123,10 +191,11 @@ def main(make_tree=False):
             lark.tree.pydot__tree_to_png(tree, f"tree_{start}_{i}.png")
         print(tree.pretty())
 
-        top = TopT()
-        new_tree = top.transform(tree)
-        print(new_tree)
-        print(top.defs)
+        reader = ReadLiterals()
+        tree = reader.transform(tree)
+        evaluated = Evaluate(tree)
+        print("evaluated:", tree)
+        print(evaluated.code)
 
 
 def test():
@@ -137,11 +206,11 @@ def test():
 
     print(tree.pretty())
 
-    top = TopT()
+    top = CompileT()
     top.transform(tree)
     # print(top.defs)
 
-    main_compiled = compiler.compile_function(*top.defs["main"])
+    main_compiled = CompileFile(tree.children[0])
     # main_compiled.listing()
 
     defs = {"main": main_compiled.code}
@@ -158,8 +227,9 @@ def test():
         #     print("\n".join(p.logs))
         #     print("")
         # print("-- END LOGS")
-        pass
+        print(controller.outputs[0])
 
 
 if __name__ == "__main__":
-    test()
+    # test()
+    main()

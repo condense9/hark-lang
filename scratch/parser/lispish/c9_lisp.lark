@@ -8,43 +8,47 @@ file : sexp*
 ?sexp : atom
       | "(" special_form ")"
       | list
-      | map
       | reader_macro
 
-?special_form : def | let | if | do
+?special_form : def | let | if | do | quote
 
-list : "(" sexp* ")"     -> list_
-map  : "{" (sexp sexp)* "}" -> map_
+list   : "(" sexp* ")"     -> list_
+// map : "{" (sexp sexp)* "}" -> map_
 
 
 if : "if" sexp~3 -> if_
 
 // _cond :  TODO
 
-let     : "let" "(" binding* ")" sexp*
-binding : "(" symbol sexp ")"
+let      : "let" "(" bindings ")" do_block
+bindings : binding*
+binding  : "(" IDENTIFIER sexp ")"
 
 def        : "def" def_name "(" def_params ")" def_body  -> def_
 ?def_name  : symbol
 def_params : sexp*
-?def_body  : sexp*
+?def_body  : do_block
 
-do : "do" sexp*
+?do      : "do" do_block
+do_block : sexp*
+
+quote : "quote" sexp
 
 
-?reader_macro : quote
+?reader_macro : m_quote
 
-quote : "'" sexp
+m_quote  : "'" sexp
+// m_map : "#" sexp
 
 // sharp : "#'" sexp
 
 
-?atom : symbol
-      | string
-      | number
-      | true
-      | false
-      | nil
+?atom   : symbol | literal
+literal : string
+        | number
+        | true
+        | false
+        | nil
 
 symbol : IDENTIFIER
 true   : TRUE
