@@ -93,7 +93,7 @@ class ReadLiterals(Transformer):
 class Evaluate:
     def __init__(self, tree):
         self.defs = {}
-        print("eval", tree)
+        # print("eval", tree)
         self.code = getattr(self, tree.data)(*tree.children)
 
     def quote(self, value):
@@ -146,7 +146,7 @@ class Evaluate:
             # --
             *cond_code,
             mi.PushV(mt.C9True()),
-            mi.JumpIE(len(else_code)),
+            mi.JumpIE(len(else_code) + 1),  # to then_code
             *else_code,
             mi.Jump(len(then_code)),  # to Return
             *then_code,
@@ -182,7 +182,7 @@ def main(make_tree=False):
     start = "sexp"  # skip file
     parser = lark.Lark.open("c9_lisp.lark", parser="lalr", start=start)
 
-    for i, t in enumerate(EXPR_TESTS[:14]):
+    for i, t in enumerate(EXPR_TESTS):
         print(f"------------------------------------------------------[{start}_{i}]-")
         print("\n".join(f"{i+1} | {l}" for i, l in enumerate(t.split("\n"))))
         print("  :")
@@ -194,7 +194,7 @@ def main(make_tree=False):
         reader = ReadLiterals()
         tree = reader.transform(tree)
         evaluated = Evaluate(tree)
-        print("evaluated:", tree)
+        # print("evaluated:", tree)
         print(evaluated.code)
 
 
