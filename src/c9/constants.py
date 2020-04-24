@@ -29,3 +29,5 @@ OUTPUTS_FILENAME = "outputs.json"
 
 # Name of DynamoDB table used for C9 sessions
 C9_DDB_TABLE_NAME = "C9Sessions"
+
+C9_DDB_REGION = "eu-west-2"

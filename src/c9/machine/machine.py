@@ -33,20 +33,6 @@ def traverse(o, tree_types=(list, tuple)):
         yield o
 
 
-def load_function_from_module(fnname, modname):
-    """Load function
-
-    PYTHONPATH must be set up already.
-    """
-    spec = importlib.util.find_spec(modname)
-    if not spec:
-        raise LoadError(f"Can't find {modname}.{fnname}")
-    m = spec.loader.load_module()
-    fn = getattr(m, fnname)
-    LOG.info("Loaded %s", fn)
-    return fn
-
-
 class C9Machine:
     """Virtual Machine to execute C9 bytecode.
 
@@ -71,6 +57,7 @@ class C9Machine:
         "first": First,
         "rest": Rest,
         "wait": Wait,
+        "future": Future,
         "+": Plus,
         "*": Plus,
         "nth": Nth,
@@ -82,9 +69,7 @@ class C9Machine:
         self.controller = controller
         self.imem = executable.code
         self.locations = executable.locations
-        self.foreign = {}
-        for dest_name, (name, module) in executable.foreign.items():
-            self.foreign[dest_name] = load_function_from_module(name, module)
+        self.foreign = executable.foreign
         LOG.info("locations %s", self.locations.keys())
         LOG.info("foreign %s", self.foreign.keys())
         self.state = state
@@ -226,15 +211,6 @@ class C9Machine:
         self.probe.log(f"Fork {self} to {machine} => {future}")
         self.state.ds_push(future)
         self.controller.run_forked_machine(machine, self.locations[fn_name])
-
-    # @evali.register
-    # def _(self, i: MFCall):
-    #     func = i.operands[0]
-    #     num_args = i.operands[1]
-    #     args = reversed([self.state.ds_pop() for _ in range(num_args)])
-    #     # TODO convert args to python values???
-    #     result = func(*args)
-    #     self.state.ds_push(result)
 
     @evali.register
     def _(self, i: Wait):

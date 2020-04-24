@@ -107,6 +107,8 @@ class AwsFuture(ChainedFuture):
     def __init__(self, session, future_id, lock):
         # ALL access to this future must be wrapped in a db lock/update, as we
         # access _data directly here. The user is responsible for this.
+        #
+        # NOTE - lock member is required by chain_resolve. Icky.
         self.lock = lock
         self._session = session
         self.future_id = future_id
@@ -156,7 +158,7 @@ class AwsFuture(ChainedFuture):
 
 
 class AwsController(Controller):
-    def __init__(self, executor, executable, session, do_probe=False):
+    def __init__(self, executor, executable, session, do_probe=True):
         super().__init__()
         self.executable = executable
         self._session = session
@@ -299,24 +301,56 @@ class AwsController(Controller):
         # Avoiding refreshing to reduce data transfer...
         return list(self._session.machines)
 
+    @singledispatchmethod
+    def evali(self, i: Instruction, m):
+        """Evaluate instruction"""
+        assert isinstance(i, Instruction)
+        raise NotImplementedError
+
+    @evali.register
+    def _(self, i: mi.Print, m):
+        raise NotImplementedError
+
+    @evali.register
+    def _(self, i: mi.Future, m):
+        val = state.ds_pop(0)
+        with self.lock:
+            future = new_future(session)
+            # The "user_id" allows external retrieval of the correct future. TODO
+            # ensure uniqueness in the DB?
+            future.user_id = val
+            state.ds_push(AwsFuture(self._session, future.future_id, self.lock))
+
 
 ## Entrypoints
 
 
-def run_existing(executor, executable, session_id, machine_id, do_probe=True):
+def run_existing(executor, executable, session_id, machine_id):
     """Run an existing session and machine"""
     session = db.Session.get(session_id)
-    controller = AwsController(executor, executable, session, do_probe=do_probe)
+    controller = AwsController(executor, executable, session)
     controller.run_machine(machine_id)
     return controller
 
 
-def run_new(executor, executable, args, *, do_probe=True, start_async=False):
+def resolve_and_run(executor, executable, session_id, user_future_id, value):
+    """Manually resolve a future in a session
+
+    USER_FUTURE_ID is the ID used to created this future
+    """
+    session = db.Session.get(session_id)
+    future = db.get_user_future(session, user_future_id)
+    controller = AwsController(executor, executable, session)
+    chain_resolve(future, value, controller.run_waiting_machine)
+    return controller
+
+
+def run_new(executor, executable, args, *, start_async=False):
     """Make a new session and run it from the top"""
     session = db.new_session()
     m = db.new_machine(session, args, top_level=True)
     session.save()
-    controller = AwsController(executor, executable, session, do_probe=do_probe)
+    controller = AwsController(executor, executable, session)
 
     # This is useful for kicking off a lambda from tests
     if start_async:

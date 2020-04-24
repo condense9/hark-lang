@@ -1,6 +1,6 @@
-(pyfn hi :from pkg.example :as say-hi)
-(pyfn format :from pkg.example)
-(pyfn sleeper :from pkg.example)
+(importpy hi :from pkg.example :as say-hi)
+(importpy format :from pkg.example)
+(importpy sleeper :from pkg.example)
 
 (def simple (sleep)
   (say-hi)

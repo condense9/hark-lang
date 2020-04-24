@@ -20,6 +20,20 @@ class JumpIE(I):
 # TODO class JumpLong ?
 
 
+class Future(I):
+    """Take the top value from the stack and wrap it in a future.
+
+    This essentially says - something is going to happen externally that the
+    machine doesn't know about. The user is responsible for resolving this
+    manually via the machine controller.
+
+    For example, an external API call.
+
+    """
+
+    num_ops = 1
+
+
 class Wait(I):
     """Require the Nth item on the stack to be resolved before continuing.
 

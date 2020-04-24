@@ -1,5 +1,5 @@
 """Local Implementation"""
-
+import importlib
 import concurrent.futures
 from functools import singledispatchmethod
 import logging
@@ -16,10 +16,11 @@ from ..machine.state import State
 from ..machine.probe import Probe
 from ..machine import c9e
 from ..machine.instruction import Instruction
+from ..machine.executable import Executable
 from ..machine import instructionset as mi
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
-LOGGER = logging.getLogger()
+LOG = logging.getLogger(__name__)
 
 
 class LocalProbe(Probe):
@@ -68,14 +69,32 @@ class LocalFuture(ChainedFuture):
         return f"<Future {id(self)} {self.resolved} ({self.value})>"
 
 
+def load_function_from_module(fnname, modname):
+    """Load function
+
+    PYTHONPATH must be set up already.
+    """
+    spec = importlib.util.find_spec(modname)
+    if not spec:
+        raise LoadError(f"Can't find {modname}.{fnname}")
+    m = spec.loader.load_module()
+    fn = getattr(m, fnname)
+    LOG.info("Loaded %s", fn)
+    return fn
+
+
 class LocalController(Controller):
-    def __init__(self, executable, do_probe=False):
+    def __init__(self, do_probe=True):
         self._machine_future = {}
         self._machine_state = {}
         self._machine_probe = {}
         self._machine_idx = 0
         self._machine_output = {}
-        self.executable = executable
+        self.defs = {}
+        self.foreign = {}
+        self.locations = {}
+        self.executable = None
+        self.code = []
         self.top_level = None
         self.result = None
         self.finished = False
@@ -126,8 +145,6 @@ class LocalController(Controller):
         return self._machine_probe[m]
 
     def run_machine(self, m):
-        state = self.get_state(m)
-        probe = self.get_probe(m)
         thread = threading.Thread(target=m.run)
         thread.start()
 
@@ -174,6 +191,10 @@ class LocalController(Controller):
     def probes(self):
         return [self.get_probe(m) for m in self.machines]
 
+    @property
+    def outputs(self):
+        return list(self._machine_output.values())
+
     @singledispatchmethod
     def evali(self, i: Instruction, m):
         """Evaluate instruction"""
@@ -187,9 +208,39 @@ class LocalController(Controller):
         # Leave the value in the stack - print returns itself
         self._machine_output[m].append((time.time(), str(val)))
 
-    @property
-    def outputs(self):
-        return list(self._machine_output.values())
+    @evali.register
+    def _(self, i: mi.Future, m):
+        raise NotImplementedError
+
+    # User interface
+    def _build_code(self):
+        location = 0
+        self.code = []
+        self.locations = {}
+        for name, code in self.defs.items():
+            self.locations[name] = location
+            self.code += code
+            location += len(code)
+
+    def def_(self, name, code):
+        # If any machines are running, they will break!
+        self.defs[name] = code
+        self._build_code()
+        self.executable = Executable(self.locations, self.foreign, self.code)
+
+    def importpy(self, dest_name, mod_name, fn_name):
+        self.foreign[dest_name] = load_function_from_module(fn_name, mod_name)
+        self.executable = Executable(self.locations, self.foreign, self.code)
+
+    def callf(self, name, args):
+        m = self.new_machine(args, top_level=True)
+        state = self.get_state(m)
+        state.ip = self.locations[name]
+        self.run_machine(m)
+
+    def resume(self, name, code):
+        # not relevant locally?
+        raise NotImplementedError
 
 
 class ThreadDied(Exception):
@@ -205,7 +256,11 @@ def run_exe(
     m = controller.new_machine(args, top_level=True)
     controller.probe_log(m, f"Top Level {m}")
     controller.run_machine(m)
+    wait_for_finish(controller, sleep_interval)
+    return controller
 
+
+def wait_for_finish(controller, sleep_interval=0.01):
     try:
         while not controller.finished:
             time.sleep(sleep_interval)
@@ -226,5 +281,3 @@ def run_exe(
     except Exception as e:
         warnings.warn("Unexpected Exception!! Returning controller for analysis")
         traceback.print_exc()
-
-    return controller

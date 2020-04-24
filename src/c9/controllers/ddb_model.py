@@ -26,7 +26,7 @@ from pynamodb.constants import BINARY, DEFAULT_ENCODING
 from pynamodb.exceptions import UpdateError
 from pynamodb.models import Model
 
-from ..constants import C9_DDB_TABLE_NAME
+from ..constants import C9_DDB_TABLE_NAME, C9_DDB_REGION
 from ..machine.state import State
 
 logger = logging.getLogger()
@@ -71,6 +71,7 @@ class ContinuationMap(MapAttribute):
 
 class FutureMap(MapAttribute):
     future_id = NumberAttribute()
+    user_id = NumberAttribute(null=True)
     resolved = BooleanAttribute(default=False)
     chain = NumberAttribute(null=True)
     value = PickleAttribute(null=True)
@@ -96,10 +97,9 @@ class Session(Model):
     A handler session
     """
 
-    # TODO - make this flexible
     class Meta:
-        table_name = C9_DDB_TABLE_NAME
-        region = "eu-west-2"  # FIXME inject??
+        table_name = os.environ.get("C9_DDB_TABLE_NAME", C9_DDB_TABLE_NAME)
+        # region = os.environ.get("C9_DDB_REGION", C9_DDB_REGION)
         host = DDB_HOST
 
     # Very simple, SINGLE-ENTRY, global lock for the whole session. Brutal -
@@ -163,8 +163,11 @@ def get_machine(session, machine_id: int):
 
 
 def get_future(session, future_id: int):
-    # return next(f for f in session.futures if f.future_id == future_id)
     return session.futures[future_id]
+
+
+def get_user_future(session, user_future_id: int):
+    return next(f for f in session.futures if f.user_future_id == user_future_id)
 
 
 def try_lock(session) -> bool:

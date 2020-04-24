@@ -206,18 +206,32 @@ def test():
     # print(main_compiled.defs)
     # print(main_compiled.foreigns)
 
-    exe = compiler.link(
-        main_compiled.defs, main_compiled.foreigns, "main", entrypoint_fn="main"
-    )
-    print(exe.listing())
+    # exe = compiler.link(
+    #     main_compiled.defs, main_compiled.foreigns, "main", entrypoint_fn="main"
+    # )
+    # print(exe.listing())
 
     try:
         print("--[RUN]--")
-        controller = local.run_exe(exe, sys.argv[2:], do_probe=True)
+        controller = local.LocalController()
+
+        for name, code in main_compiled.defs.items():
+            controller.def_(name, code)
+
+        for dest_name, (fn_name, mod_name) in main_compiled.foreigns.items():
+            controller.importpy(dest_name, mod_name, fn_name)
+
+        # print(controller.executable.listing())
+
+        controller.callf("main", sys.argv[2:])
+
+        local.wait_for_finish(controller)
+
     finally:
         # for p in controller.probes:
-        #     print("\n".join(p.logs))
+        #     print("\n".join(p.logs[-10:]))
         #     print("")
+
         for i, outputs in enumerate(controller.outputs):
             print(f"--[Machine {i} Output]--")
             for (t, o) in outputs:
