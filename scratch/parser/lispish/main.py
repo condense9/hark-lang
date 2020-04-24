@@ -114,8 +114,6 @@ class Evaluate:
 
     def list_(self, function, *args):
         # a normal call
-        # TODO - insert waits if it is a foreign function
-        # arg_code = flatten(Evaluate(arg).code + [mi.Wait()] for arg in args)
         arg_code = flatten(Evaluate(arg).code for arg in args)
         return arg_code + Evaluate(function).code + [mi.Call(len(args))]
 

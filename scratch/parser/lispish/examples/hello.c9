@@ -28,4 +28,5 @@
 
 
 (def main ()
-  (wait (async simple nil)))
+  (let ((x (async simple t)))
+    (format "sleep result: {}" (wait x))))

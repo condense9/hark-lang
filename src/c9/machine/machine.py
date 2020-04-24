@@ -202,6 +202,8 @@ class C9Machine:
 
         elif isinstance(fn, mt.C9Foreign):
             args = reversed([self.state.ds_pop() for _ in range(num_args)])
+            # TODO automatically wait for the args? Somehow mark which one we're
+            # waiting for in the continuation
             result = self.foreign[fn](*args)  # TODO convert types?
             self.state.ds_push(result)
 
@@ -238,7 +240,6 @@ class C9Machine:
     def _(self, i: Wait):
         offset = 0  # TODO cleanup - no more offset!
         val = self.state.ds_peek(offset)
-        print(f"Wait {val}")
 
         if self.controller.is_future(val):
             resolved, result = self.controller.get_or_wait(self, val, offset)
