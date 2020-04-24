@@ -211,19 +211,6 @@ class C9Machine:
         self.state.ds_push(len(val) == 0)
 
     @evali.register
-    def _(self, i: Cons):
-        # a, b     -> [a, b]
-        # a, [b]   -> [a, b]
-        # [a], [b] -> error
-        b = self.state.ds_pop()
-        a = self.state.ds_pop()
-        if isinstance(b, list):
-            assert not isinstance(a, list)
-            self.state.ds_push([a] + b)
-        else:
-            self.state.ds_push([a, b])
-
-    @evali.register
     def _(self, i: First):
         lst = self.state.ds_pop()
         self.state.ds_push(lst[0])

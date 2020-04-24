@@ -10,7 +10,9 @@ class C9Atomic(C9Type):
 
 
 class C9Symbol(C9Type, str):
-    pass
+    def __repr__(self):
+        s = super().__repr__()
+        return f"<Symbol {s}>"
 
 
 class C9Number(C9Atomic, float):

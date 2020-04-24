@@ -131,7 +131,7 @@ class Bind(I):
 class PushB(I):
     """Push a bound value onto the stack"""
 
-    op_types = [int]
+    op_types = [(int, str)]
 
 
 class Pop(I):
@@ -149,8 +149,8 @@ class Atomp(I):
     """Check whether something is an atom"""
 
 
-class Cons(I):
-    """Cons two elements together"""
+class List(I):
+    """Make a list"""
 
 
 class First(I):
@@ -161,8 +161,23 @@ class Rest(I):
     """CDR (all elements after first) of a list"""
 
 
+class Nth(I):
+    """Nth element of a list"""
+
+
 class Nullp(I):
     """Check whether the top item on the stack is Null"""
+
+
+##± Arithmetic ±################################################################
+
+
+class Plus(I):
+    """Add the top two elements on the stack"""
+
+
+class Multiply(I):
+    """Multiple the top two elements on the stack"""
 
 
 ##± Input-Output ±##############################################################
