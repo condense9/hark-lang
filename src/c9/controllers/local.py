@@ -105,7 +105,7 @@ class LocalController(Controller):
         self._machine_future[m] = future
         self._machine_state[m] = state
         self._machine_probe[m] = probe
-        self._machine_output[m] = ""
+        self._machine_output[m] = []
         if top_level:
             if self.top_level:
                 raise Exception("Already got a top level!")
@@ -185,7 +185,7 @@ class LocalController(Controller):
         state = self.get_state(m)
         val = state.ds_peek(0)
         # Leave the value in the stack - print returns itself
-        self._machine_output[m] += str(val) + "\n"
+        self._machine_output[m].append((time.time(), str(val)))
 
     @property
     def outputs(self):

@@ -83,11 +83,11 @@ class ReadLiterals(Transformer):
     def true(self, value):
         return mt.C9True()
 
-    def false(self, value):
-        return mt.C9False()
-
     def nil(self, value):
         return mt.C9Null()
+
+    # def map_(self, *items):
+    #     return mt.C9Dict(grouper(items, 2))
 
     def m_quote(self, *sexp):
         return Tree("quote", sexp)
@@ -101,7 +101,7 @@ class Evaluate:
 
     def quote(self, value):
         result = ReadSexp().transform(value)
-        return [mi.PushV(result)]
+        return [mi.PushV(mt.C9Quote(result))]
 
     def atom(self, value):
         return Evaluate(value).code
@@ -113,16 +113,16 @@ class Evaluate:
         return [mi.PushB(mt.C9Symbol(str(value)))]
 
     def list_(self, function, *args):
-        # this is a function call. builtins take precedence. make it dynamic and
-        # evaluate the symbol at run time? Or try to figure out what the
-        # function is at compile-time?
-        #
-        # a symbol can be bound to a function. in (f x),
-        # exec precedence: locations -> foreigns -> builtins.
-        #
-        # at compile time there are two types of call - sync/async
+        # a normal call
+        # TODO - insert waits if it is a foreign function
+        # arg_code = flatten(Evaluate(arg).code + [mi.Wait()] for arg in args)
         arg_code = flatten(Evaluate(arg).code for arg in args)
         return arg_code + Evaluate(function).code + [mi.Call(len(args))]
+
+    def async_(self, function, *args):
+        # an async call
+        arg_code = flatten(Evaluate(arg).code for arg in args)
+        return arg_code + Evaluate(function).code + [mi.ACall(len(args))]
 
     def if_(self, cond, then, els):
         cond_code = Evaluate(cond).code
@@ -165,7 +165,7 @@ class CompileFile:
 
     def def_(self, name, bindings, body):
         assert isinstance(name, Token)
-        bindings_code = [PushB(str(b)) for b in bindings.children]
+        bindings_code = [mi.Bind(str(b)) for b in bindings.children]
         self.defs[str(name)] = bindings_code + Evaluate(body).code + [mi.Return()]
 
 
@@ -199,7 +199,7 @@ def test():
         print(content)
         tree = parser.parse(content)
 
-    # print(tree.pretty())
+    print(tree.pretty())
 
     reader = ReadLiterals()
     read_tree = reader.transform(tree)
@@ -220,12 +220,17 @@ def test():
         # for p in controller.probes:
         #     print("\n".join(p.logs))
         #     print("")
-        print("--[OUTPUT]--")
-        print(controller.outputs[0])
+        for i, outputs in enumerate(controller.outputs):
+            print(f"--[Machine {i} Output]--")
+            for (t, o) in outputs:
+                print(f"{t:5.5f}  {o}")
+
+    print("--RESULT--")
+    print(controller.result)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    # logging.basicConfig(level=logging.INFO)
 
     test()
     # main()

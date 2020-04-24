@@ -1,6 +1,31 @@
-(python hi :from pkg.example :as say-hi)
-(python format :from pkg.example)
+(pyfn hi :from pkg.example :as say-hi)
+(pyfn format :from pkg.example)
+(pyfn sleeper :from pkg.example)
+
+(def simple (sleep)
+  (say-hi)
+  (print (format "python formatting: {}, {}" 1 "foo"))
+  (print (= 2 1))
+  (print (list 1 2))
+  (print (conc 1 (list 2)))
+  (print (conc 1 nil))
+  (print (conc 1 (conc 2 (conc 3 nil))))
+
+  (let ((x "a binding")
+        (y 2))
+    (print x)
+    (print y))
+
+  (if sleep (sleeper) nil)
+  "something")
+
+
+(def go-async ()
+  (let ((a (async simple nil))
+        (b (async simple t)))
+    (print "done main")
+    (list (wait a) (wait b))))
+
 
 (def main ()
-  (print (format "python formatting: {}, {}" 1 "foo"))
-  (say-hi))
+  (wait (async simple nil)))

@@ -155,6 +155,11 @@ class List(I):
     num_ops = 1
 
 
+# Like cons, but not quite
+class Conc(I):
+    """Concatenate the top two elements on the stack"""
+
+
 class First(I):
     """CAR (first element) of a list"""
 

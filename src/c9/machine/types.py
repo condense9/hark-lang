@@ -10,9 +10,15 @@ class C9Atomic(C9Type):
 
 
 class C9Symbol(C9Type, str):
+    pass
+
+
+class C9Quote(C9Atomic):
+    def __init__(self, val):
+        self.val = val
+
     def __repr__(self):
-        s = super().__repr__()
-        return f"<Symbol {s}>"
+        return f"<Quote {self.val}>"
 
 
 class C9Number(C9Atomic, float):
@@ -40,15 +46,15 @@ class C9Instruction(C9Atomic, str):
 
 
 class C9True(C9Bool, str):
-    pass
-
-
-class C9False(C9Bool, str):
-    pass
+    def __repr__(self):
+        return "True"
 
 
 class C9Null(C9Atomic, str):
     """Singleton to represent Null"""
+
+    def __repr__(self):
+        return "nil"
 
 
 class C9Compound(C9Type):

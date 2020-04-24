@@ -8,7 +8,7 @@ file : ( "(" top_form ")" )*
 ?top_form : python
           | def
 
-python : "python" IDENTIFIER ":from" IDENTIFIER [":as" IDENTIFIER]
+python : "pyfn" IDENTIFIER ":from" IDENTIFIER [":as" IDENTIFIER]
 
 def        : "def" IDENTIFIER "(" def_params ")" def_body  -> def_
 def_params : IDENTIFIER*
@@ -20,11 +20,12 @@ def_params : IDENTIFIER*
       | list
       | reader_macro
 
-?special_form : let | if | do | quote
+?special_form : let | if | do | quote | async
 
-list   : "(" sexp* ")"     -> list_
+list   : "(" sexp* ")"        -> list_
 // map : "{" (sexp sexp)* "}" -> map_
 
+async : "async" sexp+ -> async_
 
 if : "if" sexp~3 -> if_
 
@@ -42,8 +43,9 @@ quote : "quote" sexp
 
 ?reader_macro : m_quote
 
-m_quote  : "'" sexp
-// m_map : "#" sexp
+m_quote    : "'" sexp
+// m_map   : "#" sexp
+// m_async : "@" sexp
 
 // sharp : "#'" sexp
 
@@ -52,12 +54,10 @@ m_quote  : "'" sexp
 literal : string
         | number
         | true
-        | false
         | nil
 
 symbol : IDENTIFIER
 true   : TRUE
-false  : FALSE
 string : ESCAPED_STRING
 number : SIGNED_NUMBER
 nil    : NIL
@@ -68,8 +68,7 @@ nil    : NIL
 %import common.ESCAPED_STRING
 %import common.SIGNED_NUMBER
 
-TRUE  : "true"
-FALSE : "false"
+TRUE : "t"
 
 NIL : "nil"
 

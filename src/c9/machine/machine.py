@@ -63,10 +63,11 @@ class C9Machine:
 
     builtins = {
         "print": Print,
-        "eq": Eq,
+        "=": Eq,
         "atomp": Atomp,
         "nullp": Nullp,
         "list": List,
+        "conc": Conc,
         "first": First,
         "rest": Rest,
         "wait": Wait,
@@ -137,6 +138,7 @@ class C9Machine:
 
     @evali.register
     def _(self, i: PushB):
+        # binding precedence: local value -> functions -> foreigns -> builtins.
         ptr = i.operands[0]
         if ptr in self.state.bound_names:
             val = self.state.get_bind(ptr)
@@ -147,7 +149,7 @@ class C9Machine:
         elif ptr in C9Machine.builtins:
             val = mt.C9Instruction(ptr)
         else:
-            raise Exception(f"Nothing bound to {name}")
+            raise Exception(f"Nothing bound to {ptr}")
         self.state.ds_push(val)
 
     @evali.register
@@ -213,6 +215,7 @@ class C9Machine:
     @evali.register
     def _(self, i: ACall):
         # Arguments for the function must already be on the stack
+        # ACall can *only* call functions in self.locations (unlike Call)
         num_args = i.operands[0]
         fn_name = self.state.ds_pop()
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
@@ -233,8 +236,9 @@ class C9Machine:
 
     @evali.register
     def _(self, i: Wait):
-        offset = i.operands[0]
+        offset = 0  # TODO cleanup - no more offset!
         val = self.state.ds_peek(offset)
+        print(f"Wait {val}")
 
         if self.controller.is_future(val):
             resolved, result = self.controller.get_or_wait(self, val, offset)
@@ -270,6 +274,28 @@ class C9Machine:
     def _(self, i: Nullp):
         val = self.state.ds_pop()
         self.state.ds_push(len(val) == 0)
+
+    @evali.register
+    def _(self, i: List):
+        num_args = i.operands[0]
+        elts = [self.state.ds_pop() for _ in range(num_args)]
+        self.state.ds_push(mt.C9List(reversed(elts)))
+
+    @evali.register
+    def _(self, i: Conc):
+        b = self.state.ds_pop()
+        a = self.state.ds_pop()
+
+        # Null is interpreted as the empty list for b
+        b = mt.C9List([]) if isinstance(b, mt.C9Null) else b
+
+        if not isinstance(b, mt.C9List):
+            raise Exception(f"b ({b}, {type(b)}) is not a list")
+
+        if isinstance(a, mt.C9List):
+            self.state.ds_push(mt.C9List(a + b))
+        else:
+            self.state.ds_push(mt.C9List([a] + b))
 
     @evali.register
     def _(self, i: First):
