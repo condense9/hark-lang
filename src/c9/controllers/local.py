@@ -74,6 +74,7 @@ class LocalController(Controller):
         self._machine_state = {}
         self._machine_probe = {}
         self._machine_idx = 0
+        self._machine_output = {}
         self.executable = executable
         self.top_level = None
         self.result = None
@@ -104,6 +105,7 @@ class LocalController(Controller):
         self._machine_future[m] = future
         self._machine_state[m] = state
         self._machine_probe[m] = probe
+        self._machine_output[m] = ""
         if top_level:
             if self.top_level:
                 raise Exception("Already got a top level!")
@@ -183,15 +185,11 @@ class LocalController(Controller):
         state = self.get_state(m)
         val = state.ds_peek(0)
         # Leave the value in the stack - print returns itself
-        print(f"OUT: {val}")
+        self._machine_output[m] += str(val) + "\n"
 
-    # def call_builtin(self, m, name):
-    #     if name == "print":
-    #         state = self.get_state(m)
-    #         val = state.ds_pop()
-    #         print(f"OUT ({self}) : {val}")
-    #     else:
-    #         raise Exception
+    @property
+    def outputs(self):
+        return list(self._machine_output.values())
 
 
 class ThreadDied(Exception):

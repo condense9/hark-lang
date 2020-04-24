@@ -187,3 +187,5 @@ class Multiply(I):
 
 class Print(I):
     """Print the top value on the stack as a string"""
+
+    num_ops = 1

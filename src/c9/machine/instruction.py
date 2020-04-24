@@ -12,19 +12,22 @@ class BadOperandsType(Exception):
 class Instruction:
     """A C9 Machine bytecode instruction"""
 
-    op_types = []
+    num_ops = None
+    op_types = None
     check_op_types = True
 
     def __init__(self, *operands):
         self.name = type(self).__name__
 
-        if len(operands) != len(self.op_types):
-            raise BadOperandsLength(self.name, len(operands), len(self.op_types))
+        if self.num_ops:
+            if len(operands) != self.num_ops:
+                raise BadOperandsLength(self.name, len(operands), self.num_ops)
 
-        for a, b in zip(operands, self.op_types):
-            ok = callable(a) if b == callable else isinstance(a, b)
-            if not ok:
-                raise BadOperandsType(self.name, a, b)
+        if self.op_types:
+            for a, b in zip(operands, self.op_types):
+                ok = callable(a) if b == callable else isinstance(a, b)
+                if not ok:
+                    raise BadOperandsType(self.name, a, b)
 
         self.operands = operands
 

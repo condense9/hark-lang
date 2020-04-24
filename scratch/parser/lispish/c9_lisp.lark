@@ -24,9 +24,8 @@ let      : "let" "(" bindings ")" do_block
 bindings : binding*
 binding  : "(" IDENTIFIER sexp ")"
 
-def        : "def" def_name "(" def_params ")" def_body  -> def_
-?def_name  : symbol
-def_params : sexp*
+def        : "def" IDENTIFIER "(" def_params ")" def_body  -> def_
+def_params : IDENTIFIER*
 ?def_body  : do_block
 
 ?do      : "do" do_block
@@ -68,7 +67,7 @@ FALSE : "false"
 
 NIL : "nil"
 
-IDENTIFIER : /[^\t\n\f,\\ (){}0-9'"`]+/
+IDENTIFIER : /[^\t\n\f,;\\ (){}0-9'"`]+/
 
 
 COMMENT : /;[^\n]*/

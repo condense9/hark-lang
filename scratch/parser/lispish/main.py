@@ -130,13 +130,12 @@ class Evaluate:
         }
         arg_code = flatten(Evaluate(arg).code for arg in args)
 
-        if isinstance(function, mt.C9Symbol) and function in builtins:
-            call = builtins[function](len(args))
+        if function.data == "symbol" and str(function.children[0]) in builtins:
+            instruction = [builtins[function.children[0]](len(args))]
         else:
-            call = mi.Call(len(args))
+            instruction = Evaluate(function).code + [mi.Call(len(args))]
 
-        function_code = Evaluate(function).code
-        return [*arg_code, *function_code, call]
+        return arg_code + instruction
 
     def if_(self, cond, then, els):
         cond_code = Evaluate(cond).code
@@ -168,12 +167,14 @@ class Evaluate:
 class CompileFile:
     def __init__(self, tree):
         self.defs = {}
-        self.code = getattr(self, tree.data)(*tree.children)
+        assert tree.data == "file"
+        for c in tree.children:
+            getattr(self, c.data)(*c.children)
 
     def def_(self, name, bindings, body):
-        assert isinstance(name, mt.C9Symbol)
-        assert all(isinstance(name, mt.C9Symbol) for name in bindings)
-        self.defs[name] = (bindings, Evaluate(body))
+        assert isinstance(name, Token)
+        bindings_code = [PushB(str(b)) for b in bindings.children]
+        self.defs[str(name)] = bindings_code + Evaluate(body).code + [mi.Return()]
 
 
 def main(make_tree=False):
@@ -199,23 +200,22 @@ def main(make_tree=False):
 
 
 def test():
-    parser = lark.Lark.open("c9_lisp.lark", parser="lalr")
+    parser = lark.Lark.open("c9_lisp.lark", parser="lalr", start="file")
 
     with open(sys.argv[1]) as f:
-        tree = parser.parse(f.read())
+        content = f.read()
+        print(content)
+        tree = parser.parse(content)
 
     print(tree.pretty())
 
-    top = CompileT()
-    top.transform(tree)
-    # print(top.defs)
-
-    main_compiled = CompileFile(tree.children[0])
+    reader = ReadLiterals()
+    tree = reader.transform(tree)
+    main_compiled = CompileFile(tree)
     # main_compiled.listing()
+    print(main_compiled.defs)
 
-    defs = {"main": main_compiled.code}
-
-    exe = compiler.link(defs, "main", entrypoint_fn="main")
+    exe = compiler.link(main_compiled.defs, "main", entrypoint_fn="main")
 
     print(exe.listing())
     # compiled = {name: compiler.compile_function(f) for name, f in top.defs}
@@ -231,5 +231,5 @@ def test():
 
 
 if __name__ == "__main__":
-    # test()
-    main()
+    test()
+    # main()
