@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 
 import c9.controllers.local as local
 
@@ -31,6 +32,7 @@ def run(controller, filename, function, args):
 
 def run_local(filename, function, args):
     LOG.info("Running `%s` in %s", function, filename)
+    LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
     controller = local.LocalController()
 
     try:

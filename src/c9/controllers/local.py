@@ -75,8 +75,6 @@ def load_function_from_module(fnname, modname):
     PYTHONPATH must be set up already.
     """
     spec = importlib.util.find_spec(modname)
-    if not spec:
-        raise LoadError(f"Can't find {modname}.{fnname}")
     m = spec.loader.load_module()
     fn = getattr(m, fnname)
     LOG.info("Loaded %s", fn)
