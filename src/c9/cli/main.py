@@ -1,68 +1,31 @@
 """C9 Compiler.
 
 Usage:
-  c9 [options] build <module> <attribute>
-  c9 [options] compile <module> <attribute> <package>
-  c9 [options] run <file> [<arg>...]
-  c9 [options] graph [--legend] <module> <attribute>
+  c9 [options] init [dir]
+  c9 [options] run [--fn=FUNCTION] <file> [arg...]
+  c9 [options] graph [--fn=FUNCTION] <file>
+  c9 [options] deploy <file> <endpoint>
 
 Commands:
-  build    Generate a C9E executable file for the handler.
-  compile  Generate a deployable service object.
-  run      Run a C9E executable.
-  graph    Build a graph of a function execution
+  init   Initialise C9 in dir
+  run    Read a C9 file and run a function in it
+  graph  Read a C9 file and create an (AST) graph of a function
 
-Arguments:
-  MODULE      Python module (eg a.b.c) containing the Service object.
-  ATTRIBUTE   Name of the Service object in FILE.
+Init Arguments:
+  DIR  Directory to initialise [default = .]
+
+Run Arguments:
+  FILE      C9 file to read
+  [ARG...]  Arguments to pass to the executable [default = None].
+  -f FUNCTION, --fn=FUNCTION  Function to run/graph [default = main]
+
+Graph Arguments:
+  -f FUNCTION, --fn=FUNCTION  Function to run/graph [default = main]
 
 Options:
   -h, --help     Show this screen.
   -v, --verbose  Be verbose.
   --version      Show version.
-
-  (build, compile)
-  -o FILE, --output=FILE   Output file (derived from ATTRIBUTE otherwise).
-
-  (compile only)
-  PACKAGE           Top level Python package to include
-  --dev             Use the development synthesis pipeline.
-  --libs=LIBS       Directory with python libaries to include
-  --split-handlers  Generate one service object for each executable.
-
-  (run only)
-  FILE          C9E executable file to run
-  --moddir=DIR  Directory with Python modules this executable uses.
-  ARG...        Arguments to pass to the executable [default = None].
-
-  (graph only)
-  --legend  Include the legend [default = False]
-
-===
-
-Examples:
-
-c9c handler file.py main
-
-Generate file "main.c9e", containing the executable of file.main
-
-===
-
-c9c service file.py SERVICE
-
-Generate "service.zip", containing the lambda for all handlers in SERVICE.
-
-===
-
-c9c service file.py SERVICE --split-handlers
-
-Generate a lambda zip for each handler in SERVICE
-
-===
-
-c9c service file.py SERVICE --include fileb.py -Idir -o foo.zip
-
-Generate a foo.zip for SERVICE, also packaging "fileb.py" and "dir".
 """
 
 # Tools:

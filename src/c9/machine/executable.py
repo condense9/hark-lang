@@ -1,4 +1,10 @@
-"""The C9 Machine Executable class"""
+"""The C9 Machine Executable class
+
+Think about this like a Lisp Image - contains all definitions and data required.
+You can fire up a machine with one of these, and then evaluate things (run
+functions, inspect data, etc).
+
+"""
 
 from dataclasses import dataclass
 

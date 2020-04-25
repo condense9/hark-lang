@@ -336,7 +336,7 @@ def run_existing(executor, executable, session_id, machine_id):
 def resolve_and_run(executor, executable, session_id, user_future_id, value):
     """Manually resolve a future in a session
 
-    USER_FUTURE_ID is the ID used to created this future
+    USER_FUTURE_ID is the ID used to created this future FIXME
     """
     session = db.Session.get(session_id)
     future = db.get_user_future(session, user_future_id)

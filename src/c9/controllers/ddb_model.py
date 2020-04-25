@@ -82,14 +82,18 @@ class MachineMap(MapAttribute):
     machine_id = NumberAttribute()
     future_fk = NumberAttribute()  # FK -> FutureAttribue
     is_top_level = BooleanAttribute()
-    state = PickleAttribute()
+    state = PickleAttribute()  # FIXME state should be JSON-able
     probe_logs = ListAttribute(default=list)
 
 
-if "LOCALSTACK_HOSTNAME" in os.environ:
-    DDB_HOST = "http://" + os.environ["LOCALSTACK_HOSTNAME"] + ":4569"
-else:
-    DDB_HOST = None
+class ExecutableMap(MapAttribute):
+    locations = MapAttribute()
+    foreign = MapAttribute()
+    code = ListAttribute()
+    # example:
+    # ExecutableMap(locations={'foo': 23, 'bar': 50},
+    #               foreign={'a': ['m', 'f'], 'b': ['m2', 'f2']},
+    #               code=[['instr', 'arg'], ['istr2', 'arg2']])
 
 
 class Session(Model):
@@ -98,9 +102,9 @@ class Session(Model):
     """
 
     class Meta:
-        table_name = os.environ.get("C9_DDB_TABLE_NAME", C9_DDB_TABLE_NAME)
-        # region = os.environ.get("C9_DDB_REGION", C9_DDB_REGION)
-        host = DDB_HOST
+        host = os.environ.get("DYNAMODB_ENDPOINT", None)
+        table_name = os.environ.get("DYNAMODB_TABLE", C9_DDB_TABLE_NAME)
+        region = os.environ.get("DYNAMODB_REGION", C9_DDB_REGION)
 
     # Very simple, SINGLE-ENTRY, global lock for the whole session. Brutal -
     # could be optimised later
@@ -123,15 +127,17 @@ class Session(Model):
     # saves a reference. So don't use a literal "[]"!
     futures = ListAttribute(of=FutureMap, default=list)
     machines = ListAttribute(of=MachineMap, default=list)
-
-
-def set_table_name(name):
-    Session.Meta.table_name = name
+    executable = ExecutableMap()
 
 
 def new_session() -> Session:
     sid = str(uuid.uuid4())
-    s = Session(sid, created_at=datetime.now(), updated_at=datetime.now())
+    s = Session(
+        sid,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        executable=ExecutableMap(locations={}, foreign={}, code=[]),
+    )
     s.save()
     return s
 

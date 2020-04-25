@@ -34,6 +34,14 @@ class Future(I):
     num_ops = 1
 
 
+# This is a bit complex. Instead of a "user_future_id", just provide
+# - A MakeFuture instruction, which returns the Future object
+# - A FutureID instruction, which gets the future_id
+# - You can then return the future object
+# - And then you're responsible for resolving it
+# - Since you can access the future_id, you know what you need to do.
+
+
 class Wait(I):
     """Require the Nth item on the stack to be resolved before continuing.
 

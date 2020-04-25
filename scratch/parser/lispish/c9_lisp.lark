@@ -10,7 +10,7 @@ file : ( "(" top_form ")" )*
 
 python : "importpy" IDENTIFIER ":from" IDENTIFIER [":as" IDENTIFIER]
 
-def        : "def" IDENTIFIER "(" def_params ")" def_body  -> def_
+def        : ("def"|"defun"|"define") IDENTIFIER "(" def_params ")" def_body  -> def_
 def_params : IDENTIFIER*
 ?def_body  : do_block
 

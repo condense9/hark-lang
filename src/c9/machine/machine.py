@@ -59,7 +59,7 @@ class C9Machine:
         "wait": Wait,
         "future": Future,
         "+": Plus,
-        "*": Plus,
+        "*": Multiply,
         "nth": Nth,
     }
 
@@ -67,13 +67,11 @@ class C9Machine:
         self, controller: Controller, executable: Executable, state: State, probe: Probe
     ):
         self.controller = controller
-        self.imem = executable.code
-        self.locations = executable.locations
-        self.foreign = executable.foreign
-        LOG.info("locations %s", self.locations.keys())
-        LOG.info("foreign %s", self.foreign.keys())
+        self.exe = executable
         self.state = state
         self.probe = probe
+        LOG.info("locations %s", self.exe.locations.keys())
+        LOG.info("foreign %s", self.exe.foreign.keys())
         # No entrypoint argument - just set the IP in the state
 
     @property
@@ -83,17 +81,17 @@ class C9Machine:
     @property
     def terminated(self):
         """Run out of instructions to execute"""
-        return self.state.ip == len(self.imem)
+        return self.state.ip == len(self.exe.code)
 
     @property
     def instruction(self):
-        return self.imem[self.state.ip]
+        return self.exe.code[self.state.ip]
 
     def step(self):
         """Execute the current instruction and increment the IP"""
-        assert self.state.ip < len(self.imem)
+        assert self.state.ip < len(self.exe.code)
         self.probe.on_step(self)
-        instr = self.instruction
+        instr = self.exe.code[self.state.ip]
         self.state.ip += 1
         self.evali(instr)
         if self.terminated:
@@ -127,9 +125,9 @@ class C9Machine:
         ptr = i.operands[0]
         if ptr in self.state.bound_names:
             val = self.state.get_bind(ptr)
-        elif ptr in self.locations:
+        elif ptr in self.exe.locations:
             val = mt.C9Function(ptr)
-        elif ptr in self.foreign:
+        elif ptr in self.exe.foreign:
             val = mt.C9Foreign(ptr)
         elif ptr in C9Machine.builtins:
             val = mt.C9Instruction(ptr)
@@ -183,13 +181,13 @@ class C9Machine:
 
         if isinstance(fn, mt.C9Function):
             self.probe.on_enter(self, fn)
-            self.state.es_enter(self.locations[fn])
+            self.state.es_enter(self.exe.locations[fn])
 
         elif isinstance(fn, mt.C9Foreign):
             args = reversed([self.state.ds_pop() for _ in range(num_args)])
             # TODO automatically wait for the args? Somehow mark which one we're
             # waiting for in the continuation
-            result = self.foreign[fn](*args)  # TODO convert types?
+            result = self.exe.foreign[fn](*args)  # TODO convert types?
             self.state.ds_push(result)
 
         elif isinstance(fn, mt.C9Instruction):
@@ -210,7 +208,7 @@ class C9Machine:
         future = self.controller.get_result_future(machine)
         self.probe.log(f"Fork {self} to {machine} => {future}")
         self.state.ds_push(future)
-        self.controller.run_forked_machine(machine, self.locations[fn_name])
+        self.controller.run_forked_machine(machine, self.exe.locations[fn_name])
 
     @evali.register
     def _(self, i: Wait):
