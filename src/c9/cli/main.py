@@ -50,7 +50,10 @@ def _run(args):
     filename = args["<file>"]
     fn_args = args["<fn_args>"]
     sys.path.append(".")
-    c9.run.run_local(filename, fn, fn_args)
+    # c9.run.run_local(filename, fn, fn_args)
+    # TODO - "invoke_method" flag (default thread)
+    # TODO - "storage_method" flag (default in-memory)
+    c9.run.run_ddb_local(filename, fn, fn_args)
 
 
 def _graph(args):

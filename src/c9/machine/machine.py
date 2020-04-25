@@ -97,12 +97,6 @@ class C9Machine:
         LOG.info("foreign %s", self.exe.foreign.keys())
         # No entrypoint argument - just set the IP in the state
 
-    def _resume(self, machine, offset, value):
-        """resume (invoke) another machine in the same data space"""
-        self.data_controller.set_ds_value(machine, offset, value)
-        self.data_controller.restart(machine)
-        self.invoker.invoke(machine)
-
     @property
     def stopped(self):
         return self.state.stopped
@@ -133,6 +127,7 @@ class C9Machine:
                 self.step()
         finally:
             self.probe.on_stopped(self)
+            self.data_controller.stop(self.vmid, self.state, self.probe)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -196,7 +191,14 @@ class C9Machine:
 
             # FIXME Why do this here? Controller can get the result after stopping
             future = self.data_controller.get_result_future(self.vmid)
-            resolved, value = chain_resolve(future, value, self._resume)
+            resolved_value, continuations = chain_resolve(future, value)
+            if resolved_value:
+                for machine, offset in continuations:
+                    self.data_controller.set_future_value(
+                        machine, offset, resolved_value
+                    )
+                    self.invoker.invoke(machine)
+
             self.data_controller.finish(self.vmid, value)
 
     @evali.register

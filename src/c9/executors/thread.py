@@ -37,11 +37,6 @@ def wait_for_finish(interface, sleep_interval=0.01):
             if invoker.exception:
                 raise ThreadDied from invoker.exception.exc_value
 
-        if not all(
-            data_controller.get_state(m).stopped for m in data_controller.machines
-        ):
-            raise Exception("Terminated, but not all machines stopped!")
-
     # except ThreadDied:
     #     raise
 

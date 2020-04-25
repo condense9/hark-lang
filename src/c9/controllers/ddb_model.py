@@ -29,8 +29,7 @@ from pynamodb.models import Model
 from ..constants import C9_DDB_TABLE_NAME, C9_DDB_REGION
 from ..machine.state import State
 
-logger = logging.getLogger()
-
+LOG = logging.getLogger(__name__)
 
 # https://pynamodb.readthedocs.io/en/latest/attributes.html#list-attributes
 class PickleAttribute(Attribute):
@@ -81,9 +80,9 @@ class FutureMap(MapAttribute):
 class MachineMap(MapAttribute):
     machine_id = NumberAttribute()
     future_fk = NumberAttribute()  # FK -> FutureAttribue
-    is_top_level = BooleanAttribute()
     state = PickleAttribute()  # FIXME state should be JSON-able
     probe_logs = ListAttribute(default=list)
+    stdout = ListAttribute(default=list)
 
 
 class ExecutableMap(MapAttribute):
@@ -94,6 +93,10 @@ class ExecutableMap(MapAttribute):
     # ExecutableMap(locations={'foo': 23, 'bar': 50},
     #               foreign={'a': ['m', 'f'], 'b': ['m2', 'f2']},
     #               code=[['instr', 'arg'], ['istr2', 'arg2']])
+
+
+if "DYNAMODB_ENDPOINT" not in os.environ and "USE_LIVE_AWS" not in os.environ:
+    raise RuntimeError("One of DYNAMODB_ENDPOINT or USE_LIVE_AWS must be set!")
 
 
 class Session(Model):
@@ -127,10 +130,24 @@ class Session(Model):
     # saves a reference. So don't use a literal "[]"!
     futures = ListAttribute(of=FutureMap, default=list)
     machines = ListAttribute(of=MachineMap, default=list)
-    executable = ExecutableMap()
+    top_level_vmid = NumberAttribute(null=True)
+    executable = ExecutableMap(null=True)
 
 
-BASE_SESSION_ID = 0
+BASE_SESSION_ID = "base"
+
+
+def init():
+    LOG.info("DB %s (%s)", Session.Meta.host, Session.Meta.region)
+    LOG.info("DB table %s", Session.Meta.table_name)
+    try:
+        Session.get(BASE_SESSION_ID)
+    except Session.DoesNotExist as exc:
+        LOG.info("Creating base session")
+        s = Session(
+            BASE_SESSION_ID, created_at=datetime.now(), updated_at=datetime.now(),
+        )
+        s.save()
 
 
 def new_session() -> Session:
@@ -156,37 +173,24 @@ def new_future(session) -> FutureMap:
 def new_machine(session, args, top_level=False) -> MachineMap:
     state = State(*args)
     f = new_future(session)
+    vmid = session.num_machines
+    session.num_machines += 1
     m = MachineMap(
         # --
-        machine_id=session.num_machines,
+        machine_id=vmid,
         future_fk=f.future_id,
         state=state,
-        is_top_level=top_level,
     )
+    if top_level:
+        session.top_level_vmid = vmid
     session.machines.append(m)
-    session.num_machines += 1
-    return m
-
-
-def get_machine(session, machine_id: int):
-    return session.machines[machine_id]
-
-
-def get_future(session, future_id: int):
-    return session.futures[future_id]
-
-
-def get_user_future(session, user_future_id: int):
-    return next(f for f in session.futures if f.user_future_id == user_future_id)
+    return vmid
 
 
 def try_lock(session) -> bool:
     """Try to acquire a lock on session, returning True if successful"""
-    session.refresh()
-    if session.locked:
-        return False
-
     try:
+        session.refresh()
         session.update([Session.locked.set(True)], condition=(Session.locked == False))
         return True
 
@@ -218,25 +222,25 @@ class SessionLocker(AbstractContextManager):
         self.lock_count = 0
 
     def __enter__(self):
-        logger.info(f"{self} - {self.lock_count}")
+        LOG.debug(f"({self.machine_id}) :: Locking {self.lock_count}")
         if self.lock_count:
             self.lock_count += 1
-            logger.debug(f"({self.machine_id}) :: Re-locking ({self.lock_count})")
+            LOG.debug(f"({self.machine_id}) :: Re-locking ({self.lock_count})")
             return
 
         start = time.time()
         while not try_lock(self.session):
             time.sleep(0.01)
             if time.time() - start > self.timeout:
-                logger.debug(f"({self.machine_id}) :: Timeout getting lock")
+                LOG.debug(f"({self.machine_id}) :: Timeout getting lock")
                 raise LockTimeout
 
         self.lock_count += 1
-        logger.debug(f"({self.machine_id}) :: Locked ({self.lock_count})")
+        LOG.debug(f"({self.machine_id}) :: Locked ({self.lock_count})")
 
     def __exit__(self, *exc):
         self.lock_count -= 1
         if self.lock_count == 0:
             self.session.locked = False
             self.session.save()
-        logger.debug(f"({self.machine_id}) :: Released ({self.lock_count})")
+        LOG.debug(f"({self.machine_id}) :: Released ({self.lock_count})")

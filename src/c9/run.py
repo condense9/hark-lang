@@ -2,10 +2,11 @@ import logging
 import os
 import sys
 
+from c9.machine.interface import Interface
 import c9.controllers.local as local
+import c9.controllers.ddb as ddb_controller
+import c9.controllers.ddb_model as db
 import c9.executors.thread as c9_thread
-
-# import c9.controllers.ddb as ddb
 
 from .parser.evaluate import evaluate_toplevel
 from .parser.read import read_exp
@@ -49,10 +50,10 @@ def run_and_wait(interface, controller, waiter, filename, function, args):
         for p in controller.probes:
             LOG.debug(f"probe {p}:\n" + "\n".join(p.logs))
 
-        for i, outputs in enumerate(controller.outputs):
+        for i, outputs in enumerate(controller.stdout):
             print(f"--[Machine {i} Output]--")
-            for (t, o) in outputs:
-                print(f"{t:5.5f}  {o}")
+            for o in outputs:
+                print(o)
 
     print("--RETURNED--")
     print(controller.result)
@@ -62,16 +63,19 @@ def run_local(filename, function, args):
     LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
     controller = local.DataController()
     invoker = c9_thread.Invoker(controller, local.Evaluator)
-    interface = local.Interface(controller, invoker)
+    interface = Interface(controller, invoker)
     run_and_wait(
         interface, controller, c9_thread.wait_for_finish, filename, function, args
     )
 
 
 def run_ddb_local(filename, function, args):
-    controller = ddb.Controller()
-    invoker = c9_thread.Invoker(controller, local.Evaluator)
-    interface = local.Interface(controller, invoker)
+    db.init()
+    session = db.new_session()
+    controller = ddb_controller.DataController(session)
+    evaluator = ddb_controller.Evaluator
+    invoker = c9_thread.Invoker(controller, evaluator)
+    interface = Interface(controller, invoker)
     run_and_wait(
         interface, controller, c9_thread.wait_for_finish, filename, function, args
     )

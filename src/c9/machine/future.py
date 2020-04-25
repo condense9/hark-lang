@@ -10,9 +10,10 @@ class ChainedFuture:
 
 
 # This should probably be a ChainedFuture class method
-def chain_resolve(future: ChainedFuture, value, run_waiting_machine) -> bool:
+def chain_resolve(future: ChainedFuture, value) -> bool:
     """Resolve a future, and the next in the chain, if any"""
     actually_resolved = True
+    resolved_value = None
 
     with future.lock:
         if isinstance(value, ChainedFuture):
@@ -25,9 +26,10 @@ def chain_resolve(future: ChainedFuture, value, run_waiting_machine) -> bool:
         if actually_resolved:
             future.resolved = True
             future.value = value
-            if future.chain:
-                chain_resolve(future.chain, value, run_waiting_machine)
-            for machine, offset in future.continuations:
-                run_waiting_machine(machine, offset, value)
 
-    return actually_resolved, value
+            continuations = future.continuations
+            resolved_value = value
+            if future.chain:
+                continuations += chain_resolve(future.chain, value, run_waiting_machine)
+
+    return resolved_value, continuations
