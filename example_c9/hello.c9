@@ -1,9 +1,10 @@
 ;; -*- mode: lisp -*-
 (importpy hi :from pkg.example :as say-hi)
 (importpy format :from pkg.example)
-(importpy sleeper :from pkg.example)
+(importpy sleep :from pkg.example)
+(importpy random_sleep :from pkg.example)
 
-(def simple (sleep)
+(defun simple (do_sleep)
   (say-hi)
   (print (format "python formatting: {}, {}" 1 "foo"))
   (print (= 2 1))
@@ -17,21 +18,48 @@
     (print x)
     (print y))
 
-  (if sleep (sleeper) nil)
+  (if do_sleep (sleep 0.5) nil)
   "something")
 
 
-(def go-async ()
+(defun go-async ()
   (let ((a (async simple nil))
         (b (async simple t)))
     (print "done main")
     (list (wait a) (wait b))))
 
 
-(def main ()
+(defun main ()
   (let ((x (async simple t)))
     (format "sleep result: {}" (wait x))))
 
-(def printer (x)
+(defun printer (x)
   (print (format "You gave me: {}" x))
   x)
+
+
+;; Concurrent tests
+
+(defun a (x)
+  (random_sleep)
+  (+ x 1))
+
+(defun b (x)
+  (random_sleep)
+  (* (a x) 1000))
+
+(defun c (x)
+  (random_sleep)
+  (+ x -1))
+
+(defun d (x)
+  (random_sleep)
+  (* (c x) 10))
+
+(defun e (p q)
+  (+ $p (* (wait q) -1)))
+
+(defun concurrent (x)
+  ;; (1000 * (x + 1)) - (10 * (x - 1)) = 5960 if x is 5
+  (e (async b x)
+     @(d x)))

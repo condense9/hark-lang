@@ -62,6 +62,7 @@ import boto3
 
 from ..machine import C9Machine, ChainedFuture, Controller, Probe, chain_resolve
 from ..machine.state import State
+from ..machine.executable import Executable
 from . import ddb_model as db
 from .ddb_model import ContinuationMap, FutureMap, MachineMap
 
@@ -157,15 +158,19 @@ class AwsFuture(ChainedFuture):
         self._data.continuations.append(c)
 
 
-class AwsController(Controller):
-    def __init__(self, executor, executable, session, do_probe=True):
+def load_exe(session) -> Executable:
+    smap = session.executable
+    return Executable(locations=smap.locations, foreign=smap.foreign, code=smap.code)
+
+
+class Controller(Controller):
+    def __init__(self, executor, session):
         super().__init__()
-        self.executable = executable
+        self.executable = load_exe(session)
         self._session = session
         self.lock = db.SessionLocker(session)
-        self.do_probe = do_probe
-        self.this_machine_is_top_level = False
-        self.this_machine_probe = None
+        self.this_is_top_level = False
+        self.this_probe = None
         self.executor = executor
 
     def finish(self, result):
@@ -187,25 +192,17 @@ class AwsController(Controller):
         assert m is self.this_machine
         self.probe_log("Stopping, uploading state and probe logs")
         with self.lock:
-            m_id = self.this_machine_id
-            self._session.machines[m_id].state = self.this_machine_state
-            self._session.machines[m_id].probe_logs = self.this_machine_probe.logs
+            m_id = self.this_id
+            self._session.machines[m_id].state = self.this_state
+            self._session.machines[m_id].probe_logs = self.this_probe.logs
 
     def is_top_level(self, m: C9Machine):
         # Is the currently executing machine the top level?
         assert m is self.this_machine
-        return self.this_machine_is_top_level
-
-    def get_state(self, m: C9Machine) -> State:
-        assert m is self.this_machine
-        return self.this_machine_state
-
-    def get_probe(self, m: C9Machine) -> AwsProbe:
-        assert m is self.this_machine
-        return self.this_machine_probe
+        return self.this_is_top_level
 
     def probe_log(self, message: str):
-        self.this_machine_probe.log(f"[CTRL] {message}")
+        self.this_probe.log(f"[CTRL] {message}")
 
     def get_result_future(self, m: C9Machine) -> AwsFuture:
         # Only one C9Machine is ever running in a controller in AWS at a time,
@@ -213,7 +210,7 @@ class AwsController(Controller):
         # self._session.
         if isinstance(m, C9Machine):
             assert m is self.this_machine
-            return self.this_machine_future
+            return self.this_future
         else:
             assert isinstance(m, MachineMap)
             return AwsFuture(self._session, m.future_fk, self.lock)
@@ -231,14 +228,14 @@ class AwsController(Controller):
             if resolved:
                 value = future.value
             else:
-                future.add_continuation(self.this_machine_id, offset)
+                future.add_continuation(self.this_id, offset)
                 value = None
         return resolved, value
 
     # No need to lock - chain_resolve will do it
     def set_machine_result(self, m: C9Machine, value):
         assert m is self.this_machine
-        future = self.this_machine_future
+        future = self.this_future
         resolved = chain_resolve(future, value, self.run_waiting_machine)
         self.probe_log(
             f"Resolved {future}" if resolved else f"Chained {future} to {value}"
@@ -271,23 +268,18 @@ class AwsController(Controller):
 
     def run_machine_async(self, machine_id: int):
         assert isinstance(machine_id, int)
-        if self.this_machine_probe:
-            self.this_machine_probe.log(
-                f"Starting new machine asynchronously - {machine_id}"
-            )
-        self.executor.run(
-            self.executable, self._session.session_id, machine_id, self.do_probe,
-        )
+        self.this_probe.log(f"Starting new machine asynchronously - {machine_id}")
+        self.executor.run(self._session.session_id, machine_id)
 
     def run_machine(self, machine_id: int):
         m = db.get_machine(self._session, machine_id)
-        self.this_machine_id = machine_id
-        self.this_machine_state = m.state
-        self.this_machine_probe = AwsProbe(m) if self.do_probe else Probe()
-        self.this_machine_future = AwsFuture(self._session, m.future_fk, self.lock)
         self.lock.machine_id = m.machine_id
-        self.this_machine_is_top_level = m.is_top_level
-        self.this_machine = C9Machine(self)
+        self.this_id = machine_id
+        self.this_state = m.state
+        self.this_probe = AwsProbe(m)
+        self.this_future = AwsFuture(self._session, m.future_fk, self.lock)
+        self.this_is_top_level = m.is_top_level
+        self.this_machine = C9Machine(self, self.this_state, self.this_probe)
         self.probe_log(f"Running machine - {m.machine_id} ({m.is_top_level})")
         self.this_machine.run()
 
@@ -322,13 +314,84 @@ class AwsController(Controller):
             state.ds_push(AwsFuture(self._session, future.future_id, self.lock))
 
 
+class Interface:
+    def __init__(self, controller):
+        self.controller = controller
+        self.defs = {}
+        self.foreign = {}
+
+    # User interface
+    def _build_exe(self):
+        location = 0
+        code = []
+        locations = {}
+        for fn_name, fn_code in self.defs.items():
+            locations[fn_name] = location
+            code += fn_code
+            location += len(fn_code)
+        return Executable(locations, self.foreign, code)
+
+    def add_def(self, name, code):
+        # If any machines are running, they will break!
+        LOG.info("Defining `%s` (%d instructions)", name, len(code))
+        self.defs[name] = code
+
+    def importpy(self, dest_name, mod_name, fn_name):
+        LOG.info("Importing `%s` from %s", fn_name, mod_name)
+        self.foreign[dest_name] = load_function_from_module(fn_name, mod_name)
+
+    def callf(self, name, args):
+        exe = self._build_exe()
+
+        self.controller.executable = exe
+
+        if name not in exe.locations:
+            raise Exception(f"Function `{name}` doesn't exist")
+        LOG.info("Calling `%s`", name)
+        m = self.controller.new_machine(args, top_level=True)
+        state = self.controller.get_state(m)
+        state.ip = exe.locations[name]
+        LOG.info("Jumping to %d", state.ip)
+        self.controller.run_machine(m)
+
+    def resume(self, name, code):
+        # not relevant locally?
+        raise NotImplementedError
+
+    def wait_for_finish(self, sleep_interval=0.01):
+        try:
+            while not self.controller.finished:
+                time.sleep(sleep_interval)
+
+                for probe in self.controller.probes:
+                    if isinstance(probe, LocalProbe) and probe.early_stop:
+                        raise Exception(
+                            f"{m} forcibly stopped by probe (too many steps)"
+                        )
+
+                if self.controller.exception:
+                    raise ThreadDied from self.controller.exception.exc_value
+
+            if not all(
+                self.controller.get_state(m).stopped for m in self.controller.machines
+            ):
+                raise Exception("Terminated, but not all machines stopped!")
+
+        # except ThreadDied:
+        #     raise
+
+        except Exception as e:
+            warnings.warn("Unexpected Exception!! Returning controller for analysis")
+            traceback.print_exc()
+
+
 ## Entrypoints
 
 
 def run_existing(executor, executable, session_id, machine_id):
     """Run an existing session and machine"""
     session = db.Session.get(session_id)
-    controller = AwsController(executor, executable, session)
+    controller = Controller(executor, executable, session)
     controller.run_machine(machine_id)
     return controller
 
@@ -340,24 +403,19 @@ def resolve_and_run(executor, executable, session_id, user_future_id, value):
     """
     session = db.Session.get(session_id)
     future = db.get_user_future(session, user_future_id)
-    controller = AwsController(executor, executable, session)
+    controller = Controller(executor, executable, session)
     chain_resolve(future, value, controller.run_waiting_machine)
     return controller
 
 
-def run_new(executor, executable, args, *, start_async=False):
+def run_new(executor, function, args):
     """Make a new session and run it from the top"""
     session = db.new_session()
     m = db.new_machine(session, args, top_level=True)
     session.save()
-    controller = AwsController(executor, executable, session)
+    controller = Controller(executor, session)
 
-    # This is useful for kicking off a lambda from tests
-    if start_async:
-        controller.run_machine_async(m.machine_id)
-    else:
-        controller.run_machine(m.machine_id)
-
+    controller.run_machine(m.machine_id)
     return controller
 
 

@@ -2,6 +2,7 @@
 
 import c9.machine.types as mt
 from lark import Token, Transformer, Tree, v_args
+from .load import exp_parser
 
 
 @v_args(inline=True)
@@ -37,3 +38,17 @@ class ReadLiterals(Transformer):
 
     def m_quote(self, *sexp):
         return Tree("quote", sexp)
+
+    def m_async(self, sexp):
+        return Tree("async_", sexp.children)
+
+    def m_wait(self, sexp):
+        wait = Tree("symbol", [Token("IDENTIFIER", "wait")])
+        return Tree("list_", [wait, sexp])
+
+
+def read_exp(exp):
+    """Read a single literal expression"""
+    parser = exp_parser()
+    tree = parser.parse(exp)
+    return ReadLiterals().transform(tree).children[0]

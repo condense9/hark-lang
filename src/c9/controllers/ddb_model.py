@@ -130,13 +130,17 @@ class Session(Model):
     executable = ExecutableMap()
 
 
+BASE_SESSION_ID = 0
+
+
 def new_session() -> Session:
+    base_session = Session.get(BASE_SESSION_ID)
     sid = str(uuid.uuid4())
     s = Session(
         sid,
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        executable=ExecutableMap(locations={}, foreign={}, code=[]),
+        executable=base_session.executable,
     )
     s.save()
     return s

@@ -39,6 +39,12 @@ class LocalProbe(Probe):
     def log(self, text):
         self.logs.append(f"*** <{self._name}> {text}")
 
+    def on_enter(self, m, fn_name: str):
+        self.log(f"===> {fn_name}")
+
+    def on_return(self, m):
+        self.log(f"<===")
+
     def on_step(self, m):
         self._step += 1
         preface = f"[step={self._step}, ip={m.state.ip}] {m.instruction}"
@@ -82,7 +88,7 @@ def load_function_from_module(fnname, modname):
 
 
 class Controller(BaseController):
-    def __init__(self, do_probe=True):
+    def __init__(self):
         self._machine_future = {}
         self._machine_state = {}
         self._machine_probe = {}
@@ -92,7 +98,6 @@ class Controller(BaseController):
         self.top_level = None
         self.result = None
         self.finished = False
-        self.do_probe = do_probe
         self.exception = None
         threading.excepthook = self._threading_excepthook
 
@@ -111,9 +116,9 @@ class Controller(BaseController):
 
     def new_machine(self, args, top_level=False):
         future = LocalFuture(self)
-        probe = LocalProbe() if self.do_probe else Probe()
+        probe = LocalProbe()
         state = State(*args)
-        m = C9Machine(self, self.executable, state, probe)
+        m = C9Machine(self, state, probe)
         self._machine_idx += 1
         self._machine_future[m] = future
         self._machine_state[m] = state
@@ -193,7 +198,7 @@ class Controller(BaseController):
     def evali(self, i: Instruction, m):
         """Evaluate instruction"""
         assert isinstance(i, Instruction)
-        raise NotImplementedError
+        raise NotImplementedError(i)
 
     @evali.register
     def _(self, i: mi.Print, m):
@@ -224,7 +229,7 @@ class Interface:
             location += len(fn_code)
         return Executable(locations, self.foreign, code)
 
-    def def_(self, name, code):
+    def add_def(self, name, code):
         # If any machines are running, they will break!
         LOG.info("Defining `%s` (%d instructions)", name, len(code))
         self.defs[name] = code
@@ -249,29 +254,32 @@ class Interface:
         # not relevant locally?
         raise NotImplementedError
 
+    def wait_for_finish(self, sleep_interval=0.01):
+        try:
+            while not self.controller.finished:
+                time.sleep(sleep_interval)
+
+                for probe in self.controller.probes:
+                    if isinstance(probe, LocalProbe) and probe.early_stop:
+                        raise Exception(
+                            f"{m} forcibly stopped by probe (too many steps)"
+                        )
+
+                if self.controller.exception:
+                    raise ThreadDied from self.controller.exception.exc_value
+
+            if not all(
+                self.controller.get_state(m).stopped for m in self.controller.machines
+            ):
+                raise Exception("Terminated, but not all machines stopped!")
+
+        # except ThreadDied:
+        #     raise
+
+        except Exception as e:
+            warnings.warn("Unexpected Exception!! Returning controller for analysis")
+            traceback.print_exc()
+
 
 class ThreadDied(Exception):
     """A thread died"""
-
-
-def wait_for_finish(controller, sleep_interval=0.01):
-    try:
-        while not controller.finished:
-            time.sleep(sleep_interval)
-
-            for probe in controller.probes:
-                if isinstance(probe, LocalProbe) and probe.early_stop:
-                    raise Exception(f"{m} forcibly stopped by probe (too many steps)")
-
-            if controller.exception:
-                raise ThreadDied from controller.exception.exc_value
-
-        if not all(controller.get_state(m).stopped for m in controller.machines):
-            raise Exception("Terminated, but not all machines stopped!")
-
-    # except ThreadDied:
-    #     raise
-
-    except Exception as e:
-        warnings.warn("Unexpected Exception!! Returning controller for analysis")
-        traceback.print_exc()

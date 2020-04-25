@@ -3,8 +3,10 @@ import random
 import time
 
 
-def random_sleep(max_ms=10):
-    time.sleep(max_ms * random.random() / 1000.0)
+def random_sleep(min_ms=1000, max_ms=5000):
+    duration = max(min_ms, max_ms * random.random()) / 1000.0
+    print("sleeping", duration)
+    time.sleep(duration)
 
 
 @Foreign

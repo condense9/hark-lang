@@ -12,9 +12,8 @@ class LambdaExecutor:
     def __init__(self, fn_name):
         self.fn_name = fn_name
 
-    def run(self, executable, session_id, machine_id, do_probe):
+    def run(self, session_id, machine_id):
         client = get_lambda_client()
-        logging.info("Running lambda for executable: %s", executable.name)
         payload = dict(session_id=session_id, machine_id=machine_id)
         res = client.invoke(
             # --
@@ -25,7 +24,7 @@ class LambdaExecutor:
         if res["StatusCode"] != 202 or "FunctionError" in res:
             err = res["Payload"].read()
             # TODO retry!
-            raise Exception(f"Invoke lambda failed {err}")
+            raise Exception(f"Invoke lambda {self.fn_name} failed {err}")
 
 
 # Input: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
@@ -55,16 +54,9 @@ def handle_existing(run_controller, event, context):
         )
 
 
-def handle_new(run_controller, event, context):
+def handle_new(run_controller, handler, args):
     """Handle the AWS lambda event for a new session"""
-    handler_name = os.environ["C9_HANDLER"]
-    logging.info(f"Invoked - {handler_name}, {event}")
-
-    zipfile = join(constants.EXE_PATH, handler_name + ".c9e")
-    executable = c9e.load(zipfile, [constants.SRC_PATH, constants.LIB_PATH])
-
-    args = [context, event]  # reverse order! FIXME?
-
+    executable = c9.compile_handler(handler)
     executor = LambdaExecutor(handler_name)
     controller = run_controller(
         executor,

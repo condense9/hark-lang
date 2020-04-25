@@ -4,7 +4,10 @@ import sys
 
 import c9.controllers.local as local
 
+# import c9.controllers.ddb as ddb
+
 from .parser.evaluate import evaluate_toplevel
+from .parser.read import read_exp
 
 LOG = logging.getLogger(__name__)
 
@@ -23,31 +26,48 @@ def add_toplevel(interface, toplevel):
     LOG.debug(toplevel.foreigns)
 
     for name, code in toplevel.defs.items():
-        interface.def_(name, code)
+        interface.add_def(name, code)
 
     for dest_name, (fn_name, mod_name) in toplevel.foreigns.items():
         interface.importpy(dest_name, mod_name, fn_name)
 
 
 def run_local(filename, function, args):
-    LOG.info("Running `%s` in %s", function, filename)
     LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
     controller = local.Controller()
     interface = local.Interface(controller)
+    toplevel = load_file(filename)
+    args = [read_exp(arg) for arg in args]
+    LOG.info("Running `%s` in %s", function, filename)
+    LOG.info(f"Args: {args}")
+    add_toplevel(interface, toplevel)
 
     try:
-        toplevel = load_file(filename)
-        add_toplevel(interface, toplevel)
-
         interface.callf(function, args)
-        local.wait_for_finish(controller)
+        interface.wait_for_finish()
 
     finally:
         LOG.debug(controller.executable.listing())
+        for p in controller.probes:
+            LOG.debug(f"probe {p}:\n" + "\n".join(p.logs))
+
         for i, outputs in enumerate(controller.outputs):
             print(f"--[Machine {i} Output]--")
             for (t, o) in outputs:
                 print(f"{t:5.5f}  {o}")
+
+    print("--RETURNED--")
+    print(controller.result)
+
+
+def run_ddb_local(filename, function, args):
+    executor = ThreadExecutor()
+    controller = ddb.Controller(executor, session)
+    interface = ddb.Interface(controller)
+    toplevel = load_file(filename)
+    add_toplevel(interface, toplevel)
+
+    interface.callf(function, args)
 
     print("--RETURNED--")
     print(controller.result)

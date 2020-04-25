@@ -65,8 +65,11 @@ class Evaluate:
             *then_code,
         ]
 
-    def do_block(self, *things):
-        return flatten(Evaluate(thing).code for thing in things)
+    def do_block(self, *stmts):
+        # in a do block, only the last result is retained. Every previous
+        # statement is executed and then discarded (popped)
+        discarded = flatten(Evaluate(stmt).code + [mi.Pop()] for stmt in stmts[:-1])
+        return discarded + Evaluate(stmts[-1]).code
 
     def let(self, bindings, body):
         code = []
@@ -94,7 +97,8 @@ class EvaluateToplevel:
 
     def def_(self, name, bindings, body):
         assert isinstance(name, Token)
-        bindings_code = [mi.Bind(str(b)) for b in bindings.children]
+        # NOTE - arg stack is in reverse order, so the bindings are reversed
+        bindings_code = [mi.Bind(str(b)) for b in reversed(bindings.children)]
         self.defs[str(name)] = bindings_code + Evaluate(body).code + [mi.Return()]
 
 

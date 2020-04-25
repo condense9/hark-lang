@@ -13,6 +13,7 @@ provider:
   runtime: python3.8
   region: eu-west-2
   environment:
+    RESOURCE_PREFIX: ${self:service}-${opt:stage, self:provider.stage}
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}-c9-sessions
   iamRoleStatements:
     - Effect: Allow
@@ -55,11 +56,12 @@ package:
 
 
 functions:
-  adddef:
-    handler: src/c9service.adddef
+
+  setexe:
+    handler: src/c9service.setexe
     events:
       - http:
-          path: addef
+          path: setexe
           method: post
           cors: true
       # - sqs:
@@ -68,19 +70,11 @@ functions:
       #         - MountainsTest
       #         - Arn
 
-  addforeign:
-    handler: src/c9service.adddef
-    events:
-      - http:
-          path: addforeign
-          method: post
-          cors: true
-
   call:
-    handler: src/c9service.call
+    handler: src/c9service.callf
     events:
       - http:
-          path: call
+          path: callf
           method: post
           cors: true
 

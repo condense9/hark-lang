@@ -1,5 +1,6 @@
-import c9.controllers.ddb
-import c9.executors.awslambda
+import c9.controllers.ddb as ddb_controller
+import c9.controllers.ddb_model as db
+from c9.executors.awslambda import LambdaExecutor
 
 # There is no python in this lambda. All user code is a layer above.
 # There are no C9 files in this lambda. All programs are stored in DynamoDB.
@@ -11,22 +12,29 @@ import c9.executors.awslambda
 # A session: an execution/evaluation session, may involve multiple machines.
 
 
-def def_(event, context):
-    raise NotImplementedError
+def setexe(event, context):
+    s = db.Session.get(db.BASE_SESSION_ID)
+    s.executable = ExecutableMap(
+        locations=event["locations"], foreign=event["foreign"], code=event["code"]
+    )
+    s.save()
 
 
-def importpy(event, context):
-    raise NotImplementedError
+# FIXME get from environ
+EXECUTOR = LambdaExecutor("resume")
 
 
 def callf(event, context):
     raise NotImplementedError
     # Event must contain the function to call, and the args
+    return c9.executors.awslambda.handle_existing(run_method, event, context)
+    run_method = c9.controllers.ddb.run
+
+    ddb_controller.run_new(EXECUTOR)
 
 
 def resume(event, context):
     raise NotImplementedError
-
 
 
 # def {FN_HANDLE_EXISTING}(event, context):

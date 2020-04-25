@@ -41,11 +41,12 @@ do_block : sexp*
 quote : "quote" sexp
 
 
-?reader_macro : m_quote
+?reader_macro : m_quote | m_async | m_wait
 
-m_quote    : "'" sexp
-// m_map   : "#" sexp
-// m_async : "@" sexp
+m_quote  : "'" sexp
+// m_map : "#" sexp
+m_async  : "@" sexp
+m_wait   : "$" sexp
 
 // sharp : "#'" sexp
 
@@ -72,7 +73,7 @@ TRUE : "t"
 
 NIL : "nil"
 
-IDENTIFIER : /[^\t\n\f,;\\ (){}0-9'"`]+/
+IDENTIFIER : /[^\t\n\f,;\\ (){}0-9'"`$]+/
 
 
 COMMENT : /;[^\n]*/

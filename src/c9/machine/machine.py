@@ -59,15 +59,14 @@ class C9Machine:
         "wait": Wait,
         "future": Future,
         "+": Plus,
+        # "-": Minus
         "*": Multiply,
         "nth": Nth,
     }
 
-    def __init__(
-        self, controller: Controller, executable: Executable, state: State, probe: Probe
-    ):
+    def __init__(self, controller: Controller, state: State, probe: Probe):
         self.controller = controller
-        self.exe = executable
+        self.exe = controller.executable
         self.state = state
         self.probe = probe
         LOG.info("locations %s", self.exe.locations.keys())
@@ -176,16 +175,18 @@ class C9Machine:
         # Arguments for the function must already be on the stack
         num_args = i.operands[0]
         fn = self.state.ds_pop()
+        self.probe.on_enter(self, fn)
 
         if isinstance(fn, mt.C9Function):
-            self.probe.on_enter(self, fn)
             self.state.es_enter(self.exe.locations[fn])
 
         elif isinstance(fn, mt.C9Foreign):
-            args = reversed([self.state.ds_pop() for _ in range(num_args)])
+            foreign_f = self.exe.foreign[fn]
+            args = tuple(reversed([self.state.ds_pop() for _ in range(num_args)]))
+            self.probe.log(f"--> {foreign_f} {args}")
             # TODO automatically wait for the args? Somehow mark which one we're
             # waiting for in the continuation
-            result = self.exe.foreign[fn](*args)  # TODO convert types?
+            result = foreign_f(*args)  # TODO convert types?
             self.state.ds_push(result)
 
         elif isinstance(fn, mt.C9Instruction):
@@ -285,6 +286,18 @@ class C9Machine:
         a = self.state.ds_pop()
         b = self.state.ds_pop()
         self.state.ds_push(a == b)
+
+    @evali.register
+    def _(self, i: Plus):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self.state.ds_push(a + b)
+
+    @evali.register
+    def _(self, i: Multiply):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self.state.ds_push(a * b)
 
     def __repr__(self):
         return f"<Machine {id(self)}>"
