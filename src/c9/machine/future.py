@@ -30,4 +30,4 @@ def chain_resolve(future: ChainedFuture, value, run_waiting_machine) -> bool:
             for machine, offset in future.continuations:
                 run_waiting_machine(machine, offset, value)
 
-    return actually_resolved
+    return actually_resolved, value

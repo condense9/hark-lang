@@ -3,6 +3,7 @@ import os
 import sys
 
 import c9.controllers.local as local
+import c9.executors.thread as thread
 
 # import c9.controllers.ddb as ddb
 
@@ -20,31 +21,27 @@ def load_file(filename):
     return evaluate_toplevel(content)
 
 
-def add_toplevel(interface, toplevel):
-    """Load toplevel definitions into controller"""
-    LOG.debug(toplevel.defs)
-    LOG.debug(toplevel.foreigns)
-
-    for name, code in toplevel.defs.items():
-        interface.add_def(name, code)
-
-    for dest_name, (fn_name, mod_name) in toplevel.foreigns.items():
-        interface.importpy(dest_name, mod_name, fn_name)
+def local_threaded():
+    data_controller = local.DataController()
+    invoker = local.ThreadInvoker(data_controller, local.Evaluator)
+    interface = local.Interface(data_controller, invoker)
+    return interface
 
 
 def run_local(filename, function, args):
     LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
-    controller = local.Controller()
-    interface = local.Interface(controller)
+    interface = local_threaded()
     toplevel = load_file(filename)
+    interface.set_toplevel(toplevel)
+
     args = [read_exp(arg) for arg in args]
     LOG.info("Running `%s` in %s", function, filename)
     LOG.info(f"Args: {args}")
-    add_toplevel(interface, toplevel)
 
     try:
+        controller = interface.data_controller
         interface.callf(function, args)
-        interface.wait_for_finish()
+        thread.wait_for_finish(interface)
 
     finally:
         LOG.debug(controller.executable.listing())
@@ -65,7 +62,7 @@ def run_ddb_local(filename, function, args):
     controller = ddb.Controller(executor, session)
     interface = ddb.Interface(controller)
     toplevel = load_file(filename)
-    add_toplevel(interface, toplevel)
+    interface.set_top(top_level)
 
     interface.callf(function, args)
 

@@ -48,6 +48,7 @@ class Evaluate:
 
     def async_(self, function, *args):
         # an async call
+        # FIXME - not sure what happens if this is nested.
         arg_code = flatten(Evaluate(arg).code for arg in args)
         return arg_code + Evaluate(function).code + [mi.ACall(len(args))]
 

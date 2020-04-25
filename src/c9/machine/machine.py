@@ -18,6 +18,7 @@ from .instruction import Instruction
 from .instructionset import *
 from .state import State
 from .probe import Probe
+from .future import chain_resolve
 from . import types as mt
 
 LOG = logging.getLogger(__name__)
@@ -31,6 +32,18 @@ def traverse(o, tree_types=(list, tuple)):
                 yield subvalue
     else:
         yield o
+
+
+def load_function_from_module(fnname, modname):
+    """Load function
+
+    PYTHONPATH must be set up already.
+    """
+    spec = importlib.util.find_spec(modname)
+    m = spec.loader.load_module()
+    fn = getattr(m, fnname)
+    LOG.info("Loaded %s", fn)
+    return fn
 
 
 class C9Machine:
@@ -64,14 +77,31 @@ class C9Machine:
         "nth": Nth,
     }
 
-    def __init__(self, controller: Controller, state: State, probe: Probe):
-        self.controller = controller
-        self.exe = controller.executable
-        self.state = state
-        self.probe = probe
+    # def __init__(self, invoker, data, probe: Probe):
+    #     self.executable = data.executable
+    #     self.state = data.state
+
+    def __init__(self, vmid, invoker):
+        self.vmid = vmid
+        self.invoker = invoker
+        self.data_controller = invoker.data_controller
+        self.state = self.data_controller.get_state(self.vmid)
+        self.probe = self.data_controller.get_probe(self.vmid)
+        self.exe = self.data_controller.executable
+        self.evaluator = invoker.evaluator_cls(self)
+        self._foreign = {
+            name: load_function_from_module(fn, mod)
+            for name, (fn, mod) in self.exe.foreign.items()
+        }
         LOG.info("locations %s", self.exe.locations.keys())
         LOG.info("foreign %s", self.exe.foreign.keys())
         # No entrypoint argument - just set the IP in the state
+
+    def _resume(self, machine, offset, value):
+        """resume (invoke) another machine in the same data space"""
+        self.data_controller.set_ds_value(machine, offset, value)
+        self.data_controller.restart(machine)
+        self.invoker.invoke(machine)
 
     @property
     def stopped(self):
@@ -103,14 +133,12 @@ class C9Machine:
                 self.step()
         finally:
             self.probe.on_stopped(self)
-            self.controller.stop(self)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
         """Evaluate instruction"""
         assert isinstance(i, Instruction)
-        # Delegate to controller (implementation defined)
-        self.controller.evali(i, self)
+        self.evaluator.evali(i)
 
     @evali.register
     def _(self, i: Bind):
@@ -126,7 +154,7 @@ class C9Machine:
             val = self.state.get_bind(ptr)
         elif ptr in self.exe.locations:
             val = mt.C9Function(ptr)
-        elif ptr in self.exe.foreign:
+        elif ptr in self._foreign:
             val = mt.C9Foreign(ptr)
         elif ptr in C9Machine.builtins:
             val = mt.C9Instruction(ptr)
@@ -165,10 +193,11 @@ class C9Machine:
             self.state.stopped = True
             value = self.state.ds_peek(0)
             self.probe.log(f"Returning value: {value}")
-            self.controller.set_machine_result(self, value)
 
-            if self.controller.is_top_level(self):
-                self.controller.finish(value)
+            # FIXME Why do this here? Controller can get the result after stopping
+            future = self.data_controller.get_result_future(self.vmid)
+            resolved, value = chain_resolve(future, value, self._resume)
+            self.data_controller.finish(self.vmid, value)
 
     @evali.register
     def _(self, i: Call):
@@ -181,7 +210,7 @@ class C9Machine:
             self.state.es_enter(self.exe.locations[fn])
 
         elif isinstance(fn, mt.C9Foreign):
-            foreign_f = self.exe.foreign[fn]
+            foreign_f = self._foreign[fn]
             args = tuple(reversed([self.state.ds_pop() for _ in range(num_args)]))
             self.probe.log(f"--> {foreign_f} {args}")
             # TODO automatically wait for the args? Somehow mark which one we're
@@ -203,19 +232,21 @@ class C9Machine:
         num_args = i.operands[0]
         fn_name = self.state.ds_pop()
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
-        machine = self.controller.new_machine(args)
-        future = self.controller.get_result_future(machine)
-        self.probe.log(f"Fork {self} to {machine} => {future}")
+
+        machine = self.data_controller.new_machine(args, fn_name)
+        self.invoker.invoke(machine)
+        future = self.data_controller.get_result_future(machine)
+
+        self.probe.log(f"Fork {self} => {future}")
         self.state.ds_push(future)
-        self.controller.run_forked_machine(machine, self.exe.locations[fn_name])
 
     @evali.register
     def _(self, i: Wait):
         offset = 0  # TODO cleanup - no more offset!
         val = self.state.ds_peek(offset)
 
-        if self.controller.is_future(val):
-            resolved, result = self.controller.get_or_wait(self, val, offset)
+        if self.data_controller.is_future(val):
+            resolved, result = self.data_controller.get_or_wait(self.vmid, val, offset)
             if resolved:
                 self.probe.log(f"Resolved! {offset} -> {result}")
                 self.state.ds_set(offset, result)
@@ -224,7 +255,7 @@ class C9Machine:
                 self.state.stopped = True
 
         elif isinstance(val, list) and any(
-            self.controller.is_future(elt) for elt in traverse(val)
+            self.data_controller.is_future(elt) for elt in traverse(val)
         ):
             # The programmer is responsible for waiting on all elements
             # of lists.

@@ -19,6 +19,8 @@ Options:
   -f FUNCTION, --fn=FUNCTION  Function to run/graph [default: main]
   -o OUTPUT, --output=OUTPUT  Destination file for graph
 
+  --mode=MODE  Execution mode
+
 Init Arguments:
   <DIR>  Directory to initialise [default: .]
 

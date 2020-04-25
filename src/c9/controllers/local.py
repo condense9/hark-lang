@@ -11,7 +11,7 @@ import warnings
 
 from ..machine import C9Machine
 from ..machine.controller import Controller as BaseController
-from ..machine.future import ChainedFuture, chain_resolve
+from ..machine.future import ChainedFuture
 from ..machine.state import State
 from ..machine.probe import Probe
 from ..machine import c9e
@@ -23,7 +23,7 @@ from ..machine import instructionset as mi
 LOG = logging.getLogger(__name__)
 
 
-class LocalProbe(Probe):
+class Probe(Probe):
     """A monitoring probe that stops the VM after a number of steps"""
 
     count = 0
@@ -31,8 +31,8 @@ class LocalProbe(Probe):
     def __init__(self, *, max_steps=500):
         self._max_steps = max_steps
         self._step = 0
-        LocalProbe.count += 1
-        self._name = f"P{LocalProbe.count}"
+        Probe.count += 1
+        self._name = f"P{Probe.count}"
         self.logs = []
         self.early_stop = False
 
@@ -75,107 +75,72 @@ class LocalFuture(ChainedFuture):
         return f"<Future {id(self)} {self.resolved} ({self.value})>"
 
 
-def load_function_from_module(fnname, modname):
-    """Load function
-
-    PYTHONPATH must be set up already.
-    """
-    spec = importlib.util.find_spec(modname)
-    m = spec.loader.load_module()
-    fn = getattr(m, fnname)
-    LOG.info("Loaded %s", fn)
-    return fn
-
-
-class Controller(BaseController):
+class DataController:
     def __init__(self):
+        # NOTE - could make probes optional, but why?!
         self._machine_future = {}
         self._machine_state = {}
         self._machine_probe = {}
         self._machine_idx = 0
-        self._machine_output = {}
+        self.machine_output = {}
         self.executable = None
-        self.top_level = None
+        self._top_level_vmid = None
         self.result = None
         self.finished = False
-        self.exception = None
-        threading.excepthook = self._threading_excepthook
 
-    def _threading_excepthook(self, args):
-        self.exception = args
-
-    def finish(self, result):
-        self.result = result
-        self.finished = True
-
-    def stop(self, machine):
-        pass  # Could do something like sync the machine's state
-
-    def is_top_level(self, machine):
-        return machine == self.top_level
-
-    def new_machine(self, args, top_level=False):
+    def new_machine(self, args, fn_name, is_top_level=False):
+        if fn_name not in self.executable.locations:
+            raise Exception(f"Function `{fn_name}` doesn't exist")
         future = LocalFuture(self)
-        probe = LocalProbe()
+        probe = Probe()
         state = State(*args)
-        m = C9Machine(self, state, probe)
+        state.ip = self.executable.locations[fn_name]
+        vmid = self._machine_idx
         self._machine_idx += 1
-        self._machine_future[m] = future
-        self._machine_state[m] = state
-        self._machine_probe[m] = probe
-        self._machine_output[m] = []
-        if top_level:
-            if self.top_level:
+        self._machine_future[vmid] = future
+        self._machine_state[vmid] = state
+        self._machine_probe[vmid] = probe
+        self.machine_output[vmid] = []
+        if is_top_level:
+            if self._top_level_vmid:
                 raise Exception("Already got a top level!")
-            self.top_level = m
-        return m
+            self._top_level_vmid = vmid
+        return vmid
 
-    def probe_log(self, m, msg):
-        if self._machine_probe[m]:
-            self._machine_probe[m].log(msg)
+    def is_top_level(self, vmid):
+        return vmid == self._top_level_vmid
 
-    def get_result_future(self, m):
-        return self._machine_future[m]
+    def finish(self, vmid, result):
+        # in other implementations, could sync state
+        if self.is_top_level(vmid):
+            self.result = result
+            self.finished = True
 
-    def get_state(self, m):
-        return self._machine_state[m]
+    def get_result_future(self, vmid):
+        return self._machine_future[vmid]
 
-    def get_probe(self, m):
-        return self._machine_probe[m]
+    def get_state(self, vmid):
+        return self._machine_state[vmid]
 
-    def run_machine(self, m):
-        thread = threading.Thread(target=m.run)
-        thread.start()
+    def get_probe(self, vmid):
+        return self._machine_probe[vmid]
 
-    def run_forked_machine(self, m, new_ip):
-        state = self.get_state(m)
-        state.ip = new_ip
-        self.run_machine(m)
-
-    def run_waiting_machine(self, m, offset, value):
-        state = self.get_state(m)
-        probe = self.get_probe(m)
+    def set_ds_value(self, vmid, offset, value):
+        state = self.get_state(vmid)
         state.ds_set(offset, value)
+
+    def restart(self, vmid):
+        state = self.get_state(vmid)
         state.stopped = False
-        probe.log(f"continuing {m}")
-        self.run_machine(m)
 
-    def set_machine_result(self, m, value):
-        future = self.get_result_future(m)
-        resolved = chain_resolve(future, value, self.run_waiting_machine)
-        assert isinstance(resolved, bool)
-        self.probe_log(
-            m, f"Resolved {future}" if resolved else f"Chained {future} to {value}"
-        )
-
-    def get_or_wait(self, m, future, offset):
+    def get_or_wait(self, vmid, future, offset):
         # prevent race between resolution and adding the continuation
         with future.lock:
             resolved = future.resolved
             if resolved:
                 value = future.value
             else:
-                future.continuations.append((m, offset))
+                future.continuations.append((vmid, offset))
                 value = None
         return resolved, value
 
@@ -192,29 +157,52 @@ class Controller(BaseController):
 
     @property
     def outputs(self):
-        return list(self._machine_output.values())
+        return list(self.machine_output.values())
+
+
+class ThreadInvoker:
+    def __init__(self, data_controller, evaluator_cls):
+        self.data_controller = data_controller
+        self.evaluator_cls = evaluator_cls
+        self.exception = None
+        threading.excepthook = self._threading_excepthook
+
+    def _threading_excepthook(self, args):
+        self.exception = args
+
+    def invoke(self, vmid):
+        m = C9Machine(vmid, self)
+        thread = threading.Thread(target=m.run)
+        thread.start()
+
+
+class Evaluator:
+    def __init__(self, parent):
+        self.vmid = parent.vmid
+        self.state = parent.state
+        self.data_controller = parent.data_controller
 
     @singledispatchmethod
-    def evali(self, i: Instruction, m):
+    def evali(self, i: Instruction):
         """Evaluate instruction"""
         assert isinstance(i, Instruction)
         raise NotImplementedError(i)
 
     @evali.register
-    def _(self, i: mi.Print, m):
-        state = self.get_state(m)
-        val = state.ds_peek(0)
+    def _(self, i: mi.Print):
         # Leave the value in the stack - print returns itself
-        self._machine_output[m].append((time.time(), str(val)))
+        val = self.state.ds_peek(0)
+        self.data_controller.machine_output[self.vmid].append((time.time(), str(val)))
 
     @evali.register
-    def _(self, i: mi.Future, m):
+    def _(self, i: mi.Future):
         raise NotImplementedError
 
 
 class Interface:
-    def __init__(self, controller):
-        self.controller = controller
+    def __init__(self, data_controller, invoker):
+        self.invoker = invoker
+        self.data_controller = data_controller
         self.defs = {}
         self.foreign = {}
 
@@ -229,57 +217,30 @@ class Interface:
             location += len(fn_code)
         return Executable(locations, self.foreign, code)
 
-    def add_def(self, name, code):
+    def _add_def(self, name, code):
         # If any machines are running, they will break!
         LOG.info("Defining `%s` (%d instructions)", name, len(code))
         self.defs[name] = code
 
-    def importpy(self, dest_name, mod_name, fn_name):
+    def _importpy(self, dest_name, mod_name, fn_name):
         LOG.info("Importing `%s` from %s", fn_name, mod_name)
-        self.foreign[dest_name] = load_function_from_module(fn_name, mod_name)
+        self.foreign[dest_name] = (fn_name, mod_name)
+
+    def set_toplevel(self, toplevel):
+        for name, code in toplevel.defs.items():
+            self._add_def(name, code)
+
+        for dest_name, (fn_name, mod_name) in toplevel.foreigns.items():
+            self._importpy(dest_name, mod_name, fn_name)
+
+        exe = self._build_exe()
+        self.data_controller.executable = exe
 
     def callf(self, name, args):
-        exe = self._build_exe()
-        self.controller.executable = exe
-        if name not in exe.locations:
-            raise Exception(f"Function `{name}` doesn't exist")
         LOG.info("Calling `%s`", name)
-        m = self.controller.new_machine(args, top_level=True)
-        state = self.controller.get_state(m)
-        state.ip = exe.locations[name]
-        LOG.info("Jumping to %d", state.ip)
-        self.controller.run_machine(m)
+        m = self.data_controller.new_machine(args, name, is_top_level=True)
+        self.invoker.invoke(m)
 
     def resume(self, name, code):
         # not relevant locally?
         raise NotImplementedError
-
-    def wait_for_finish(self, sleep_interval=0.01):
-        try:
-            while not self.controller.finished:
-                time.sleep(sleep_interval)
-
-                for probe in self.controller.probes:
-                    if isinstance(probe, LocalProbe) and probe.early_stop:
-                        raise Exception(
-                            f"{m} forcibly stopped by probe (too many steps)"
-                        )
-
-                if self.controller.exception:
-                    raise ThreadDied from self.controller.exception.exc_value
-
-            if not all(
-                self.controller.get_state(m).stopped for m in self.controller.machines
-            ):
-                raise Exception("Terminated, but not all machines stopped!")
-
-        # except ThreadDied:
-        #     raise
-
-        except Exception as e:
-            warnings.warn("Unexpected Exception!! Returning controller for analysis")
-            traceback.print_exc()
-
-
-class ThreadDied(Exception):
-    """A thread died"""
