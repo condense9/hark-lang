@@ -1,11 +1,14 @@
 """Evaluate an AST"""
 
+import logging
 import itertools
 import c9.machine.instructionset as mi
 import c9.machine.types as mt
 from lark import Token
 from .read import ReadSexp, ReadLiterals
 from .load import exp_parser, file_parser
+
+LOG = logging.getLogger(__name__)
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -109,4 +112,5 @@ def evaluate_toplevel(content: str):
     parser = file_parser()
     tree = parser.parse(content)
     ast = ReadLiterals().transform(tree)
+    LOG.debug(ast.pretty())
     return EvaluateToplevel(ast)

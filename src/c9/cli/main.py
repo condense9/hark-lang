@@ -37,7 +37,8 @@ import sys
 import logging
 
 from docopt import docopt
-import c9.parser.main
+import c9.run
+import c9.parser.graph
 
 from .. import __version__
 
@@ -47,7 +48,7 @@ def _run(args):
     filename = args["<file>"]
     fn_args = args["<fn_args>"]
     sys.path.append(".")
-    c9.parser.main.run_local(filename, fn, fn_args)
+    c9.run.run_local(filename, fn, fn_args)
 
 
 def _graph(args):
@@ -57,7 +58,7 @@ def _graph(args):
         dest_png = args["--output"]
     else:
         dest_png = f"{os.path.splitext(filename)[0]}_{fn}.png"
-    c9.parser.main.graph(filename, fn, dest_png)
+    c9.parser.graph.graph(filename, fn, dest_png)
 
 
 def main():

@@ -169,8 +169,6 @@ class C9Machine:
             self.controller.set_machine_result(self, value)
 
             if self.controller.is_top_level(self):
-                if not self.terminated:
-                    raise Exception("Top level ran out of frames without terminating")
                 self.controller.finish(value)
 
     @evali.register

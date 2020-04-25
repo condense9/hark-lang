@@ -1,3 +1,4 @@
+;; -*- mode: lisp -*-
 (importpy hi :from pkg.example :as say-hi)
 (importpy format :from pkg.example)
 (importpy sleeper :from pkg.example)
@@ -30,3 +31,7 @@
 (def main ()
   (let ((x (async simple t)))
     (format "sleep result: {}" (wait x))))
+
+(def printer (x)
+  (print (format "You gave me: {}" x))
+  x)
