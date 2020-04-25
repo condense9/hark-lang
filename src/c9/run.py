@@ -17,32 +17,33 @@ def load_file(filename):
     return evaluate_toplevel(content)
 
 
-def add_toplevel(controller, toplevel):
+def add_toplevel(interface, toplevel):
     """Load toplevel definitions into controller"""
     LOG.debug(toplevel.defs)
     LOG.debug(toplevel.foreigns)
 
     for name, code in toplevel.defs.items():
-        controller.def_(name, code)
+        interface.def_(name, code)
 
     for dest_name, (fn_name, mod_name) in toplevel.foreigns.items():
-        controller.importpy(dest_name, mod_name, fn_name)
+        interface.importpy(dest_name, mod_name, fn_name)
 
 
 def run_local(filename, function, args):
     LOG.info("Running `%s` in %s", function, filename)
     LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
-    controller = local.LocalController()
+    controller = local.Controller()
+    interface = local.Interface(controller)
 
     try:
         toplevel = load_file(filename)
-        add_toplevel(controller, toplevel)
-        LOG.debug(controller.executable.listing())
+        add_toplevel(interface, toplevel)
 
-        controller.callf(function, args)
+        interface.callf(function, args)
         local.wait_for_finish(controller)
 
     finally:
+        LOG.debug(controller.executable.listing())
         for i, outputs in enumerate(controller.outputs):
             print(f"--[Machine {i} Output]--")
             for (t, o) in outputs:

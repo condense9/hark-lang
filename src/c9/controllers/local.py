@@ -10,7 +10,7 @@ import traceback
 import warnings
 
 from ..machine import C9Machine
-from ..machine.controller import Controller
+from ..machine.controller import Controller as BaseController
 from ..machine.future import ChainedFuture, chain_resolve
 from ..machine.state import State
 from ..machine.probe import Probe
@@ -81,18 +81,14 @@ def load_function_from_module(fnname, modname):
     return fn
 
 
-class LocalController(Controller):
+class Controller(BaseController):
     def __init__(self, do_probe=True):
         self._machine_future = {}
         self._machine_state = {}
         self._machine_probe = {}
         self._machine_idx = 0
         self._machine_output = {}
-        self.defs = {}
-        self.foreign = {}
-        self.locations = {}
         self.executable = None
-        self.code = []
         self.top_level = None
         self.result = None
         self.finished = False
@@ -210,36 +206,44 @@ class LocalController(Controller):
     def _(self, i: mi.Future, m):
         raise NotImplementedError
 
+
+class Interface:
+    def __init__(self, controller):
+        self.controller = controller
+        self.defs = {}
+        self.foreign = {}
+
     # User interface
-    def _build_code(self):
+    def _build_exe(self):
         location = 0
-        self.code = []
-        self.locations = {}
-        for name, code in self.defs.items():
-            self.locations[name] = location
-            self.code += code
-            location += len(code)
+        code = []
+        locations = {}
+        for fn_name, fn_code in self.defs.items():
+            locations[fn_name] = location
+            code += fn_code
+            location += len(fn_code)
+        return Executable(locations, self.foreign, code)
 
     def def_(self, name, code):
         # If any machines are running, they will break!
         LOG.info("Defining `%s` (%d instructions)", name, len(code))
         self.defs[name] = code
-        self._build_code()
-        self.executable = Executable(self.locations, self.foreign, self.code)
 
     def importpy(self, dest_name, mod_name, fn_name):
         LOG.info("Importing `%s` from %s", fn_name, mod_name)
         self.foreign[dest_name] = load_function_from_module(fn_name, mod_name)
-        self.executable = Executable(self.locations, self.foreign, self.code)
 
     def callf(self, name, args):
-        if name not in self.locations:
+        exe = self._build_exe()
+        self.controller.executable = exe
+        if name not in exe.locations:
             raise Exception(f"Function `{name}` doesn't exist")
         LOG.info("Calling `%s`", name)
-        m = self.new_machine(args, top_level=True)
-        state = self.get_state(m)
-        state.ip = self.locations[name]
-        self.run_machine(m)
+        m = self.controller.new_machine(args, top_level=True)
+        state = self.controller.get_state(m)
+        state.ip = exe.locations[name]
+        LOG.info("Jumping to %d", state.ip)
+        self.controller.run_machine(m)
 
     def resume(self, name, code):
         # not relevant locally?
@@ -248,19 +252,6 @@ class LocalController(Controller):
 
 class ThreadDied(Exception):
     """A thread died"""
-
-
-def run_exe(
-    executable, args: list, *, do_probe=True, sleep_interval=0.01
-) -> LocalController:
-    LocalProbe.count = 0
-
-    controller = LocalController(executable, do_probe=do_probe)
-    m = controller.new_machine(args, top_level=True)
-    controller.probe_log(m, f"Top Level {m}")
-    controller.run_machine(m)
-    wait_for_finish(controller, sleep_interval)
-    return controller
 
 
 def wait_for_finish(controller, sleep_interval=0.01):
