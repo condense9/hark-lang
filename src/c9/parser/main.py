@@ -1,10 +1,13 @@
 import logging
-import sys
 import os
+import sys
 
 import c9.controllers.local as local
+import lark
 
 from .evaluate import evaluate_toplevel
+from .load import file_parser
+from .read import ReadLiterals
 
 LOG = logging.getLogger(__name__)
 
@@ -47,6 +50,18 @@ def run_local(filename, function, args):
 
     print("--RESULT--")
     print(controller.result)
+
+
+def graph(filename, function, dest_png):
+    with open(filename) as f:
+        content = f.read()
+
+    parser = file_parser()
+    tree = parser.parse(content)
+    ast = ReadLiterals().transform(tree)
+    for c in ast.children:
+        if c.data == "def_" and c.children[0] == function:
+            lark.tree.pydot__tree_to_png(c, dest_png)
 
 
 if __name__ == "__main__":

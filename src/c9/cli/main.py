@@ -1,7 +1,8 @@
 """C9 Compiler.
 
 Usage:
-  c9 [options] init [dir]
+  c9 [options] init [<dir>]
+  c9 [options] graph [<file>]
   c9 [options] [<file>] [<fn_args>...]
 
 Commands:
@@ -16,10 +17,10 @@ Options:
   --version       Show version.
 
   -f FUNCTION, --fn=FUNCTION  Function to run/graph [default: main]
-
+  -o OUTPUT, --output=OUTPUT  Destination file for graph
 
 Init Arguments:
-  DIR  Directory to initialise [default: .]
+  <DIR>  Directory to initialise [default: .]
 
 Run Arguments:
   FILE      C9 file to read
@@ -50,7 +51,13 @@ def _run(args):
 
 
 def _graph(args):
-    raise NotImplementedError("Legend not implemented, sorry")
+    fn = args["--fn"]
+    filename = args["<file>"]
+    if args["--output"]:
+        dest_png = args["--output"]
+    else:
+        dest_png = f"{os.path.splitext(filename)[0]}_{fn}.png"
+    c9.parser.main.graph(filename, fn, dest_png)
 
 
 def main():
@@ -61,7 +68,9 @@ def main():
     elif args["--verbose"]:
         logging.basicConfig(level=logging.INFO)
 
-    if "<file>" in args:
+    if args["graph"]:
+        _graph(args)
+    elif args["<file>"]:
         _run(args)
     else:
         raise NotImplementedError

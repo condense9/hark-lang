@@ -37,8 +37,3 @@ class ReadLiterals(Transformer):
 
     def m_quote(self, *sexp):
         return Tree("quote", sexp)
-
-
-def read(tree):
-    reader = ReadLiterals()
-    return reader.transform(tree)
