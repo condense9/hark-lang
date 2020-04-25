@@ -4,22 +4,23 @@ import traceback
 import time
 
 from ..machine.probe import Probe
+from ..machine import C9Machine
 
 
-class ThreadExecutor:
-    def __init__(self, target):
-        threading.excepthook = self._threading_excepthook
+class Invoker:
+    def __init__(self, data_controller, evaluator_cls):
+        self.data_controller = data_controller
+        self.evaluator_cls = evaluator_cls
         self.exception = None
-        self.target = target
+        threading.excepthook = self._threading_excepthook
 
     def _threading_excepthook(self, args):
         self.exception = args
 
-    def run(self, *args):
-        # Awkward - we have to pass in self to the target, as the executor has
-        # to be the first argument. TODO - clean up this interface.
-        t = threading.Thread(target=self.target, args=[self, *args])
-        t.run()
+    def invoke(self, vmid):
+        m = C9Machine(vmid, self)
+        thread = threading.Thread(target=m.run)
+        thread.start()
 
 
 def wait_for_finish(interface, sleep_interval=0.01):

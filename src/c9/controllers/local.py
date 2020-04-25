@@ -160,23 +160,11 @@ class DataController:
         return list(self.machine_output.values())
 
 
-class ThreadInvoker:
-    def __init__(self, data_controller, evaluator_cls):
-        self.data_controller = data_controller
-        self.evaluator_cls = evaluator_cls
-        self.exception = None
-        threading.excepthook = self._threading_excepthook
-
-    def _threading_excepthook(self, args):
-        self.exception = args
-
-    def invoke(self, vmid):
-        m = C9Machine(vmid, self)
-        thread = threading.Thread(target=m.run)
-        thread.start()
-
-
+# This is probably unnecessary, and could be part of the data controller, but
+# kept separate for now...
 class Evaluator:
+    """Local implementation of machine instructions"""
+
     def __init__(self, parent):
         self.vmid = parent.vmid
         self.state = parent.state

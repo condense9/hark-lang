@@ -3,7 +3,7 @@ import os
 import sys
 
 import c9.controllers.local as local
-import c9.executors.thread as thread
+import c9.executors.thread as c9_thread
 
 # import c9.controllers.ddb as ddb
 
@@ -21,27 +21,28 @@ def load_file(filename):
     return evaluate_toplevel(content)
 
 
-def local_threaded():
-    data_controller = local.DataController()
-    invoker = local.ThreadInvoker(data_controller, local.Evaluator)
-    interface = local.Interface(data_controller, invoker)
-    return interface
+def run_and_wait(interface, controller, waiter, filename, function, args):
+    """Run a function and wait for it to finish
 
-
-def run_local(filename, function, args):
-    LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
-    interface = local_threaded()
+    Arguments:
+        interface:  The Interface to use
+        controller: The data controller instance
+        waiter:     A function to call to wait on the interface
+        filename:   File containing the program
+        function:   Name of the function to run
+        args:       Arguments to pass in to function
+    """
     toplevel = load_file(filename)
     interface.set_toplevel(toplevel)
 
     args = [read_exp(arg) for arg in args]
+
     LOG.info("Running `%s` in %s", function, filename)
     LOG.info(f"Args: {args}")
 
     try:
-        controller = interface.data_controller
         interface.callf(function, args)
-        thread.wait_for_finish(interface)
+        waiter(interface)
 
     finally:
         LOG.debug(controller.executable.listing())
@@ -57,14 +58,20 @@ def run_local(filename, function, args):
     print(controller.result)
 
 
+def run_local(filename, function, args):
+    LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
+    controller = local.DataController()
+    invoker = c9_thread.Invoker(controller, local.Evaluator)
+    interface = local.Interface(controller, invoker)
+    run_and_wait(
+        interface, controller, c9_thread.wait_for_finish, filename, function, args
+    )
+
+
 def run_ddb_local(filename, function, args):
-    executor = ThreadExecutor()
-    controller = ddb.Controller(executor, session)
-    interface = ddb.Interface(controller)
-    toplevel = load_file(filename)
-    interface.set_top(top_level)
-
-    interface.callf(function, args)
-
-    print("--RETURNED--")
-    print(controller.result)
+    controller = ddb.Controller()
+    invoker = c9_thread.Invoker(controller, local.Evaluator)
+    interface = local.Interface(controller, invoker)
+    run_and_wait(
+        interface, controller, c9_thread.wait_for_finish, filename, function, args
+    )
