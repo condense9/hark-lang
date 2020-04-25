@@ -224,15 +224,20 @@ class LocalController(Controller):
 
     def def_(self, name, code):
         # If any machines are running, they will break!
+        LOG.info("Defining `%s` (%d instructions)", name, len(code))
         self.defs[name] = code
         self._build_code()
         self.executable = Executable(self.locations, self.foreign, self.code)
 
     def importpy(self, dest_name, mod_name, fn_name):
+        LOG.info("Importing `%s` from %s", fn_name, mod_name)
         self.foreign[dest_name] = load_function_from_module(fn_name, mod_name)
         self.executable = Executable(self.locations, self.foreign, self.code)
 
     def callf(self, name, args):
+        if name not in self.locations:
+            raise Exception(f"Function `{name}` doesn't exist")
+        LOG.info("Calling `%s`", name)
         m = self.new_machine(args, top_level=True)
         state = self.get_state(m)
         state.ip = self.locations[name]
