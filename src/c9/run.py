@@ -74,14 +74,18 @@ def run_ddb_local(filename, function, args):
     import c9.controllers.ddb_model as db
     import c9.executors.thread as c9_thread
 
+    def slow_waiter(interface):
+        c9_thread.wait_for_finish(interface, sleep_interval=1)
+
     db.init()
     session = db.new_session()
-    lock = threading.RLock()
+    # lock = threading.RLock()
+    lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session, lock)
     evaluator = ddb_controller.Evaluator
     invoker = c9_thread.Invoker(controller, evaluator)
     interface = Interface(controller, invoker)
-    run_and_wait(interface, c9_thread.wait_for_finish, filename, function, args)
+    run_and_wait(interface, slow_waiter, filename, function, args)
 
 
 def run_ddb_lambda_sim(filename, function, args):
@@ -92,7 +96,7 @@ def run_ddb_lambda_sim(filename, function, args):
     db.init()
     session = db.new_session()
     lock = db.SessionLocker(session)
-    controller = ddb_controller.DataController(session)
+    controller = ddb_controller.DataController(session, lock)
     evaluator = ddb_controller.Evaluator
     invoker = lambdasim.Invoker(controller, evaluator)
     interface = Interface(controller, invoker)

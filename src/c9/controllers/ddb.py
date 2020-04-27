@@ -99,7 +99,7 @@ class DataController:
         if fn_name not in self.executable.locations:
             raise Exception(f"Function `{fn_name}` doesn't exist")
         with self.lock:
-            future = db.AwsFuture(self.lock)
+            future = db.AwsFuture()
             vmid = db.new_machine(self.session, args, future, top_level=is_top_level)
             state = self.session.machines[vmid].state
             state.ip = self.executable.locations[fn_name]
@@ -124,8 +124,8 @@ class DataController:
 
     @property
     def finished(self):
-        # self.session.refresh()
-        return self.session.finished
+        with self.lock:
+            return self.session.finished
 
     @finished.setter
     def finished(self, value):
@@ -134,7 +134,8 @@ class DataController:
 
     @property
     def result(self):
-        return self.session.result
+        with self.lock:
+            return self.session.result
 
     @result.setter
     def result(self, value):
@@ -142,13 +143,16 @@ class DataController:
             self.session.result = value
 
     def get_state(self, vmid):
+        # refresh session?
         return self.session.machines[vmid].state
 
     def get_probe(self, vmid):
         return Probe()
 
     def get_future(self, vmid):
-        return self.session.futures[vmid]
+        f = self.session.machines[vmid].future
+        f.lock = self.lock
+        return f
 
     def set_future_value(self, vmid, offset, value):
         with self.lock:
@@ -158,10 +162,13 @@ class DataController:
             state.ds_set(offset, value)
 
     def finish(self, vmid, value) -> list:
-        return fut.finish(self, vmid, value)
+        LOG.info("Finishing %d %s", vmid, value)
+        with self.lock:
+            return fut.finish(self, vmid, value)
 
     def get_or_wait(self, vmid, future_ptr, offset):
-        return fut.get_or_wait(self, vmid, future_ptr, offset)
+        with self.lock:
+            return fut.get_or_wait(self, vmid, future_ptr, offset)
 
     @property
     def machines(self):

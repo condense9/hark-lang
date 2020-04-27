@@ -1,13 +1,17 @@
 """Machine futures"""
 
+import logging
+
 from . import types as mt
 from .types import C9Type
+
+LOG = logging.getLogger(__name__)
 
 
 class Future:
     """A future - holds results of function calls"""
 
-    def __init__(self, continuations=None, chain=None, resolved=False, value=None):
+    def __init__(self, *, continuations=None, chain=None, resolved=False, value=None):
         self.continuations = [] if not continuations else continuations
         self.chain = chain
         self.resolved = resolved
@@ -24,7 +28,7 @@ class Future:
 
     @classmethod
     def deserialise(cls, data):
-        if data["value"]:
+        if data.get("value", None):
             data["value"] = C9Type.deserialise(data["value"])
         return cls(**data)
 
@@ -45,6 +49,7 @@ def _resolve_future(controller, vmid, value):
         if future.chain:
             continuations += _resolve_future(controller, future.chain, value)
 
+    LOG.info("Resolving %d to %s. Continuations: %s", vmid, value, continuations)
     return continuations
 
 
@@ -74,11 +79,13 @@ def get_or_wait(controller, vmid, future_ptr, offset):
     """
     future = controller.get_future(future_ptr)
     # prevent race between resolution and adding the continuation
-    with future.lock:
-        resolved = future.resolved
-        if resolved:
-            value = future.value
-        else:
-            future.continuations.append((vmid, offset))
-            value = None
+    resolved = future.resolved
+    if resolved:
+        value = future.value
+    else:
+        LOG.info("%d waiting on %d", vmid, future_ptr)
+        # NOTE - the continuation is represented as a list because tuples are
+        # known by DynamoDB :(
+        future.continuations.append([vmid, offset])
+        value = None
     return resolved, value

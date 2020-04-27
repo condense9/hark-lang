@@ -3,7 +3,6 @@
 import base64
 import logging
 import os
-import pickle
 import time
 import uuid
 from contextlib import AbstractContextManager, contextmanager
@@ -32,45 +31,25 @@ from ..machine import future as fut
 
 LOG = logging.getLogger(__name__)
 
-# https://pynamodb.readthedocs.io/en/latest/attributes.html#list-attributes
-class PickleAttribute(Attribute):
-    """
-    This class will serializer/deserialize any picklable Python object.
-    The value will be stored as a binary attribute in DynamoDB.
-    """
-
-    attr_type = BINARY
-
-    def serialize(self, value):
-        """
-        The super class takes the binary string returned from pickle.dumps
-        and encodes it for storage in DynamoDB
-        """
-        return pickle.dumps(value, protocol=5)
-
-    def deserialize(self, value):
-        # NOTE - there's an extra level of b64 encoding happening somewhere, and
-        # I'm not sure where (either DynamoDB or PynamoDB). But the value we get
-        # here must be decoded first!
-        # https://github.com/pynamodb/PynamoDB/blob/master/pynamodb/attributes.py#L323
-        return pickle.loads(base64.b64decode(value))
-
 
 class AwsFuture(fut.Future):
-    def __init__(self, lock):
+    def __init__(self, *args, **kwargs):
         """Wrap a future stored in the database"""
-        super().__init__()
-        self.lock = lock
+        super().__init__(*args, **kwargs)
 
 
 class FutureAttribute(MapAttribute):
+    resolved = BooleanAttribute()
+    continuations = ListAttribute()
+    chain = NumberAttribute()
+    # NOTE - don't set this, otherwise things get confused:
+    # value = MapAttribute()
+
     def serialize(self, value):
-        LOG.info("Serialising %d %s", id(value), value)
-        return value.serialise()
+        return super().serialize(value.serialise())
 
     def deserialize(self, value):
-        LOG.info("Deserialising %d %s", id(value), value)
-        return AwsFuture.deserialise(value)
+        return AwsFuture.deserialise(super().deserialize(value).as_dict())
 
 
 class StateAttribute(JSONAttribute):
@@ -85,6 +64,7 @@ class MachineMap(MapAttribute):
     state = StateAttribute()
     probe_logs = ListAttribute(default=list)
     stdout = ListAttribute(default=list)
+    future = FutureAttribute()
 
 
 if "DYNAMODB_ENDPOINT" not in os.environ and "USE_LIVE_AWS" not in os.environ:
@@ -119,7 +99,7 @@ class Session(Model):
     num_machines = NumberAttribute(default=0)
     # NOTE!! Big gotcha - be careful what you pass in as default; pynamodb
     # saves a reference. So don't use a literal "[]"!
-    futures = ListAttribute(of=FutureAttribute, default=list)
+    # futures = ListAttribute(of=FutureAttribute, default=list)
     machines = ListAttribute(of=MachineMap, default=list)
     top_level_vmid = NumberAttribute(null=True)
     executable = MapAttribute(null=True)
@@ -167,11 +147,12 @@ def new_machine(session, args, future, top_level=False) -> MachineMap:
     m = MachineMap(
         # --
         state=state,
+        future=future,
     )
     if top_level:
         session.top_level_vmid = vmid
     session.machines.append(m)
-    session.futures.append(future)
+    # session.futures.append(future)
     assert len(session.machines) == session.num_machines
     LOG.info("New machine: %d", vmid)
     return vmid
@@ -187,6 +168,7 @@ def try_lock(session) -> bool:
     except UpdateError as e:
         if isinstance(e.cause, ClientError):
             code = e.cause.response["Error"].get("Code")
+            LOG.info("Failed to lock: %s %s", code, session.locked)
             if code == "ConditionalCheckFailedException":
                 return False
         raise
@@ -201,18 +183,18 @@ class SessionLocker(AbstractContextManager):
 
     __enter__: Refresh session, lock it
     ...
-    __exit__: save it, release the lock
+    __exit__: release the lock (USER MUST SAVE THE SESSION BEFORE THIS)
 
     """
 
-    def __init__(self, session, timeout=1):
+    def __init__(self, session, timeout=0.5):
         self.session = session
         self.timeout = timeout
         self.lock_count = 0
 
     def __enter__(self):
         t = time.time() % 1000.0
-        LOG.info(f"{t:.3f} :: Locking {self.lock_count}")
+        LOG.info(f"{t:.3f} :: Trying to lock... {self.lock_count}")
         if self.lock_count:
             self.lock_count += 1
             LOG.info(f"{t:.3f} :: Re-locking ({self.lock_count})")
@@ -236,6 +218,7 @@ class SessionLocker(AbstractContextManager):
         self.lock_count -= 1
         if self.lock_count == 0:
             self.session.locked = False
+            LOG.info(f"{t:.3f} :: Saving %s", self.session)
             self.session.save()
         t = time.time() % 1000.0
         LOG.info(f"{t:.3f} :: Released ({self.lock_count})")

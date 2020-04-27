@@ -77,20 +77,24 @@ class State:
             es=list(self._es),
             ds=[value.serialise() for value in self._ds],
             all_bindings=[
-                {name: value.serialise() for name, value in frame_bindings.items()}
-                for frame_bindings in all_bindings
+                {name: value.serialise() for name, value in frame.items()}
+                for frame in all_bindings
             ],
         )
 
     @classmethod
-    def deserialise(cls, value: dict):
+    def deserialise(cls, data: dict):
+        bindings = [
+            {name: C9Type.deserialise(val) for name, val in frame.items()}
+            for frame in data["all_bindings"]
+        ]
         s = cls()
-        s.ip = value["ip"]
-        s._stopped = value["stopped"]
-        s._es = deque(value["es"])
-        s._ds = deque(value["ds"])
-        s._bs = deque(value["bs"])
-        s._bindings = value["bindings"]
+        s.ip = data["ip"]
+        s._stopped = data["stopped"]
+        s._es = deque(data["es"])
+        s._ds = deque(C9Type.deserialise(obj) for obj in data["ds"])
+        s._bs = deque(bindings[:-1])
+        s._bindings = bindings[-1]
         return s
 
     def __eq__(self, other):
