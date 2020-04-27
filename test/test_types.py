@@ -1,13 +1,20 @@
 import pytest
+import json
 
 from c9.machine.types import *
+
+
+def to_json_and_back(obj):
+    ser = obj.serialise()
+    jser = json.dumps(ser)
+    jdeser = json.loads(jser)
+    deser = C9Type.deserialise(jdeser)
+    return deser
 
 
 def test_true():
     original = C9True()
     ser = original.serialise()
-    assert isinstance(ser, list)
-    assert isinstance(ser[0], str)
     deser = C9Type.deserialise(ser)
     assert original == deser
 
@@ -30,8 +37,7 @@ def test_list():
     list_a.append(C9Int(789))
     assert len(list_a) == 4
     assert hasattr(list_a, "data")
-    ser = list_a.serialise()
-    deser = C9Type.deserialise(ser)
+    deser = to_json_and_back(list_a)
     print(deser)
     assert deser[0] == C9Int(1)
     assert deser[3] == C9Int(789)
@@ -39,6 +45,5 @@ def test_list():
 
 def test_quote():
     obj = C9Quote(C9List([C9Int(1), C9String("foo")]))
-    ser = obj.serialise()
-    deser = C9Type.deserialise(ser)
+    deser = to_json_and_back(obj)
     assert deser == obj
