@@ -1,5 +1,7 @@
 """The C9 Machine Instruction class"""
 
+from .types import C9Type
+
 
 class BadOperandsLength(Exception):
     """Wrong number of operands for instruction"""
@@ -28,6 +30,10 @@ class Instruction:
                 ok = callable(a) if b == callable else isinstance(a, b)
                 if not ok:
                     raise BadOperandsType(self.name, a, b)
+
+        for o in operands:
+            if not isinstance(o, C9Type):
+                raise BadOperandsType(self.name, o, C9Type)
 
         self.operands = operands
 

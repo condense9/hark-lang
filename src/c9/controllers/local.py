@@ -73,11 +73,11 @@ class DataController:
     def is_top_level(self, vmid):
         return vmid == self._top_level_vmid
 
-    def stop(self, vmid):
+    def stop(self, vmid, state, probe):
         # N/A locally. In other implementations, could sync state
         pass
 
-    def finish(self, vmid, result, state, probe):
+    def finish(self, vmid, result):
         if self.is_top_level(vmid):
             self.result = result
             self.finished = True

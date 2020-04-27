@@ -17,10 +17,13 @@ class Invoker:
     def _threading_excepthook(self, args):
         self.exception = args
 
-    def invoke(self, vmid):
+    def invoke(self, vmid, run_async=True):
         m = C9Machine(vmid, self)
-        thread = threading.Thread(target=m.run)
-        thread.start()
+        if run_async:
+            thread = threading.Thread(target=m.run)
+            thread.start()
+        else:
+            m.run()
 
 
 def wait_for_finish(interface, sleep_interval=0.01):

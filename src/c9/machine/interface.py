@@ -32,7 +32,7 @@ class Interface:
 
     def _importpy(self, dest_name, mod_name, fn_name):
         LOG.info("Importing `%s` from %s", fn_name, mod_name)
-        self.foreign[dest_name] = (fn_name, mod_name)
+        self.foreign[dest_name] = [fn_name, mod_name]
 
     def set_toplevel(self, toplevel):
         for name, code in toplevel.defs.items():
@@ -43,12 +43,3 @@ class Interface:
 
         exe = self._build_exe()
         self.data_controller.set_executable(exe)
-
-    def callf(self, name, args):
-        LOG.info("Calling `%s`", name)
-        m = self.data_controller.new_machine(args, name, is_top_level=True)
-        self.invoker.invoke(m)
-
-    def resume(self, name, code):
-        # not relevant locally?
-        raise NotImplementedError

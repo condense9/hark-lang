@@ -77,10 +77,6 @@ class C9Machine:
         "nth": Nth,
     }
 
-    # def __init__(self, invoker, data, probe: Probe):
-    #     self.executable = data.executable
-    #     self.state = data.state
-
     def __init__(self, vmid, invoker):
         self.vmid = vmid
         self.invoker = invoker

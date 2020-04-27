@@ -44,13 +44,13 @@ class Evaluate:
     def list_(self, function, *args):
         # a normal call
         arg_code = flatten(Evaluate(arg).code for arg in args)
-        return arg_code + Evaluate(function).code + [mi.Call(len(args))]
+        return arg_code + Evaluate(function).code + [mi.Call(mt.C9Int(len(args)))]
 
     def async_(self, function, *args):
         # an async call
         # FIXME - not sure what happens if this is nested.
         arg_code = flatten(Evaluate(arg).code for arg in args)
-        return arg_code + Evaluate(function).code + [mi.ACall(len(args))]
+        return arg_code + Evaluate(function).code + [mi.ACall(mt.C9Int(len(args)))]
 
     def if_(self, cond, then, els):
         cond_code = Evaluate(cond).code
@@ -60,9 +60,9 @@ class Evaluate:
             # --
             *cond_code,
             mi.PushV(mt.C9True()),
-            mi.JumpIE(len(else_code) + 1),  # to then_code
+            mi.JumpIE(mt.C9Int(len(else_code) + 1)),  # to then_code
             *else_code,
-            mi.Jump(len(then_code)),  # to Return
+            mi.Jump(mt.C9Int(len(then_code))),  # to Return
             *then_code,
         ]
 
@@ -77,7 +77,7 @@ class Evaluate:
         for b in bindings.children:
             name, value = b.children[:]
             assert isinstance(name, Token)
-            code += Evaluate(value).code + [mi.Bind(str(name))]
+            code += Evaluate(value).code + [mi.Bind(mt.C9Symbol(name))]
         code += Evaluate(body).code
         return code
 
@@ -99,7 +99,7 @@ class EvaluateToplevel:
     def def_(self, name, bindings, body):
         assert isinstance(name, Token)
         # NOTE - arg stack is in reverse order, so the bindings are reversed
-        bindings_code = [mi.Bind(str(b)) for b in reversed(bindings.children)]
+        bindings_code = [mi.Bind(mt.C9Symbol(b)) for b in reversed(bindings.children)]
         self.defs[str(name)] = bindings_code + Evaluate(body).code + [mi.Return()]
 
 

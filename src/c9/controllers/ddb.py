@@ -140,18 +140,36 @@ class AwsFuture(ChainedFuture):
 
 def load_exe(session) -> Executable:
     smap = session.executable
-    return Executable(locations=smap.locations, foreign=smap.foreign, code=smap.code)
+    if smap:
+        return Executable(
+            locations=smap.locations, foreign=smap.foreign, code=smap.code
+        )
 
 
+def save_exe(session, exe):
+    code = [
+        [i.name, [o.serialise() if hasattr(o, "serialise") else o for o in i.operands]]
+        for i in exe.code
+    ]
+    session.executable = db.ExecutableMap(
+        locations=exe.locations, foreign=exe.foreign, code=code
+    )
+    print(code)
+
+
+# TODO MONDAY - executable serialisation
 class DataController:
     def __init__(self, session):
         super().__init__()
-        self.executable = None
         self.session = session
+        self.executable = load_exe(session)
         self.lock = db.SessionLocker(session)
 
     def set_executable(self, exe):
+        assert exe
         self.executable = exe
+        with self.lock:
+            save_exe(self.session, exe)
 
     def new_machine(self, args, fn_name, is_top_level=False):
         if fn_name not in self.executable.locations:

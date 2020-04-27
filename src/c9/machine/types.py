@@ -4,6 +4,9 @@
 class C9Type:
     """Base class"""
 
+    def serialise(self):
+        return "foo"
+
 
 class C9Atomic(C9Type):
     """Atomic (single-value) types"""
@@ -21,7 +24,11 @@ class C9Quote(C9Atomic):
         return f"<Quote {self.val}>"
 
 
-class C9Number(C9Atomic, float):
+class C9Float(C9Atomic, float):
+    pass
+
+
+class C9Int(C9Atomic, int):
     pass
 
 

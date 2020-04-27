@@ -3,10 +3,6 @@ import os
 import sys
 
 from c9.machine.interface import Interface
-import c9.controllers.local as local
-import c9.controllers.ddb as ddb_controller
-import c9.controllers.ddb_model as db
-import c9.executors.thread as c9_thread
 
 from .parser.evaluate import evaluate_toplevel
 from .parser.read import read_exp
@@ -22,7 +18,7 @@ def load_file(filename):
     return evaluate_toplevel(content)
 
 
-def run_and_wait(interface, controller, waiter, filename, function, args):
+def run_and_wait(interface, waiter, filename, function, args):
     """Run a function and wait for it to finish
 
     Arguments:
@@ -33,6 +29,7 @@ def run_and_wait(interface, controller, waiter, filename, function, args):
         function:   Name of the function to run
         args:       Arguments to pass in to function
     """
+    controller = interface.data_controller
     toplevel = load_file(filename)
     interface.set_toplevel(toplevel)
 
@@ -42,7 +39,8 @@ def run_and_wait(interface, controller, waiter, filename, function, args):
     LOG.info(f"Args: {args}")
 
     try:
-        interface.callf(function, args)
+        m = controller.new_machine(args, function, is_top_level=True)
+        interface.invoker.invoke(m, run_async=False)
         waiter(interface)
 
     finally:
@@ -60,22 +58,39 @@ def run_and_wait(interface, controller, waiter, filename, function, args):
 
 
 def run_local(filename, function, args):
+    import c9.controllers.local as local
+    import c9.executors.thread as c9_thread
+
     LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
     controller = local.DataController()
     invoker = c9_thread.Invoker(controller, local.Evaluator)
     interface = Interface(controller, invoker)
-    run_and_wait(
-        interface, controller, c9_thread.wait_for_finish, filename, function, args
-    )
+    run_and_wait(interface, c9_thread.wait_for_finish, filename, function, args)
 
 
 def run_ddb_local(filename, function, args):
+    import c9.controllers.ddb as ddb_controller
+    import c9.controllers.ddb_model as db
+    import c9.executors.thread as c9_thread
+
     db.init()
     session = db.new_session()
     controller = ddb_controller.DataController(session)
     evaluator = ddb_controller.Evaluator
     invoker = c9_thread.Invoker(controller, evaluator)
     interface = Interface(controller, invoker)
-    run_and_wait(
-        interface, controller, c9_thread.wait_for_finish, filename, function, args
-    )
+    run_and_wait(interface, c9_thread.wait_for_finish, filename, function, args)
+
+
+def run_ddb_lambda_sim(filename, function, args):
+    import c9.controllers.ddb as ddb_controller
+    import c9.controllers.ddb_model as db
+    import c9.executors.lambdasim as lambdasim
+
+    db.init()
+    session = db.new_session()
+    controller = ddb_controller.DataController(session)
+    evaluator = ddb_controller.Evaluator
+    invoker = lambdasim.Invoker(controller, evaluator)
+    interface = Interface(controller, invoker)
+    run_and_wait(interface, lambdasim.wait_for_finish, filename, function, args)

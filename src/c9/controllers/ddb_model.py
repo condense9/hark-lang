@@ -131,7 +131,7 @@ class Session(Model):
     futures = ListAttribute(of=FutureMap, default=list)
     machines = ListAttribute(of=MachineMap, default=list)
     top_level_vmid = NumberAttribute(null=True)
-    executable = ExecutableMap(null=True)
+    executable = ExecutableMap(null=True)  # FIXME
 
 
 BASE_SESSION_ID = "base"

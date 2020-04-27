@@ -21,13 +21,16 @@ class ReadSexp(Transformer):
 class ReadLiterals(Transformer):
     """Read literals in the tree"""
 
-    def number(self, value):
-        return mt.C9Number(eval(value))
+    def float_(self, value):
+        return mt.C9Float(eval(value))
 
-    def string(self, value):
+    def int_(self, value):
+        return mt.C9Int(eval(value))
+
+    def string_(self, value):
         return mt.C9String(eval(value))
 
-    def true(self, value):
+    def true_(self, value):
         return mt.C9True()
 
     def nil(self, value):

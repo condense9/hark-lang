@@ -53,21 +53,36 @@ m_wait   : "$" sexp
 
 ?atom   : symbol | literal
 literal : string
-        | number
+        | int
+        | float
         | true
         | nil
 
 symbol : IDENTIFIER
-true   : TRUE
-string : ESCAPED_STRING
-number : SIGNED_NUMBER
+true   : TRUE           -> true_
+string : ESCAPED_STRING -> string_
+float  : SIGNED_FLOAT   -> float_
+int    : SIGNED_INT     -> int_
 nil    : NIL
 
 // terminators, keywords
+// See github.com/lark-parser/lark/blob/master/lark/grammars/common.lark
 
-// https ://github.com/lark-parser/lark/blob/master/lark/grammars/common.lark
-%import common.ESCAPED_STRING
-%import common.SIGNED_NUMBER
+_STRING_INNER     : /.*?/
+_STRING_ESC_INNER : _STRING_INNER /(?<!\\)(\\\\)*?/
+ESCAPED_STRING    : "\"" _STRING_ESC_INNER "\""
+
+
+DIGIT            : "0".."9"
+HEXDIGIT         : "a".."f"|"A".."F"|DIGIT
+INT              : DIGIT+
+SIGNED_INT       : ["+"|"-"] INT
+DECIMAL          : INT "." INT? | "." INT
+_EXP             : ("e"|"E") SIGNED_INT
+FLOAT            : INT _EXP | DECIMAL _EXP?
+SIGNED_FLOAT     : ["+"|"-"] FLOAT
+// NUMBER        : FLOAT | INT
+// SIGNED_NUMBER : ["+"|"-"] NUMBER
 
 TRUE : "t"
 
