@@ -25,7 +25,6 @@ def test_literals():
     int_c = C9Int(4)
     assert isinstance(int_a, int)
     assert int_a + int_b == 8
-    assert hasattr(int_a, "data")
     ser = int_a.serialise()
     deser = C9Type.deserialise(ser)
     assert deser + int_c == 9
@@ -36,7 +35,6 @@ def test_list():
     assert len(list_a) == 3
     list_a.append(C9Int(789))
     assert len(list_a) == 4
-    assert hasattr(list_a, "data")
     deser = to_json_and_back(list_a)
     print(deser)
     assert deser[0] == C9Int(1)
@@ -45,5 +43,13 @@ def test_list():
 
 def test_quote():
     obj = C9Quote(C9List([C9Int(1), C9String("foo")]))
+    deser = to_json_and_back(obj)
+    assert deser == obj
+
+
+def test_future():
+    obj = C9Future("foo")
+    obj.resolved = True
+    obj.value = C9List([C9Int(1), C9Int(2)])
     deser = to_json_and_back(obj)
     assert deser == obj
