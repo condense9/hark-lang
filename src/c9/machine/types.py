@@ -45,8 +45,12 @@ class C9True(C9Atomic):
     """Represent True"""
 
 
+class C9False(C9Atomic):
+    """Represent False"""
+
+
 class C9Null(C9Atomic):
-    """Represent Null (False)"""
+    """Represent Null (None)"""
 
 
 ### Literals
@@ -134,11 +138,15 @@ class C9List(UserList, C9Type):
         return super().__eq__(other) and self.data == other.data
 
 
+# TODO:
 # class C9Dict(UserDict, C9Compound):
-#     pass
 
 
 # TODO - some kind of "struct" type
+
+
+class C9FuturePtr(int, C9Literal):
+    """Pointer to a C9Future"""
 
 
 class C9Future(C9Type):
@@ -159,3 +167,45 @@ class C9Future(C9Type):
         if data[-1]:
             value = C9Type.deserialise(value)
         return cls(*data[:-1], value)
+
+
+### Type Mapping
+
+PY_TO_C9 = {
+    int: C9Int,
+    float: C9Float,
+    str: C9String,
+    list: C9List,
+}
+
+
+C9_TO_PY = {
+    C9Null: lambda _: None,
+    C9False: lambda _: False,
+    C9True: lambda _: True,
+    C9Int: int,
+    C9Float: float,
+    C9String: str,
+    C9List: list,
+}
+
+
+def to_c9_type(py_val):
+    if py_val is None:
+        return C9Null()
+    elif py_val is True:
+        return C9True()
+    elif py_val is False:
+        return C9False()
+
+    try:
+        return PY_TO_C9[type(py_val)](py_val)
+    except KeyError:
+        raise TypeError(type(py_val))
+
+
+def to_py_type(c9_val):
+    try:
+        return C9_TO_PY[type(c9_val)](c9_val)
+    except KeyError:
+        raise TypeError(type(c9_val))

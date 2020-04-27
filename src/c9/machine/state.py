@@ -1,6 +1,7 @@
 """Machine state representation"""
 
 from collections import deque
+from .types import C9List, C9Type
 
 
 class State:
@@ -14,8 +15,10 @@ class State:
         self.ip = 0  # ................ instruction pointer
         self.stopped = False
 
-    def set_bind(self, ptr, value):
-        self._bindings[ptr] = value
+    def set_bind(self, ptr, val):
+        if not isinstance(val, C9Type):
+            raise ValueError(val)
+        self._bindings[ptr] = val
 
     def get_bind(self, ptr):
         return self._bindings[ptr]
@@ -25,6 +28,8 @@ class State:
         return list(self._bindings.keys())
 
     def ds_push(self, val):
+        if not isinstance(val, C9Type):
+            raise ValueError(val)
         self._ds.append(val)
 
     def ds_pop(self):
@@ -34,9 +39,11 @@ class State:
         """Peek at the Nth value from the top of the stack (0-indexed)"""
         return self._ds[-(offset + 1)]
 
-    def ds_set(self, offset, value):
+    def ds_set(self, offset, val):
         """Set the value at offset in the stack"""
-        self._ds[-(offset + 1)] = value
+        if not isinstance(val, C9Type):
+            raise ValueError(val)
+        self._ds[-(offset + 1)] = val
 
     def es_enter(self, new_ip):
         self._es.append(self.ip)
@@ -62,18 +69,21 @@ class State:
             + f"\nEval: {self._es}"
         )
 
-    def to_dict(self):
+    def serialise(self):
+        all_bindings = list(self._bs) + [self._bindings]
         return dict(
             ip=self.ip,
             stopped=self.stopped,
             es=list(self._es),
-            ds=list(self._ds),
-            bs=list(self._bs),
-            bindings=self._bindings,
+            ds=[value.serialise() for value in self._ds],
+            all_bindings=[
+                {name: value.serialise() for name, value in frame_bindings.items()}
+                for frame_bindings in all_bindings
+            ],
         )
 
     @classmethod
-    def from_dict(cls, value: dict):
+    def deserialise(cls, value: dict):
         s = cls()
         s.ip = value["ip"]
         s._stopped = value["stopped"]

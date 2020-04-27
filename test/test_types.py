@@ -1,3 +1,4 @@
+import pytest
 import json
 
 from c9.machine.types import *
@@ -53,3 +54,13 @@ def test_future():
     obj.value = C9List([C9Int(1), C9Int(2)])
     deser = to_json_and_back(obj)
     assert deser == obj
+
+
+TYPE_TESTS = [1, "foo", ["nested", ["big"], "list"]]
+
+
+@pytest.mark.parametrize("obj", TYPE_TESTS)
+def test_conversion(obj):
+    c9_obj = to_c9_type(obj)
+    back = to_py_type(c9_obj)
+    assert obj == back

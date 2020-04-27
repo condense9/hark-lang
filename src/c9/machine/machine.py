@@ -18,7 +18,6 @@ from .instruction import Instruction
 from .instructionset import *
 from .state import State
 from .probe import Probe
-from .future import chain_resolve
 from . import types as mt
 
 LOG = logging.getLogger(__name__)
@@ -163,6 +162,7 @@ class C9Machine:
             val = mt.C9Instruction(ptr)
         else:
             raise Exception(f"Nothing bound to {ptr}")
+
         self.state.ds_push(val)
 
     @evali.register
@@ -198,8 +198,11 @@ class C9Machine:
             self.probe.log(f"Returning value: {value}")
 
             # FIXME Why do this here? Controller can get the result after stopping
-            future = self.data_controller.get_result_future(self.vmid)
-            resolved_value, continuations = chain_resolve(future, value)
+            # future = self.data_controller.get_result_future(self.vmid)
+            # resolved_value, continuations = chain_resolve(future, value)
+            resolved_value, continuations = self.data_controller.resolve(
+                self.vmid, value
+            )
             if resolved_value:
                 for machine, offset in continuations:
                     self.data_controller.set_future_value(
@@ -226,7 +229,11 @@ class C9Machine:
             self.probe.log(f"--> {foreign_f} {args}")
             # TODO automatically wait for the args? Somehow mark which one we're
             # waiting for in the continuation
-            result = foreign_f(*args)  # TODO convert types?
+
+            py_args = map(mt.to_py_type, args)
+            py_result = foreign_f(*py_args)
+            result = mt.to_c9_type(py_result)
+
             self.state.ds_push(result)
 
         elif isinstance(fn, mt.C9Instruction):
@@ -256,7 +263,8 @@ class C9Machine:
         offset = 0  # TODO cleanup - no more offset!
         val = self.state.ds_peek(offset)
 
-        if self.data_controller.is_future(val):
+        # FIXME futureptr
+        if isinstance(val, mt.C9FuturePtr):
             resolved, result = self.data_controller.get_or_wait(self.vmid, val, offset)
             if resolved:
                 self.probe.log(f"Resolved! {offset} -> {result}")
@@ -266,7 +274,7 @@ class C9Machine:
                 self.state.stopped = True
 
         elif isinstance(val, list) and any(
-            self.data_controller.is_future(elt) for elt in traverse(val)
+            isinstance(elt, mt.C9FuturePtr) for elt in traverse(val)
         ):
             # The programmer is responsible for waiting on all elements
             # of lists.
@@ -327,22 +335,36 @@ class C9Machine:
     def _(self, i: Eq):
         a = self.state.ds_pop()
         b = self.state.ds_pop()
-        self.state.ds_push(a == b)
+        self.state.ds_push(make_bool(a == b))
 
     @evali.register
     def _(self, i: Plus):
         a = self.state.ds_pop()
         b = self.state.ds_pop()
-        self.state.ds_push(a + b)
+        cls = new_number_type(a, b)
+        self.state.ds_push(cls(a + b))
 
     @evali.register
     def _(self, i: Multiply):
         a = self.state.ds_pop()
         b = self.state.ds_pop()
-        self.state.ds_push(a * b)
+        cls = new_number_type(a, b)
+        self.state.ds_push(cls(a * b))
 
     def __repr__(self):
         return f"<Machine {id(self)}>"
+
+
+def make_bool(val):
+    return mt.C9True() if val is True else mt.C9Null()
+
+
+def new_number_type(a, b):
+    """The number type to use on operations of two numbers"""
+    if isinstance(a, mt.C9Float) or isinstance(b, mt.C9Float):
+        return mt.C9Float
+    else:
+        return mt.C9Int
 
 
 ## Notes dumping ground (here madness lies)...
