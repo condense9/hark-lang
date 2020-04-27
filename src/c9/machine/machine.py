@@ -196,21 +196,10 @@ class C9Machine:
             self.state.stopped = True
             value = self.state.ds_peek(0)
             self.probe.log(f"Returning value: {value}")
-
-            # FIXME Why do this here? Controller can get the result after stopping
-            # future = self.data_controller.get_result_future(self.vmid)
-            # resolved_value, continuations = chain_resolve(future, value)
-            resolved_value, continuations = self.data_controller.resolve(
-                self.vmid, value
-            )
-            if resolved_value:
-                for machine, offset in continuations:
-                    self.data_controller.set_future_value(
-                        machine, offset, resolved_value
-                    )
-                    self.invoker.invoke(machine)
-
-            self.data_controller.finish(self.vmid, value)
+            value, continuations = self.data_controller.finish(self.vmid, value)
+            for machine, offset in continuations:
+                self.data_controller.set_future_value(machine, offset, value)
+                self.invoker.invoke(machine)
 
     @evali.register
     def _(self, i: Call):
@@ -253,7 +242,7 @@ class C9Machine:
 
         machine = self.data_controller.new_machine(args, fn_name)
         self.invoker.invoke(machine)
-        future = self.data_controller.get_result_future(machine)
+        future = mt.C9FuturePtr(machine)
 
         self.probe.log(f"Fork {self} => {future}")
         self.state.ds_push(future)
@@ -263,7 +252,6 @@ class C9Machine:
         offset = 0  # TODO cleanup - no more offset!
         val = self.state.ds_peek(offset)
 
-        # FIXME futureptr
         if isinstance(val, mt.C9FuturePtr):
             resolved, result = self.data_controller.get_or_wait(self.vmid, val, offset)
             if resolved:
@@ -356,6 +344,8 @@ class C9Machine:
 
 
 def make_bool(val):
+    """Make a C9 bool-ish from val"""
+    # Do we need two bool types (true/false)? Is Null/nil enough?
     return mt.C9True() if val is True else mt.C9Null()
 
 

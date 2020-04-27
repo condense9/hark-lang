@@ -62,12 +62,12 @@ import boto3
 
 from ..machine import C9Machine, Probe
 from ..machine import instructionset as mi
+from ..machine import types as mt
 from ..machine.executable import Executable
-from ..machine.future import ChainedFuture
+from ..machine import future as fut
 from ..machine.instruction import Instruction
 from ..machine.state import State
 from . import ddb_model as db
-from .ddb_model import ContinuationMap, FutureMap, MachineMap
 
 LOG = logging.getLogger()
 
@@ -79,103 +79,28 @@ LOG = logging.getLogger()
 # - Probe content viewer (console/web-ui)
 # - Session viewer (web-ui)
 # - Provide a function restart-on-error interface (console/web-ui??)
-#
-# Can you build custom picklers for objects? Probably. Pickling the whole state
-# object is so ugly.
 
 
-class AwsFuture(ChainedFuture):
-    def __init__(self, session, future_id, lock):
-        # ALL access to this future must be wrapped in a db lock/update, as we
-        # access _data directly here. The user is responsible for this.
-        #
-        # NOTE - lock member is required by chain_resolve. Icky.
-        self.lock = lock
-        self.session = session
-        self.future_id = future_id
-
-    def __repr__(self):
-        return f"<Future[{self.future_id}] {self.resolved} {self.value}>"
-
-    @property
-    def _data(self):
-        # We can't assign data once at __init__ because the underlying pointer
-        # changes
-        return self.session.futures[self.future_id]
-
-    @property
-    def resolved(self) -> bool:
-        return self._data.resolved
-
-    @resolved.setter
-    def resolved(self, value):
-        self._data.resolved = value
-
-    @property
-    def value(self):
-        return self._data.value
-
-    @value.setter
-    def value(self, value):
-        self._data.value = value
-
-    @property
-    def chain(self) -> ChainedFuture:
-        # All futures share the same lock (could optimise later)
-        if self._data.chain:
-            return AwsFuture(self.session, self._data.chain, self.lock)
-
-    @chain.setter
-    def chain(self, other: ChainedFuture):
-        self._data.chain = other.future_id
-
-    @property
-    def continuations(self):
-        return [(c.machine_id, c.offset) for c in self._data.continuations]
-
-    def add_continuation(self, machine_id, offset):
-        c = ContinuationMap(machine_id=machine_id, offset=offset)
-        self._data.continuations.append(c)
-
-
-def load_exe(session) -> Executable:
-    smap = session.executable
-    if smap:
-        return Executable(
-            locations=smap.locations, foreign=smap.foreign, code=smap.code
-        )
-
-
-def save_exe(session, exe):
-    code = [
-        [i.name, [o.serialise() if hasattr(o, "serialise") else o for o in i.operands]]
-        for i in exe.code
-    ]
-    session.executable = db.ExecutableMap(
-        locations=exe.locations, foreign=exe.foreign, code=code
-    )
-    print(code)
-
-
-# TODO MONDAY - executable serialisation
 class DataController:
-    def __init__(self, session):
+    def __init__(self, session, lock):
         super().__init__()
         self.session = session
-        self.executable = load_exe(session)
-        self.lock = db.SessionLocker(session)
+        if session.executable:
+            self.executable = Executable.deserialise(session.executable)
+        self.lock = lock
 
     def set_executable(self, exe):
         assert exe
         self.executable = exe
         with self.lock:
-            save_exe(self.session, exe)
+            self.session.executable = exe.serialise()
 
     def new_machine(self, args, fn_name, is_top_level=False):
         if fn_name not in self.executable.locations:
             raise Exception(f"Function `{fn_name}` doesn't exist")
         with self.lock:
-            vmid = db.new_machine(self.session, args, top_level=is_top_level)
+            future = db.AwsFuture(self.lock)
+            vmid = db.new_machine(self.session, args, future, top_level=is_top_level)
             state = self.session.machines[vmid].state
             state.ip = self.executable.locations[fn_name]
         return vmid
@@ -199,23 +124,31 @@ class DataController:
 
     @property
     def finished(self):
-        self.session.refresh()
+        # self.session.refresh()
         return self.session.finished
+
+    @finished.setter
+    def finished(self, value):
+        with self.lock:
+            self.session.finished = value
 
     @property
     def result(self):
         return self.session.result
 
-    def get_result_future(self, vmid) -> AwsFuture:
-        m = self.session.machines[vmid]
-        return AwsFuture(self.session, m.future_fk, self.lock)
+    @result.setter
+    def result(self, value):
+        with self.lock:
+            self.session.result = value
 
     def get_state(self, vmid):
-        with self.lock:
-            return self.session.machines[vmid].state
+        return self.session.machines[vmid].state
 
     def get_probe(self, vmid):
         return Probe()
+
+    def get_future(self, vmid):
+        return self.session.futures[vmid]
 
     def set_future_value(self, vmid, offset, value):
         with self.lock:
@@ -224,35 +157,25 @@ class DataController:
             state.stopped = False
             state.ds_set(offset, value)
 
-    def get_or_wait(self, vmid, future: AwsFuture, offset: int):
-        # prevent race between resolution and adding the continuation
-        with self.lock:
-            # Refresh it:
-            future = AwsFuture(self.session, future.future_id, self.lock)
-            resolved = future.resolved
-            if resolved:
-                value = future.value
-            else:
-                future.add_continuation(vmid, offset)
-                value = None
-        return resolved, value
+    def finish(self, vmid, value) -> list:
+        return fut.finish(self, vmid, value)
 
-    def is_future(self, f):
-        return isinstance(f, AwsFuture)
+    def get_or_wait(self, vmid, future_ptr, offset):
+        return fut.get_or_wait(self, vmid, future_ptr, offset)
 
     @property
     def machines(self):
-        self.session.refresh()
+        # self.session.refresh()
         return list(self.session.machines)
 
     @property
     def probes(self):
-        self.session.refresh()
+        # self.session.refresh()
         return [Probe.with_logs(m.probe_logs) for m in self.session.machines]
 
     @property
     def stdout(self):
-        self.session.refresh()
+        # self.session.refresh()
         return [m.stdout for m in self.session.machines]
 
 

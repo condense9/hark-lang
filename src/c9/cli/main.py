@@ -63,6 +63,9 @@ def _run(args):
         else:
             c9.run.run_ddb_local(filename, fn, fn_args)
 
+    else:
+        raise ValueError(args["--storage"])
+
 
 def _graph(args):
     fn = args["--fn"]

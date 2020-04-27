@@ -28,6 +28,7 @@ from pynamodb.models import Model
 
 from ..constants import C9_DDB_TABLE_NAME, C9_DDB_REGION
 from ..machine.state import State
+from ..machine import future as fut
 
 LOG = logging.getLogger(__name__)
 
@@ -55,44 +56,35 @@ class PickleAttribute(Attribute):
         return pickle.loads(base64.b64decode(value))
 
 
-class StateAttribute(JSONAttribute):
+class AwsFuture(fut.Future):
+    def __init__(self, lock):
+        """Wrap a future stored in the database"""
+        super().__init__()
+        self.lock = lock
+
+
+class FutureAttribute(MapAttribute):
     def serialize(self, value):
-        return super().serialize(value.to_dict())
+        LOG.info("Serialising %d %s", id(value), value)
+        return value.serialise()
 
     def deserialize(self, value):
-        return State.from_dict(super().deserialize(value))
+        LOG.info("Deserialising %d %s", id(value), value)
+        return AwsFuture.deserialise(value)
 
 
-class ContinuationMap(MapAttribute):
-    machine_id = NumberAttribute()
-    offset = NumberAttribute()
+class StateAttribute(JSONAttribute):
+    def serialize(self, value):
+        return super().serialize(value.serialise())
 
-
-class FutureMap(MapAttribute):
-    future_id = NumberAttribute()
-    user_id = NumberAttribute(null=True)
-    resolved = BooleanAttribute(default=False)
-    chain = NumberAttribute(null=True)
-    value = PickleAttribute(null=True)
-    continuations = ListAttribute(of=ContinuationMap, default=list)
+    def deserialize(self, value):
+        return State.deserialise(super().deserialize(value))
 
 
 class MachineMap(MapAttribute):
-    machine_id = NumberAttribute()
-    future_fk = NumberAttribute()  # FK -> FutureAttribue
-    state = PickleAttribute()  # FIXME state should be JSON-able
+    state = StateAttribute()
     probe_logs = ListAttribute(default=list)
     stdout = ListAttribute(default=list)
-
-
-class ExecutableMap(MapAttribute):
-    locations = MapAttribute()
-    foreign = MapAttribute()
-    code = ListAttribute()
-    # example:
-    # ExecutableMap(locations={'foo': 23, 'bar': 50},
-    #               foreign={'a': ['m', 'f'], 'b': ['m2', 'f2']},
-    #               code=[['instr', 'arg'], ['istr2', 'arg2']])
 
 
 if "DYNAMODB_ENDPOINT" not in os.environ and "USE_LIVE_AWS" not in os.environ:
@@ -124,14 +116,13 @@ class Session(Model):
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
     result = JSONAttribute(null=True)  # JSON? Really?
-    num_futures = NumberAttribute(default=0)
     num_machines = NumberAttribute(default=0)
     # NOTE!! Big gotcha - be careful what you pass in as default; pynamodb
     # saves a reference. So don't use a literal "[]"!
-    futures = ListAttribute(of=FutureMap, default=list)
+    futures = ListAttribute(of=FutureAttribute, default=list)
     machines = ListAttribute(of=MachineMap, default=list)
     top_level_vmid = NumberAttribute(null=True)
-    executable = ExecutableMap(null=True)  # FIXME
+    executable = MapAttribute(null=True)
 
 
 BASE_SESSION_ID = "base"
@@ -150,6 +141,12 @@ def init():
         s.save()
 
 
+def set_base_exe(exe):
+    base_session = Session.get(BASE_SESSION_ID)
+    base_session = exe.serialise()
+    base_session.save()
+
+
 def new_session() -> Session:
     base_session = Session.get(BASE_SESSION_ID)
     sid = str(uuid.uuid4())
@@ -163,27 +160,20 @@ def new_session() -> Session:
     return s
 
 
-def new_future(session) -> FutureMap:
-    f = FutureMap(future_id=session.num_futures, resolved=False)
-    session.futures.append(f)
-    session.num_futures += 1
-    return f
-
-
-def new_machine(session, args, top_level=False) -> MachineMap:
+def new_machine(session, args, future, top_level=False) -> MachineMap:
     state = State(*args)
-    f = new_future(session)
     vmid = session.num_machines
     session.num_machines += 1
     m = MachineMap(
         # --
-        machine_id=vmid,
-        future_fk=f.future_id,
         state=state,
     )
     if top_level:
         session.top_level_vmid = vmid
     session.machines.append(m)
+    session.futures.append(future)
+    assert len(session.machines) == session.num_machines
+    LOG.info("New machine: %d", vmid)
     return vmid
 
 
@@ -215,32 +205,37 @@ class SessionLocker(AbstractContextManager):
 
     """
 
-    def __init__(self, session, timeout=2):
+    def __init__(self, session, timeout=1):
         self.session = session
         self.timeout = timeout
-        self.machine_id = None
         self.lock_count = 0
 
     def __enter__(self):
-        LOG.debug(f"({self.machine_id}) :: Locking {self.lock_count}")
+        t = time.time() % 1000.0
+        LOG.info(f"{t:.3f} :: Locking {self.lock_count}")
         if self.lock_count:
             self.lock_count += 1
-            LOG.debug(f"({self.machine_id}) :: Re-locking ({self.lock_count})")
+            LOG.info(f"{t:.3f} :: Re-locking ({self.lock_count})")
             return
 
         start = time.time()
         while not try_lock(self.session):
             time.sleep(0.01)
             if time.time() - start > self.timeout:
-                LOG.debug(f"({self.machine_id}) :: Timeout getting lock")
+                t = time.time() % 1000.0
+                LOG.info(f"{t:.3f} :: Timeout getting lock")
                 raise LockTimeout
 
         self.lock_count += 1
-        LOG.debug(f"({self.machine_id}) :: Locked ({self.lock_count})")
+        t = time.time() % 1000.0
+        LOG.info(f"{t:.3f} :: Locked ({self.lock_count})")
 
     def __exit__(self, *exc):
+        t = time.time() % 1000.0
+        LOG.info(f"{t:.3f} :: Releasing... ({self.lock_count})")
         self.lock_count -= 1
         if self.lock_count == 0:
             self.session.locked = False
             self.session.save()
-        LOG.debug(f"({self.machine_id}) :: Released ({self.lock_count})")
+        t = time.time() % 1000.0
+        LOG.info(f"{t:.3f} :: Released ({self.lock_count})")

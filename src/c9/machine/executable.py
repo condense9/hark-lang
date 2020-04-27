@@ -8,6 +8,8 @@ functions, inspect data, etc).
 
 from dataclasses import dataclass
 
+from .instruction import Instruction
+
 
 @dataclass
 class Executable:
@@ -27,3 +29,12 @@ class Executable:
             res += f" | {i:4} | {instr}\n"
         res += " \\\n"
         return res
+
+    def serialise(self):
+        code = [i.serialise() for i in self.code]
+        return dict(locations=self.locations, foreign=self.foreign, code=code)
+
+    @classmethod
+    def deserialise(cls, obj):
+        code = [Instruction.deserialise(i) for i in obj["code"]]
+        return cls(locations=obj["locations"], foreign=smap["foreign"], code=code)

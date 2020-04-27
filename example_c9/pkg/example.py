@@ -14,7 +14,7 @@ def sleep(duration):
     time.sleep(duration)
 
 
-def random_sleep(min_ms=1000, max_ms=2000):
-    duration = max(min_ms, max_ms * random.random()) / 1000.0
-    print("python sleeping", duration)
-    time.sleep(duration)
+def random_sleep(min_ms=10, max_ms=1000):
+    duration_ms = min_ms + random.random() * (max_ms - min_ms)
+    print(f"python sleeping {duration_ms:.0f}ms")
+    time.sleep(duration_ms / 1000.0)

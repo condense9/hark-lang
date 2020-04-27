@@ -43,19 +43,27 @@
 ;; Concurrent tests
 
 (defun a (x)
-  (random_sleep)
+  (print "a starting to sleep")
+  (random_sleep 200 500)
+  (print "a finished sleeping")
   (+ x 1))
 
 (defun b (x)
-  (random_sleep)
+  (print "b starting to sleep")
+  (random_sleep 200 500)
+  (print "b finished sleeping")
   (* (a x) 1000))
 
 (defun c (x)
-  (random_sleep)
+  (print "c starting to sleep")
+  (random_sleep 200 500)
+  (print "c finished sleeping")
   (+ x -1))
 
 (defun d (x)
-  (random_sleep)
+  (print "d starting to sleep")
+  (random_sleep 200 500)
+  (print "d finished sleeping")
   (* (c x) 10))
 
 (defun e (p q)

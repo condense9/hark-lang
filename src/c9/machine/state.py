@@ -94,7 +94,7 @@ class State:
         return s
 
     def __eq__(self, other):
-        return self.to_dict() == other.to_dict()
+        return self.serialise() == other.serialise()
 
     def __repr__(self):
         return f"<State {id(self)} ip={self.ip}>"

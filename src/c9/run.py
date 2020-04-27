@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 import sys
 
 from c9.machine.interface import Interface
@@ -75,7 +76,8 @@ def run_ddb_local(filename, function, args):
 
     db.init()
     session = db.new_session()
-    controller = ddb_controller.DataController(session)
+    lock = threading.RLock()
+    controller = ddb_controller.DataController(session, lock)
     evaluator = ddb_controller.Evaluator
     invoker = c9_thread.Invoker(controller, evaluator)
     interface = Interface(controller, invoker)
@@ -89,6 +91,7 @@ def run_ddb_lambda_sim(filename, function, args):
 
     db.init()
     session = db.new_session()
+    lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session)
     evaluator = ddb_controller.Evaluator
     invoker = lambdasim.Invoker(controller, evaluator)

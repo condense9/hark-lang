@@ -1,35 +1,31 @@
 """Local Implementation"""
-import importlib
 import concurrent.futures
-from functools import singledispatchmethod
+import importlib
 import logging
 import sys
 import threading
 import time
 import traceback
 import warnings
+from functools import singledispatchmethod
 
-from ..machine import C9Machine
-from ..machine.controller import Controller as BaseController
-from ..machine.future import ChainedFuture
-from ..machine.state import State
-from ..machine.probe import Probe
-from ..machine import c9e
-from ..machine.instruction import Instruction
+from ..machine import C9Machine, c9e
 from ..machine import instructionset as mi
+from ..machine import types as mt
+from ..machine.controller import Controller as BaseController
+from ..machine import future as fut
+from ..machine.instruction import Instruction
+from ..machine.probe import Probe
+from ..machine.state import State
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
 LOG = logging.getLogger(__name__)
 
 
-class LocalFuture(ChainedFuture):
-    def __init__(self, controller):
-        self.lock = threading.Lock()
-        self.continuations = []
-        self.chain = None
-        self.resolved = False
-        self.value = None
-        self.controller = controller
+class LocalFuture(fut.Future):
+    def __init__(self):
+        super().__init__()
+        self.lock = threading.RLock()
 
     def __repr__(self):
         return f"<Future {id(self)} {self.resolved} ({self.value})>"
@@ -54,7 +50,7 @@ class DataController:
     def new_machine(self, args, fn_name, is_top_level=False):
         if fn_name not in self.executable.locations:
             raise Exception(f"Function `{fn_name}` doesn't exist")
-        future = LocalFuture(self)
+        future = LocalFuture()
         probe = Probe()
         state = State(*args)
         state.ip = self.executable.locations[fn_name]
@@ -77,38 +73,28 @@ class DataController:
         # N/A locally. In other implementations, could sync state
         pass
 
-    def finish(self, vmid, result):
-        if self.is_top_level(vmid):
-            self.result = result
-            self.finished = True
-
-    def get_result_future(self, vmid):
-        return self._machine_future[vmid]
-
     def get_state(self, vmid):
         return self._machine_state[vmid]
 
     def get_probe(self, vmid):
         return self._machine_probe[vmid]
 
+    def get_future(self, vmid):
+        return self._machine_future[vmid]
+
     def set_future_value(self, vmid, offset, value):
+        """Set the value of a future in the stack"""
         state = self.get_state(vmid)
         state.ds_set(offset, value)
         state.stopped = False
 
-    def get_or_wait(self, vmid, future, offset):
-        # prevent race between resolution and adding the continuation
-        with future.lock:
-            resolved = future.resolved
-            if resolved:
-                value = future.value
-            else:
-                future.continuations.append((vmid, offset))
-                value = None
-        return resolved, value
+    def finish(self, vmid, value) -> list:
+        """Finish a machine, and return continuations (other waiting machines)"""
+        return fut.finish(self, vmid, value)
 
-    def is_future(self, val):
-        return isinstance(val, LocalFuture)
+    def get_or_wait(self, vmid, future_ptr, offset):
+        """Get the value of a future in the stack, or add a continuation"""
+        return fut.get_or_wait(self, vmid, future_ptr, offset)
 
     @property
     def machines(self):
@@ -143,8 +129,8 @@ class Evaluator:
     def _(self, i: mi.Print):
         # Leave the value in the stack - print returns itself
         val = self.state.ds_peek(0)
-        t = time.time()
-        line = f"{t:5.5f} | {val}"
+        t = time.time() % 1000.0
+        line = f"{t:.2f} | {val}"
         self.data_controller.machine_output[self.vmid].append(line)
 
     @evali.register

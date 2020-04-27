@@ -45,12 +45,12 @@ class C9True(C9Atomic):
     """Represent True"""
 
 
-class C9False(C9Atomic):
-    """Represent False"""
-
-
 class C9Null(C9Atomic):
     """Represent Null (None)"""
+
+
+# Use the lisp-ish convention that Nil/null is equivalent to False
+C9False = C9Null
 
 
 ### Literals
@@ -149,26 +149,6 @@ class C9FuturePtr(int, C9Literal):
     """Pointer to a C9Future"""
 
 
-class C9Future(C9Type):
-    def __init__(self, ptr, continuations=None, chain=None, resolved=False, value=None):
-        self.ptr = ptr
-        self.continuations = [] if not continuations else continuations
-        self.chain = chain
-        self.resolved = resolved
-        self.value = value
-
-    def serialise_data(self):
-        value = self.value.serialise() if self.value else None
-        return [self.ptr, self.continuations, self.chain, self.resolved, value]
-
-    @classmethod
-    def from_data(cls, data):
-        value = data[-1]
-        if data[-1]:
-            value = C9Type.deserialise(value)
-        return cls(*data[:-1], value)
-
-
 ### Type Mapping
 
 PY_TO_C9 = {
@@ -181,7 +161,6 @@ PY_TO_C9 = {
 
 C9_TO_PY = {
     C9Null: lambda _: None,
-    C9False: lambda _: False,
     C9True: lambda _: True,
     C9Int: int,
     C9Float: float,
@@ -196,7 +175,7 @@ def to_c9_type(py_val):
     elif py_val is True:
         return C9True()
     elif py_val is False:
-        return C9False()
+        return C9Null()
 
     try:
         return PY_TO_C9[type(py_val)](py_val)
