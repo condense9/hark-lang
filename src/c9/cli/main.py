@@ -19,7 +19,8 @@ Options:
   -f FUNCTION, --fn=FUNCTION  Function to run/graph [default: main]
   -o OUTPUT, --output=OUTPUT  Destination file for graph
 
-  --mode=MODE  Execution mode
+  --storage=MODE    Storage mode (memory|dynamodb) [default: memory]
+  --emulate-lamdba  Use multiple processes to emulate AWS Lambda execution
 
 Init Arguments:
   <DIR>  Directory to initialise [default: .]
@@ -50,11 +51,17 @@ def _run(args):
     filename = args["<file>"]
     fn_args = args["<fn_args>"]
     sys.path.append(".")
-    c9.run.run_local(filename, fn, fn_args)
-    # TODO - "invoke_method" flag (default thread)
-    # TODO - "storage_method" flag (default in-memory)
-    # c9.run.run_ddb_local(filename, fn, fn_args)
-    # c9.run.run_ddb_lambda_sim(filename, fn, fn_args)
+
+    if args["--storage"] == "memory":
+        if args["--emulate-lamdba"]:
+            raise ValueError("Can't emulate lambda with in-memory storage")
+        c9.run.run_local(filename, fn, fn_args)
+
+    elif args["--storage"] == "dynamodb":
+        if args["--emulate-lamdba"]:
+            c9.run.run_ddb_lambda_sim(filename, fn, fn_args)
+        else:
+            c9.run.run_ddb_local(filename, fn, fn_args)
 
 
 def _graph(args):

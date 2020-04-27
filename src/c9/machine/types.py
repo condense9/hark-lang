@@ -1,4 +1,9 @@
-"""Primitives data types"""
+"""Primitives data types
+
+Requirement: all types must be trivially JSON serialisable.
+
+See https://docs.python.org/3/library/json.html#py-to-json-table
+"""
 
 from collections import UserList
 
@@ -55,6 +60,9 @@ class C9Literal(C9Type):
     """A literal value which has an underlying Python type"""
 
     def __init__(self, data):
+        # Restrict to JSON literals (and disallow subclasses of them)
+        if type(data) not in (str, float, int):
+            raise ValueError(data, type(data))
         self.data = data
 
     def serialise(self) -> list:

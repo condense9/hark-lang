@@ -77,7 +77,7 @@ class Evaluate:
         for b in bindings.children:
             name, value = b.children[:]
             assert isinstance(name, Token)
-            code += Evaluate(value).code + [mi.Bind(mt.C9Symbol(name))]
+            code += Evaluate(value).code + [mi.Bind(mt.C9Symbol(str(name)))]
         code += Evaluate(body).code
         return code
 
@@ -99,7 +99,9 @@ class EvaluateToplevel:
     def def_(self, name, bindings, body):
         assert isinstance(name, Token)
         # NOTE - arg stack is in reverse order, so the bindings are reversed
-        bindings_code = [mi.Bind(mt.C9Symbol(b)) for b in reversed(bindings.children)]
+        bindings_code = [
+            mi.Bind(mt.C9Symbol(str(b))) for b in reversed(bindings.children)
+        ]
         self.defs[str(name)] = bindings_code + Evaluate(body).code + [mi.Return()]
 
 

@@ -1,6 +1,7 @@
 from .instruction import Instruction as I
-from .types import C9Type
+from . import types as mt
 
+# TODO: define __all__
 
 ##± Control Flow ±##############################################################
 
@@ -135,7 +136,7 @@ class PushV(I):
     Useful, for example, for function-local constants.
     """
 
-    op_types = [C9Type]
+    op_types = [mt.C9Type]
 
 
 class Bind(I):
@@ -147,13 +148,13 @@ class Bind(I):
 
     """
 
-    op_types = [(int, str)]
+    op_types = [mt.C9Symbol]
 
 
 class PushB(I):
     """Push a bound value onto the stack"""
 
-    op_types = [(int, str)]
+    op_types = [mt.C9Symbol]
 
 
 class Pop(I):

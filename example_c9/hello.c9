@@ -30,8 +30,10 @@
 
 
 (defun main ()
-  (let ((x (async simple t)))
-    (format "sleep result: {}" (wait x))))
+  (let ((x (async simple t))
+        (y (+ 2 3)))
+    (print (format "sleep result: {}" (wait x)))
+    (format "sum: {}" y)))
 
 (defun printer (x)
   (print (format "You gave me: {}" x))

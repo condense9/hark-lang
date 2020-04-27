@@ -1,10 +1,10 @@
-import pytest
 import json
 
 from c9.machine.types import *
 
 
-def to_json_and_back(obj):
+def to_json_and_back(obj: C9Type):
+    """Serialise an object to JSON and back"""
     ser = obj.serialise()
     jser = json.dumps(ser)
     jdeser = json.loads(jser)

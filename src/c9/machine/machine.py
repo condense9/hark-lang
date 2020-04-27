@@ -34,13 +34,18 @@ def traverse(o, tree_types=(list, tuple)):
         yield o
 
 
-def load_function_from_module(fnname, modname):
+def import_python_function(fnname, modname):
     """Load function
+
+    If modname is None, fnname is taken from __builtins__ (e.g. 'print')
 
     PYTHONPATH must be set up already.
     """
-    spec = importlib.util.find_spec(modname)
-    m = spec.loader.load_module()
+    if modname:
+        spec = importlib.util.find_spec(modname)
+        m = spec.loader.load_module()
+    else:
+        m = __builtins__
     fn = getattr(m, fnname)
     LOG.info("Loaded %s", fn)
     return fn
@@ -86,7 +91,7 @@ class C9Machine:
         self.exe = self.data_controller.executable
         self.evaluator = invoker.evaluator_cls(self)
         self._foreign = {
-            name: load_function_from_module(fn, mod)
+            name: import_python_function(fn, mod)
             for name, (fn, mod) in self.exe.foreign.items()
         }
         LOG.info("locations %s", self.exe.locations.keys())
@@ -139,8 +144,15 @@ class C9Machine:
 
     @evali.register
     def _(self, i: PushB):
-        # binding precedence: local value -> functions -> foreigns -> builtins.
-        ptr = i.operands[0]
+        # The value on the stack must be a Symbol, which is used to find a
+        # function to call. Binding precedence:
+        #
+        # local value -> functions -> foreigns -> builtins
+        sym = i.operands[0]
+        if not isinstance(sym, mt.C9Symbol):
+            raise ValueError(sym, type(sym))
+
+        ptr = str(sym)
         if ptr in self.state.bound_names:
             val = self.state.get_bind(ptr)
         elif ptr in self.exe.locations:
@@ -201,6 +213,7 @@ class C9Machine:
     def _(self, i: Call):
         # Arguments for the function must already be on the stack
         num_args = i.operands[0]
+        # The value to call will have been retrieved earlier by PushB.
         fn = self.state.ds_pop()
         self.probe.on_enter(self, fn)
 
