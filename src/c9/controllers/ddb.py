@@ -122,8 +122,7 @@ class DataController:
 
     @finished.setter
     def finished(self, value):
-        with self.lock:
-            self.session.finished = value
+        self.session.finished = value
 
     @property
     def result(self):
@@ -131,8 +130,7 @@ class DataController:
 
     @result.setter
     def result(self, value):
-        with self.lock:
-            self.session.result = value
+        self.session.result = value
 
     def get_state(self, vmid):
         # refresh session?

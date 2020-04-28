@@ -6,8 +6,8 @@ import time
 import traceback
 from functools import partial
 
-from . import parser
-from .parser.read import read_exp
+from . import c9parser
+from .c9parser.read import read_exp
 
 LOG = logging.getLogger(__name__)
 
@@ -48,8 +48,8 @@ def run_and_wait(controller, invoker, waiter, filename, function, args):
         function:   Name of the function to run
         args:       Arguments to pass in to function
     """
-    toplevel = parser.load_file(filename)
-    exe = parser.make_exe(toplevel)
+    toplevel = c9parser.load_file(filename)
+    exe = c9parser.make_exe(toplevel)
     controller.set_executable(exe)
 
     args = [read_exp(arg) for arg in args]
@@ -92,7 +92,7 @@ def run_ddb_local(filename, function, args):
     import c9.controllers.ddb_model as db
     import c9.executors.thread as c9_thread
 
-    db.init()
+    db.init_base_session()
     session = db.new_session()
     lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session, lock)
@@ -106,7 +106,7 @@ def run_ddb_processes(filename, function, args):
     import c9.controllers.ddb_model as db
     import c9.executors.multiprocess as mp
 
-    db.init()
+    db.init_base_session()
     session = db.new_session()
     lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session, lock)
@@ -115,17 +115,7 @@ def run_ddb_processes(filename, function, args):
     run_and_wait(controller, invoker, waiter, filename, function, args)
 
 
-def setup_base_session(filename):
-    db.init()
-    toplevel = parser.load_file(filename)
-    exe = parser.make_exe(toplevel)
-    db.set_base_exe(exe)
-
-
-def run_lambda(function, args):
-    run_and_wait()
-
-
+# lambda:
 # create the infra
 # set the base session
 # run a function with some args

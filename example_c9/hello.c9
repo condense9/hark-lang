@@ -1,8 +1,8 @@
 ;; -*- mode: lisp -*-
-(importpy hi :from pkg.example :as say-hi)
-(importpy format :from pkg.example)
-(importpy sleep :from pkg.example)
-(importpy random_sleep :from pkg.example)
+(importpy hi :from src.example :as say-hi)
+(importpy format :from src.example)
+(importpy sleep :from src.example)
+(importpy random_sleep :from src.example)
 
 (defun simple (do_sleep)
   (say-hi)

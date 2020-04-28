@@ -1,7 +1,7 @@
 """Test the expression parser"""
 
 import pytest
-from c9.parser.evaluate import evaluate_exp
+from c9.c9parser.evaluate import evaluate_exp
 
 EXPR_TESTS = [
     "1",
@@ -26,5 +26,6 @@ EXPR_TESTS = [
 def test_no_error(expr):
     """Test that expression parses without errors"""
     print(evaluate_exp(expr).code)
+
 
 # TODO test the result is correct

@@ -1,7 +1,8 @@
 """Read an AST"""
 
-import c9.machine.types as mt
 from lark import Token, Transformer, Tree, v_args
+
+from ..machine import types as mt
 from .load import exp_parser
 
 

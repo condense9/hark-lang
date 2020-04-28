@@ -1,15 +1,13 @@
 """C9 Compiler.
 
 Usage:
-  c9 [options] init [<dir>]
-  c9 [options] ast [<file>]
-  c9 [options] asm [<file>]
-  c9 [options] [<file>] [<fn_args>...]
+  c9 [options] ast <file> [--output=OUTPUT]
+  c9 [options] asm <file>
+  c9 [options] deploy <file> <url>
+  c9 [options] <file> [<fn_args>...]
 
 Commands:
-  init  Initialise C9 in dir
-  run   Read a C9 file and run a function in it (with . in PYTHONPATH)
-  ast   Read a C9 file and create an (AST) ast of a function
+  ast   Create a PNG representation of the Abstract Syntax Tree of a function
   asm   Compile a file and print the bytecode listing
 
 Options:
@@ -18,18 +16,16 @@ Options:
   -V, --vverbose  Be very verbose.
   --version       Show version.
 
-  -f FUNCTION, --fn=FUNCTION  Function to run/ast [default: main]
-  -o OUTPUT, --output=OUTPUT  Destination file for ast
+  -f FUNCTION, --fn=FUNCTION  Function for run/AST [default: main]
+  -o OUTPUT, --output=OUTPUT  Destination file
 
-  --storage=MODE  Storage mode (memory|dynamodb) [default: memory]
-  --exec=EXEC     Execution mode (processes|threads) [default: threads]
+  -s MODE, --storage=MODE      (memory|dynamodb)   [default: memory]
+  -c MODE, --concurrency=MODE  (processes|threads) [default: threads]
 
-Init Arguments:
-  <DIR>  Directory to initialise [default: .]
-
-Run Arguments:
-  FILE    C9 file to read
-  <ARGS>  Arguments to pass to the executable [default: None].
+Arguments:
+  FILE     C9 file to read
+  FN_ARGS  Arguments to pass to the executable [default: None].
+  URL      Base URL to deploy to
 """
 
 # Tools:
@@ -42,8 +38,8 @@ import sys
 import logging
 
 from docopt import docopt
-import c9.run
-import c9.parser as parser
+from .. import run
+from .. import c9parser
 
 from .. import __version__
 
@@ -55,15 +51,15 @@ def _run(args):
     sys.path.append(".")
 
     if args["--storage"] == "memory":
-        if args["--exec"] == "processes":
+        if args["--concurrency"] == "processes":
             raise ValueError("Can't use processes with in-memory storage")
-        c9.run.run_local(filename, fn, fn_args)
+        run.run_local(filename, fn, fn_args)
 
     elif args["--storage"] == "dynamodb":
-        if args["--exec"] == "processes":
-            c9.run.run_ddb_processes(filename, fn, fn_args)
+        if args["--concurrency"] == "processes":
+            run.run_ddb_processes(filename, fn, fn_args)
         else:
-            c9.run.run_ddb_local(filename, fn, fn_args)
+            run.run_ddb_local(filename, fn, fn_args)
 
     else:
         raise ValueError(args["--storage"])
@@ -76,13 +72,17 @@ def _ast(args):
         dest_png = args["--output"]
     else:
         dest_png = f"{os.path.splitext(filename)[0]}_{fn}.png"
-    parser.make_ast(filename, fn, dest_png)
+    c9parser.make_ast(filename, fn, dest_png)
 
 
 def _asm(args):
-    toplevel = parser.load_file(args["<file>"])
-    exe = parser.make_exe(toplevel)
+    toplevel = c9parser.load_file(args["<file>"])
+    exe = c9parser.make_exe(toplevel)
     print(exe.listing())
+
+
+# def _deploy(args):
+#     requests
 
 
 def main():
@@ -99,6 +99,8 @@ def main():
         _asm(args)
     elif args["<file>"]:
         _run(args)
+    elif args["<deploy>"]:
+        _deploy(args)
     else:
         raise NotImplementedError
 

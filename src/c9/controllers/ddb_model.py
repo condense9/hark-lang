@@ -102,7 +102,7 @@ class Session(Model):
 BASE_SESSION_ID = "base"
 
 
-def init():
+def init_base_session():
     LOG.info("DB %s (%s)", Session.Meta.host, Session.Meta.region)
     LOG.info("DB table %s", Session.Meta.table_name)
     try:
