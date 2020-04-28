@@ -61,10 +61,10 @@ from typing import List, Tuple
 import boto3
 
 from ..machine import C9Machine, Probe
+from ..machine import future as fut
 from ..machine import instructionset as mi
 from ..machine import types as mt
 from ..machine.executable import Executable
-from ..machine import future as fut
 from ..machine.instruction import Instruction
 from ..machine.state import State
 from . import ddb_model as db
@@ -170,17 +170,14 @@ class DataController:
 
     @property
     def machines(self):
-        # self.session.refresh()
         return list(self.session.machines)
 
     @property
     def probes(self):
-        # self.session.refresh()
         return [Probe.with_logs(m.probe_logs) for m in self.session.machines]
 
     @property
     def stdout(self):
-        # self.session.refresh()
         return [m.stdout for m in self.session.machines]
 
 

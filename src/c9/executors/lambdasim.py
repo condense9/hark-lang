@@ -35,13 +35,3 @@ def resume_handler(event):
     machine = C9Machine(vmid, invoker)
     machine.run()
     # TODO return something
-
-
-def wait_for_finish(interface, sleep_interval=0.01, timeout=5):
-    data_controller = interface.data_controller
-
-    start_time = time.time()
-    while not data_controller.finished:
-        time.sleep(sleep_interval)
-        if time.time() - start_time > timeout:
-            raise RuntimeError("Timeout!")
