@@ -116,16 +116,15 @@ class DataController:
             self.session.machines[vmid].probe_logs += probe.logs
 
     def finish(self, vmid, result):
-        with self.lock:
-            if self.is_top_level(vmid):
+        if self.is_top_level(vmid):
+            with self.lock:
                 LOG.info(f"Top Level Finished - {result}")
                 self.session.finished = True
                 self.session.result = result
 
     @property
     def finished(self):
-        with self.lock:
-            return self.session.finished
+        return self.session.finished
 
     @finished.setter
     def finished(self, value):
@@ -134,8 +133,7 @@ class DataController:
 
     @property
     def result(self):
-        with self.lock:
-            return self.session.result
+        return self.session.result
 
     @result.setter
     def result(self, value):

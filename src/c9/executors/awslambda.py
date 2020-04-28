@@ -11,6 +11,7 @@ from ..machine import c9e
 class LambdaExecutor:
     def __init__(self, fn_name):
         self.fn_name = fn_name
+        self.exception = None
 
     def run(self, session_id, machine_id):
         client = get_lambda_client()

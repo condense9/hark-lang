@@ -6,7 +6,13 @@ class Probe:
 
     count = 0
 
-    def __init__(self, *, max_steps=500):
+    def __init__(self, *, max_steps=None):
+        """Create the probe
+
+        If max_steps is not None, the machine will be halted if execution steps
+        exceeds max_steps
+
+        """
         self._max_steps = max_steps
         self._step = 0
         Probe.count += 1
@@ -37,11 +43,10 @@ class Probe:
         preface = f"[step={self._step}, ip={m.state.ip}] {m.instruction}"
         data = list(m.state._ds)
         self.log(f"{preface:40.40} | {data}")
-        # self.logs.append("Data: " + str(tuple(m.state._ds)))
-        if self._step >= self._max_steps:
+        if self._max_steps and self._step >= self._max_steps:
             self.log(f"MAX STEPS ({self._max_steps}) REACHED!! ***")
             self.early_stop = True
-            m._stopped = True
+            m.state.stopped = True
 
     def on_stopped(self, m):
         kind = "Terminated" if m.terminated else "Stopped"
