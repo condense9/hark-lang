@@ -49,7 +49,7 @@ functions:
           cors: true
 
   new:
-    handler: c9/executors/awslambda.new
+    handler: c9.executors.awslambda.new
     environment:
       DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
       DYNAMODB_REGION: "eu-west-2"
@@ -61,7 +61,7 @@ functions:
           cors: true
 
   resume:
-    handler: c9/executors/awslambda.resume
+    handler: c9.executors.awslambda.resume
     environment:
       DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
       DYNAMODB_REGION: "eu-west-2"
