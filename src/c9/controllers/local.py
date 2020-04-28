@@ -9,7 +9,6 @@ import traceback
 import warnings
 from functools import singledispatchmethod
 
-from ..machine import C9Machine, c9e
 from ..machine import instructionset as mi
 from ..machine import types as mt
 from ..machine.controller import Controller as BaseController

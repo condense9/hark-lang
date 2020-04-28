@@ -4,14 +4,12 @@ import os
 import time
 from os.path import join
 
-from .. import constants
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..lambda_utils import get_lambda_client
-from ..machine import c9e
-from ..c9parser.evaluator import evaluate_toplevel
+from ..c9parser.evaluate import evaluate_toplevel
 
-RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", resume.__name__)
+RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", "resume")
 
 
 class Invoker:

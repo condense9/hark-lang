@@ -26,7 +26,6 @@ from pynamodb.constants import BINARY, DEFAULT_ENCODING
 from pynamodb.exceptions import UpdateError
 from pynamodb.models import Model
 
-from ..constants import C9_DDB_REGION, C9_DDB_TABLE_NAME
 from ..machine import future as fut
 from ..machine.state import State
 
@@ -71,9 +70,9 @@ class Session(Model):
     """
 
     class Meta:
+        table_name = os.environ["DYNAMODB_TABLE"]
         host = os.environ.get("DYNAMODB_ENDPOINT", None)
-        table_name = os.environ.get("DYNAMODB_TABLE", C9_DDB_TABLE_NAME)
-        region = os.environ.get("DYNAMODB_REGION", C9_DDB_REGION)
+        region = os.environ.get("DYNAMODB_REGION", None)
 
     # Very simple, SINGLE-ENTRY, global lock for the whole session. Brutal -
     # could be optimised later

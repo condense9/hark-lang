@@ -6,4 +6,5 @@ set -e
 C9_VERSION=${C9_VERSION:-0.1.0}
 
 poetry build
-pip install --upgrade --target libs "../dist/c9-${C9_VERSION}.tar.gz"
+mkdir -p aws
+pip install --upgrade --target aws "../dist/c9-${C9_VERSION}.tar.gz"
