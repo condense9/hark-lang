@@ -1,7 +1,7 @@
 """Machine state representation"""
 
 from collections import deque
-from .types import C9List, C9Type
+from .types import C9List, C9Type, C9FuturePtr
 
 
 class State:
@@ -17,7 +17,7 @@ class State:
 
     def set_bind(self, ptr, val):
         if not isinstance(val, C9Type):
-            raise ValueError(val)
+            raise TypeError(val)
         self._bindings[ptr] = val
 
     def get_bind(self, ptr):
@@ -29,7 +29,7 @@ class State:
 
     def ds_push(self, val):
         if not isinstance(val, C9Type):
-            raise ValueError(val)
+            raise TypeError(val)
         self._ds.append(val)
 
     def ds_pop(self):
@@ -42,7 +42,7 @@ class State:
     def ds_set(self, offset, val):
         """Set the value at offset in the stack"""
         if not isinstance(val, C9Type):
-            raise ValueError(val)
+            raise TypeError(val)
         self._ds[-(offset + 1)] = val
 
     def es_enter(self, new_ip):

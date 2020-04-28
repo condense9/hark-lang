@@ -32,22 +32,24 @@ class Future:
             data["value"] = C9Type.deserialise(data["value"])
         return cls(**data)
 
+    def __repr__(self):
+        return f"<Future {id(self)} {self.resolved} ({self.value})>"
+
 
 def _resolve_future(controller, vmid, value):
     """Resolve a machine future, and any dependent futures"""
     assert not isinstance(value, mt.C9FuturePtr)
     future = controller.get_future(vmid)
 
-    with future.lock:
-        future.resolved = True
-        future.value = value
-        if controller.is_top_level(vmid):
-            controller.result = value
-            controller.finished = True
+    future.resolved = True
+    future.value = value
+    if controller.is_top_level(vmid):
+        controller.result = value
+        controller.finished = True
 
-        continuations = future.continuations
-        if future.chain:
-            continuations += _resolve_future(controller, future.chain, value)
+    continuations = future.continuations
+    if future.chain:
+        continuations += _resolve_future(controller, future.chain, value)
 
     LOG.info("Resolving %d to %s. Continuations: %s", vmid, value, continuations)
     return continuations
@@ -60,14 +62,13 @@ def finish(controller, vmid, value) -> list:
 
     # otherwise, check if the dependent future has resolved
     next_future = controller.get_future(vmid)
-    with next_future.lock:
-        if next_future.resolved:
-            return (
-                next_future.value,
-                _resolve_future(controller, vmid, next_future.value),
-            )
-        else:
-            next_future.chain = vmid
+    if next_future.resolved:
+        return (
+            next_future.value,
+            _resolve_future(controller, vmid, next_future.value),
+        )
+    else:
+        next_future.chain = vmid
 
 
 def get_or_wait(controller, vmid, future_ptr, offset):
@@ -77,15 +78,20 @@ def get_or_wait(controller, vmid, future_ptr, offset):
       - resolved (bool): whether the future has resolved
       - value: The data value, or None if not resolved
     """
+    if not isinstance(future_ptr, mt.C9FuturePtr):
+        raise TypeError(future_ptr)
+
+    if type(vmid) is not int:
+        raise TypeError(vmid)
+
     future = controller.get_future(future_ptr)
-    # prevent race between resolution and adding the continuation
-    resolved = future.resolved
-    if resolved:
+
+    if future.resolved:
         value = future.value
+        LOG.info("%s has resolved: %s", future_ptr, value)
     else:
-        LOG.info("%d waiting on %d", vmid, future_ptr)
-        # NOTE - the continuation is represented as a list because tuples are
-        # known by DynamoDB :(
-        future.continuations.append([vmid, offset])
+        LOG.info("%d waiting on %s", vmid, future_ptr)
+        future.continuations.append(vmid)
         value = None
-    return resolved, value
+
+    return future.resolved, value

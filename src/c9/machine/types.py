@@ -73,8 +73,8 @@ class C9Literal(C9Type):
         return cls(value)
 
     def __repr__(self):
-        sup = super().__repr__()
-        return f"<{sup} {self.value}>"
+        kind = type(self).__name__
+        return f"<{kind} {self.value}>"
 
     def __eq__(self, other):
         return super().__eq__(other) and self.value == other.value
@@ -145,8 +145,13 @@ class C9List(UserList, C9Type):
 # TODO - some kind of "struct" type
 
 
-class C9FuturePtr(int, C9Literal):
+class C9FuturePtr(C9Literal):
     """Pointer to a C9Future"""
+
+    def __init__(self, value):
+        if type(value) is not int:
+            raise TypeError(value)
+        super().__init__(value)
 
 
 ### Type Mapping

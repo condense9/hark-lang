@@ -22,15 +22,6 @@ from ..machine.state import State
 LOG = logging.getLogger(__name__)
 
 
-class LocalFuture(fut.Future):
-    def __init__(self):
-        super().__init__()
-        self.lock = threading.RLock()
-
-    def __repr__(self):
-        return f"<Future {id(self)} {self.resolved} ({self.value})>"
-
-
 class DataController:
     def __init__(self):
         # NOTE - could make probes optional, but why?!
@@ -43,6 +34,7 @@ class DataController:
         self._top_level_vmid = None
         self.result = None
         self.finished = False
+        self.lock = threading.RLock()
 
     def set_executable(self, exe):
         self.executable = exe
@@ -50,7 +42,7 @@ class DataController:
     def new_machine(self, args, fn_name, is_top_level=False):
         if fn_name not in self.executable.locations:
             raise Exception(f"Function `{fn_name}` doesn't exist")
-        future = LocalFuture()
+        future = fut.Future()
         probe = Probe()
         state = State(*args)
         state.ip = self.executable.locations[fn_name]
@@ -79,8 +71,14 @@ class DataController:
     def get_probe(self, vmid):
         return self._machine_probe[vmid]
 
-    def get_future(self, vmid):
-        return self._machine_future[vmid]
+    def get_future(self, val):
+        # TODO - clean up. This should only take one type. There's some wrong
+        # abstraction somewhere.
+        if isinstance(val, mt.C9FuturePtr):
+            return self._machine_future[val.value]
+        else:
+            assert type(val) is int
+            return self._machine_future[val]
 
     def set_future_value(self, vmid, offset, value):
         """Set the value of a future in the stack"""
@@ -90,11 +88,13 @@ class DataController:
 
     def finish(self, vmid, value) -> list:
         """Finish a machine, and return continuations (other waiting machines)"""
-        return fut.finish(self, vmid, value)
+        with self.lock:
+            return fut.finish(self, vmid, value)
 
     def get_or_wait(self, vmid, future_ptr, offset):
         """Get the value of a future in the stack, or add a continuation"""
-        return fut.get_or_wait(self, vmid, future_ptr, offset)
+        with self.lock:
+            return fut.get_or_wait(self, vmid, future_ptr, offset)
 
     @property
     def machines(self):

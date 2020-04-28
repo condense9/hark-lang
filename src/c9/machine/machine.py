@@ -46,7 +46,7 @@ def import_python_function(fnname, modname):
     else:
         m = __builtins__
     fn = getattr(m, fnname)
-    LOG.info("Loaded %s", fn)
+    LOG.debug("Loaded %s", fn)
     return fn
 
 
@@ -93,8 +93,8 @@ class C9Machine:
             name: import_python_function(fn, mod)
             for name, (fn, mod) in self.exe.foreign.items()
         }
-        LOG.info("locations %s", self.exe.locations.keys())
-        LOG.info("foreign %s", self.exe.foreign.keys())
+        LOG.debug("locations %s", self.exe.locations.keys())
+        LOG.debug("foreign %s", self.exe.foreign.keys())
         # No entrypoint argument - just set the IP in the state
 
     @property
@@ -195,10 +195,10 @@ class C9Machine:
         else:
             self.state.stopped = True
             value = self.state.ds_peek(0)
-            self.probe.log(f"Returning value: {value}")
+            LOG.info(f"{self.vmid} Returning value: {value}")
             value, continuations = self.data_controller.finish(self.vmid, value)
-            for machine, offset in continuations:
-                self.data_controller.set_future_value(machine, offset, value)
+            for machine in continuations:
+                self.data_controller.set_future_value(machine, 0, value)
                 self.invoker.invoke(machine)
 
     @evali.register
@@ -255,10 +255,10 @@ class C9Machine:
         if isinstance(val, mt.C9FuturePtr):
             resolved, result = self.data_controller.get_or_wait(self.vmid, val, offset)
             if resolved:
-                self.probe.log(f"Resolved! {offset} -> {result}")
+                LOG.info(f"{self.vmid} Finished waiting for {val}, got {result}")
                 self.state.ds_set(offset, result)
             else:
-                self.probe.log(f"Waiting for {val}")
+                LOG.info(f"{self.vmid} waiting for {val}")
                 self.state.stopped = True
 
         elif isinstance(val, list) and any(

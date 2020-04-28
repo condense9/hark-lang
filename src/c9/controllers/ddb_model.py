@@ -3,6 +3,7 @@
 import base64
 import logging
 import os
+import threading
 import time
 import uuid
 from contextlib import AbstractContextManager, contextmanager
@@ -25,31 +26,24 @@ from pynamodb.constants import BINARY, DEFAULT_ENCODING
 from pynamodb.exceptions import UpdateError
 from pynamodb.models import Model
 
-from ..constants import C9_DDB_TABLE_NAME, C9_DDB_REGION
-from ..machine.state import State
+from ..constants import C9_DDB_REGION, C9_DDB_TABLE_NAME
 from ..machine import future as fut
+from ..machine.state import State
 
 LOG = logging.getLogger(__name__)
-
-
-class AwsFuture(fut.Future):
-    def __init__(self, *args, **kwargs):
-        """Wrap a future stored in the database"""
-        super().__init__(*args, **kwargs)
 
 
 class FutureAttribute(MapAttribute):
     resolved = BooleanAttribute()
     continuations = ListAttribute()
     chain = NumberAttribute()
-    # NOTE - don't set this, otherwise things get confused:
-    # value = MapAttribute()
+    value = JSONAttribute()
 
     def serialize(self, value):
         return super().serialize(value.serialise())
 
     def deserialize(self, value):
-        return AwsFuture.deserialise(super().deserialize(value).as_dict())
+        return fut.Future.deserialise(super().deserialize(value).as_dict())
 
 
 class StateAttribute(JSONAttribute):
@@ -140,9 +134,10 @@ def new_session() -> Session:
     return s
 
 
-def new_machine(session, args, future, top_level=False) -> MachineMap:
+def new_machine(session, args, top_level=False) -> MachineMap:
     state = State(*args)
     vmid = session.num_machines
+    future = fut.Future()
     session.num_machines += 1
     m = MachineMap(
         # --
@@ -181,6 +176,8 @@ class LockTimeout(Exception):
 class SessionLocker(AbstractContextManager):
     """Lock the session for modification (re-entrant for chain_resolve)
 
+    https://docs.python.org/3/library/contextlib.html#reentrant-context-managers
+
     __enter__: Refresh session, lock it
     ...
     __exit__: release the lock (USER MUST SAVE THE SESSION BEFORE THIS)
@@ -191,34 +188,40 @@ class SessionLocker(AbstractContextManager):
         self.session = session
         self.timeout = timeout
         self.lock_count = 0
+        self._thread_lock = threading.Lock()
 
     def __enter__(self):
         t = time.time() % 1000.0
-        LOG.info(f"{t:.3f} :: Trying to lock... {self.lock_count}")
+        tid = threading.get_native_id()
+        # LOG.info(f"{t:.3f} :: Thread {tid} Trying to lock {self.lock_count}")
         if self.lock_count:
             self.lock_count += 1
-            LOG.info(f"{t:.3f} :: Re-locking ({self.lock_count})")
+            LOG.info(f"{t:.3f} :: Thread {tid} Re-locking ({self.lock_count})")
             return
 
+        self._thread_lock.acquire()
         start = time.time()
         while not try_lock(self.session):
             time.sleep(0.01)
             if time.time() - start > self.timeout:
                 t = time.time() % 1000.0
-                LOG.info(f"{t:.3f} :: Timeout getting lock")
+                LOG.debug(f"{t:.3f} :: Timeout getting lock")
                 raise LockTimeout
 
-        self.lock_count += 1
+        self.lock_count = 1
         t = time.time() % 1000.0
-        LOG.info(f"{t:.3f} :: Locked ({self.lock_count})")
+        LOG.info(f"{t:.3f} :: Thread {tid} Locked ({self.lock_count})")
 
     def __exit__(self, *exc):
         t = time.time() % 1000.0
-        LOG.info(f"{t:.3f} :: Releasing... ({self.lock_count})")
+
         self.lock_count -= 1
         if self.lock_count == 0:
             self.session.locked = False
-            LOG.info(f"{t:.3f} :: Saving %s", self.session)
+            LOG.debug(f"{t:.3f} :: Saving %s", self.session)
             self.session.save()
+            self._thread_lock.release()
+
         t = time.time() % 1000.0
-        LOG.info(f"{t:.3f} :: Released ({self.lock_count})")
+        tid = threading.get_native_id()
+        LOG.info(f"{t:.3f} :: Thread {tid} Released ({self.lock_count})")
