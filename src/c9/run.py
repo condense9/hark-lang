@@ -8,7 +8,7 @@ from functools import partial
 
 from c9.machine.interface import Interface
 
-from .parser.evaluate import evaluate_toplevel
+from .parser.evaluate import load_file
 from .parser.read import read_exp
 
 LOG = logging.getLogger(__name__)
@@ -16,14 +16,6 @@ LOG = logging.getLogger(__name__)
 
 class ThreadDied(Exception):
     """A Thread died (C9 machine thread, not necessarily a Python thread)"""
-
-
-def load_file(filename):
-    """Load and evaluate the contents of filename"""
-    with open(filename) as f:
-        content = f.read()
-
-    return evaluate_toplevel(content)
 
 
 def wait_for_finish(check_period, timeout, interface):

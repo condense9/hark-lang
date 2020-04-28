@@ -2,13 +2,15 @@
 
 Usage:
   c9 [options] init [<dir>]
-  c9 [options] graph [<file>]
+  c9 [options] ast [<file>]
+  c9 [options] asm [<file>]
   c9 [options] [<file>] [<fn_args>...]
 
 Commands:
-  init   Initialise C9 in dir
-  run    Read a C9 file and run a function in it (with . in PYTHONPATH)
-  graph  Read a C9 file and create an (AST) graph of a function
+  init  Initialise C9 in dir
+  run   Read a C9 file and run a function in it (with . in PYTHONPATH)
+  ast   Read a C9 file and create an (AST) ast of a function
+  asm   Compile a file and print the bytecode listing
 
 Options:
   -h, --help      Show this screen.
@@ -16,8 +18,8 @@ Options:
   -V, --vverbose  Be very verbose.
   --version       Show version.
 
-  -f FUNCTION, --fn=FUNCTION  Function to run/graph [default: main]
-  -o OUTPUT, --output=OUTPUT  Destination file for graph
+  -f FUNCTION, --fn=FUNCTION  Function to run/ast [default: main]
+  -o OUTPUT, --output=OUTPUT  Destination file for ast
 
   --storage=MODE    Storage mode (memory|dynamodb) [default: memory]
   --emulate-lamdba  Use multiple processes to emulate AWS Lambda execution
@@ -41,7 +43,7 @@ import logging
 
 from docopt import docopt
 import c9.run
-import c9.parser.graph
+import c9.parser as parser
 
 from .. import __version__
 
@@ -67,14 +69,20 @@ def _run(args):
         raise ValueError(args["--storage"])
 
 
-def _graph(args):
+def _ast(args):
     fn = args["--fn"]
     filename = args["<file>"]
     if args["--output"]:
         dest_png = args["--output"]
     else:
         dest_png = f"{os.path.splitext(filename)[0]}_{fn}.png"
-    c9.parser.graph.graph(filename, fn, dest_png)
+    parser.make_ast(filename, fn, dest_png)
+
+
+def _asm(args):
+    toplevel = parser.load_file(args["<file>"])
+    exe = parser.make_exe(toplevel)
+    print(exe.listing())
 
 
 def main():
@@ -85,8 +93,10 @@ def main():
     elif args["--verbose"]:
         logging.basicConfig(level=logging.INFO)
 
-    if args["graph"]:
-        _graph(args)
+    if args["ast"]:
+        _ast(args)
+    elif args["asm"]:
+        _asm(args)
     elif args["<file>"]:
         _run(args)
     else:

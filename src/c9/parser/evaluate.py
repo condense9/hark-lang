@@ -121,3 +121,11 @@ def evaluate_toplevel(content: str):
     ast = ReadLiterals().transform(tree)
     LOG.debug(ast.pretty())
     return EvaluateToplevel(ast)
+
+
+def load_file(filename):
+    """Load and evaluate the contents of filename"""
+    with open(filename) as f:
+        content = f.read()
+
+    return evaluate_toplevel(content)
