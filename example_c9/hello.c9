@@ -73,3 +73,15 @@
   ;; (1000 * (x + 1)) - (10 * (x - 1)) = 5960 if x is 5
   (e (async b x)
      @(d x)))
+
+
+;; Test Chain logic:
+
+(defun chain2 (x)
+  x)
+
+(defun chain1 (x)
+  (wait (async chain2 x)))
+
+(defun chain (x)
+  (wait (async chain1 x)))

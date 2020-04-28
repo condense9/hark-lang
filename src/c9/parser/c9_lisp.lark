@@ -88,7 +88,7 @@ TRUE : "t"
 
 NIL : "nil"
 
-IDENTIFIER : /[^\t\n\f,;\\ (){}0-9'"`$]+/
+IDENTIFIER : /[^\t\n\f,;\\ (){}'"`$]+/
 
 
 COMMENT : /;[^\n]*/
