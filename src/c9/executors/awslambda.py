@@ -4,16 +4,18 @@ import os
 import time
 from os.path import join
 
+from .. import c9parser
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..lambda_utils import get_lambda_client
-from .. import c9parser
+from ..machine import C9Machine
 
 RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", "resume")
 
 
 class Invoker:
-    def __init__(self):
+    def __init__(self, data_controller):
+        self.data_controller = data_controller
         self.resume_fn_name = RESUME_FN_NAME
         self.exception = None
 
@@ -21,7 +23,7 @@ class Invoker:
         client = get_lambda_client()
         event = dict(
             # --
-            session_id=self.data_controller.session.session_id,
+            session_id=self.controller.session.session_id,
             vmid=vmid,
         )
         res = client.invoke(

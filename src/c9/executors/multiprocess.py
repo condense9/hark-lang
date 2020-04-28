@@ -4,9 +4,8 @@ import time
 import traceback
 import warnings
 
-import c9.controllers.ddb_model as db
-import c9.controllers.ddb as ddb_controller
-
+from ..controllers import ddb as ddb_controller
+from ..controllers import ddb_model as db
 from ..machine import C9Machine
 from ..machine.probe import Probe
 
