@@ -69,7 +69,7 @@ from ..machine.instruction import Instruction
 from ..machine.state import State
 from . import ddb_model as db
 
-LOG = logging.getLogger()
+LOG = logging.getLogger(__name__)
 
 
 # TODO
@@ -90,7 +90,6 @@ class DataController:
         self.lock = lock
 
     def set_executable(self, exe):
-        assert exe
         self.executable = exe
         with self.lock:
             self.session.executable = exe.serialise()
@@ -99,8 +98,7 @@ class DataController:
         if fn_name not in self.executable.locations:
             raise Exception(f"Function `{fn_name}` doesn't exist")
         with self.lock:
-            future = db.AwsFuture()
-            vmid = db.new_machine(self.session, args, future, top_level=is_top_level)
+            vmid = db.new_machine(self.session, args, top_level=is_top_level)
             state = self.session.machines[vmid].state
             state.ip = self.executable.locations[fn_name]
         return vmid
@@ -110,20 +108,15 @@ class DataController:
 
     def stop(self, vmid, state, probe):
         with self.lock:
-            assert state.stopped
             LOG.info(f"Machine stopped {vmid}")
             self.session.machines[vmid].state = state
             self.session.machines[vmid].probe_logs += probe.logs
-
-    def finish(self, vmid, result):
-        if self.is_top_level(vmid):
-            with self.lock:
-                LOG.info(f"Top Level Finished - {result}")
-                self.session.finished = True
-                self.session.result = result
+            if not state.stopped:
+                raise Exception(f"Machine {vmid} stopped unexpectedly")
 
     @property
     def finished(self):
+        self.session.refresh()
         return self.session.finished
 
     @finished.setter
@@ -145,16 +138,23 @@ class DataController:
         return self.session.machines[vmid].state
 
     def get_probe(self, vmid):
+        # TODO - machine-specific probes?
         return Probe()
 
-    def get_future(self, vmid):
-        f = self.session.machines[vmid].future
-        f.lock = self.lock
+    def get_future(self, val):
+        # TODO - clean up (see local.py)
+        if isinstance(val, mt.C9FuturePtr):
+            ptr = val.value
+        else:
+            assert type(val) is int
+            ptr = val
+        LOG.info("Getting future: %d (%s)", ptr, val)
+        f = self.session.machines[ptr].future
         return f
 
     def set_future_value(self, vmid, offset, value):
         with self.lock:
-            LOG.info("Resolving %d to '%s' (on %d)", offset, value, vmid)
+            LOG.info("Resolving %d to %s (on %d)", offset, value, vmid)
             state = self.session.machines[vmid].state
             state.stopped = False
             state.ds_set(offset, value)
