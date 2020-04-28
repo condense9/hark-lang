@@ -116,7 +116,7 @@ def init_base_session():
 
 def set_base_exe(exe):
     base_session = Session.get(BASE_SESSION_ID)
-    base_session = exe.serialise()
+    base_session.executable = exe.serialise()
     base_session.save()
 
 
