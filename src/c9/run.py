@@ -1,9 +1,10 @@
 import logging
 import os
-import threading
-import traceback
-import time
 import sys
+import threading
+import time
+import traceback
+from functools import partial
 
 from c9.machine.interface import Interface
 
@@ -25,7 +26,7 @@ def load_file(filename):
     return evaluate_toplevel(content)
 
 
-def wait_for_finish(check_period, interface):
+def wait_for_finish(check_period, timeout, interface):
     """Wait for a machine to finish, checking every CHECK_PERIOD"""
     data_controller = interface.data_controller
     invoker = interface.invoker
@@ -45,14 +46,13 @@ def wait_for_finish(check_period, interface):
         traceback.print_exc()
 
 
-def run_and_wait(interface, filename, function, args, check_period=0.01):
+def run_and_wait(interface, waiter, filename, function, args):
     """Run a function and wait for it to finish
 
     Arguments:
         interface:  The Interface to use
-        controller: The data controller instance
         waiter:     A function to call to wait on the interface
-        filename:   File containing the program
+        filename:   The file to load
         function:   Name of the function to run
         args:       Arguments to pass in to function
     """
@@ -68,7 +68,7 @@ def run_and_wait(interface, filename, function, args, check_period=0.01):
     try:
         m = controller.new_machine(args, function, is_top_level=True)
         interface.invoker.invoke(m, run_async=False)
-        wait_for_finish(check_period, interface)
+        waiter(interface)
 
     finally:
         LOG.debug(controller.executable.listing())
@@ -92,7 +92,8 @@ def run_local(filename, function, args):
     controller = local.DataController()
     invoker = c9_thread.Invoker(controller, local.Evaluator)
     interface = Interface(controller, invoker)
-    run_and_wait(interface, filename, function, args)
+    waiter = partial(wait_for_finish, 0.01, 10)
+    run_and_wait(interface, waiter, filename, function, args)
 
 
 def run_ddb_local(filename, function, args):
@@ -104,10 +105,10 @@ def run_ddb_local(filename, function, args):
     session = db.new_session()
     lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session, lock)
-    evaluator = ddb_controller.Evaluator
-    invoker = c9_thread.Invoker(controller, evaluator)
+    invoker = c9_thread.Invoker(controller, ddb_controller.Evaluator)
     interface = Interface(controller, invoker)
-    run_and_wait(interface, filename, function, args, 1)
+    waiter = partial(wait_for_finish, 1, 10)
+    run_and_wait(interface, waiter, filename, function, args)
 
 
 def run_ddb_lambda_sim(filename, function, args):
@@ -118,9 +119,8 @@ def run_ddb_lambda_sim(filename, function, args):
     db.init()
     session = db.new_session()
     lock = db.SessionLocker(session)
-
-    # controller = ddb_controller.DataController(session, lock)
-    # evaluator = ddb_controller.Evaluator
-    # invoker = lambdasim.Invoker(controller, evaluator)
+    controller = ddb_controller.DataController(session, lock)
+    invoker = lambdasim.Invoker(controller, ddb_controller.Evaluator)
     interface = Interface(controller, invoker)
-    run_and_wait(interface, lambdasim.wait_for_finish, filename, function, args)
+    waiter = partial(wait_for_finish, 1, 10)
+    run_and_wait(interface, waiter, filename, function, args)
