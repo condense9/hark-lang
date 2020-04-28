@@ -7,7 +7,7 @@ from os.path import join
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..lambda_utils import get_lambda_client
-from ..c9parser.evaluate import evaluate_toplevel
+from .. import c9parser
 
 RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", "resume")
 
@@ -105,6 +105,6 @@ def set_exe(event, context):
     """Set the executable for the base session"""
     db.init_base_session()
     content = event["content"]
-    toplevel = evaluate_toplevel(content)
-    exe = parser.make_exe(toplevel)
+    toplevel = c9parser.evaluate_toplevel(content)
+    exe = c9parser.make_exe(toplevel)
     db.set_base_exe(exe)

@@ -4,10 +4,8 @@ set -e
 set -x
 
 STAGE=${STAGE:-dev}
-TOPFILE="hello.c9"
 
 cp -r src aws
-cp -r $TOPFILE aws
 
 pushd aws
 
@@ -19,9 +17,5 @@ serverless deploy -s "${STAGE}"
 #     --function-name test-dev-set_exe \
 #     --payload '{"content": "(def main () \"hello :)\""}' \
 #     response.json
-
-top=$(<$TOPFILE)
-
-serverless invoke -f set_exe -d "{\"content\": \"$top\"}"
 
 popd
