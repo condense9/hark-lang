@@ -82,7 +82,7 @@ def run_local(filename, function, args):
 
     LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
     controller = local.DataController()
-    invoker = c9_thread.Invoker(controller, local.Evaluator)
+    invoker = c9_thread.Invoker(controller)
     waiter = partial(wait_for_finish, 0.1, 10)
     run_and_wait(controller, invoker, waiter, filename, function, args)
 
@@ -96,7 +96,7 @@ def run_ddb_local(filename, function, args):
     session = db.new_session()
     lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session, lock)
-    invoker = c9_thread.Invoker(controller, ddb_controller.Evaluator)
+    invoker = c9_thread.Invoker(controller)
     waiter = partial(wait_for_finish, 1, 10)
     run_and_wait(controller, invoker, waiter, filename, function, args)
 
@@ -110,6 +110,22 @@ def run_ddb_processes(filename, function, args):
     session = db.new_session()
     lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session, lock)
-    invoker = mp.Invoker(controller, ddb_controller.Evaluator)
+    invoker = mp.Invoker(controller)
     waiter = partial(wait_for_finish, 1, 10)
     run_and_wait(controller, invoker, waiter, filename, function, args)
+
+
+def setup_base_session(filename):
+    db.init()
+    toplevel = parser.load_file(filename)
+    exe = parser.make_exe(toplevel)
+    db.set_base_exe(exe)
+
+
+def run_lambda(function, args):
+    run_and_wait()
+
+
+# create the infra
+# set the base session
+# run a function with some args

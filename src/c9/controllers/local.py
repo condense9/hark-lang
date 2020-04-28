@@ -25,6 +25,7 @@ LOG = logging.getLogger(__name__)
 class DataController:
     def __init__(self):
         # NOTE - could make probes optional, but why?!
+        self.evaluator_cls = Evaluator
         self._machine_future = {}
         self._machine_state = {}
         self._machine_probe = {}

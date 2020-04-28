@@ -8,9 +8,8 @@ from ..machine import C9Machine
 
 
 class Invoker:
-    def __init__(self, data_controller, evaluator_cls):
+    def __init__(self, data_controller):
         self.data_controller = data_controller
-        self.evaluator_cls = evaluator_cls
         self.exception = None
         threading.excepthook = self._threading_excepthook
 

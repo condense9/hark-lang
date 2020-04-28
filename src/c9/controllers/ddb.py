@@ -85,6 +85,7 @@ class DataController:
     def __init__(self, session, lock):
         super().__init__()
         self.session = session
+        self.evaluator_cls = Evaluator
         if session.executable:
             self.executable = Executable.deserialise(session.executable)
         self.lock = lock

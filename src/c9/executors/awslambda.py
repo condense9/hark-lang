@@ -13,9 +13,13 @@ class LambdaExecutor:
         self.fn_name = fn_name
         self.exception = None
 
-    def run(self, session_id, machine_id):
+    def invoke(self, vmid, run_async=True):
         client = get_lambda_client()
-        payload = dict(session_id=session_id, machine_id=machine_id)
+        event = dict(
+            # --
+            session_id=self.data_controller.session.session_id,
+            vmid=vmid,
+        )
         res = client.invoke(
             # --
             FunctionName=self.fn_name,
@@ -28,55 +32,28 @@ class LambdaExecutor:
             raise Exception(f"Invoke lambda {self.fn_name} failed {err}")
 
 
-# Input: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-def handle_existing(run_controller, event, context):
-    """Handle the AWS lambda event for an existing session, returning a JSON response"""
-    logging.info(f"Invoked - {event}")
-
-    zipfile = join(constants.EXE_PATH, event["executable_name"] + ".c9e")
-    executable = c9e.load(zipfile, [constants.SRC_PATH, constants.LIB_PATH])
-
-    executor = LambdaExecutor(event["lambda_name"])
-    controller = run_controller(
-        executor, executable, event["session_id"], event["machine_id"],
-    )
-    if controller.finished:
-        return controller.result
-    else:
-        return json.dumps(
-            dict(
-                statusCode=200,
-                body=dict(
-                    session_id=event["session_id"],
-                    machine_id=event["machine_id"],
-                    finished=False,
-                ),
-            )
-        )
-
-
-def handle_new(run_controller, handler, args):
+def handler(event, context):
     """Handle the AWS lambda event for a new session"""
-    executable = c9.compile_handler(handler)
-    executor = LambdaExecutor(handler_name)
-    controller = run_controller(
-        executor,
-        executable,
-        args,
-        timeout=int(os.environ["C9_TIMEOUT"]) + 2,  # hackhackhack
-        do_probe=True,
-        # Other args...
-    )
-    if controller.finished:
-        return controller.result
-    else:
-        return json.dumps(
-            dict(
-                statusCode=200,
-                body=dict(
-                    session_id=event["session_id"],
-                    machine_id=event["machine_id"],
-                    finished=False,
-                ),
-            )
+    session_id = event["session_id"]
+    vmid = event["vmid"]
+
+    session = db.Session.get(session_id)
+    lock = db.SessionLocker(session)
+    controller = ddb_controller.DataController(session, lock)
+    invoker = Invoker(controller)
+
+    machine = C9Machine(vmid, invoker)
+    machine.run()
+
+    return json.dumps(
+        dict(
+            statusCode=200,
+            body=dict(
+                # --
+                session_id=session_id,
+                vmid=vmid,
+                finished=controller.finished,
+                result=controller.result,
+            ),
         )
+    )

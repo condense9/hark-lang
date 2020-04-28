@@ -12,9 +12,8 @@ from ..machine.probe import Probe
 
 
 class Invoker:
-    def __init__(self, data_controller, evaluator_cls):
+    def __init__(self, data_controller):
         self.data_controller = data_controller
-        self.evaluator_cls = evaluator_cls
         self.exception = None
 
     def invoke(self, vmid, run_async=True):
@@ -33,7 +32,7 @@ def resume_handler(event):
     session = db.Session.get(session_id)
     lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session, lock)
-    invoker = Invoker(controller, ddb_controller.Evaluator)
+    invoker = Invoker(controller)
 
     machine = C9Machine(vmid, invoker)
     machine.run()

@@ -88,7 +88,7 @@ class C9Machine:
         self.state = self.data_controller.get_state(self.vmid)
         self.probe = self.data_controller.get_probe(self.vmid)
         self.exe = self.data_controller.executable
-        self.evaluator = invoker.evaluator_cls(self)
+        self.evaluator = self.data_controller.evaluator_cls(self)
         self._foreign = {
             name: import_python_function(fn, mod)
             for name, (fn, mod) in self.exe.foreign.items()
