@@ -1,0 +1,100 @@
+# https://github.com/serverless/examples/tree/master/aws-python-rest-api-with-pynamodb
+
+service: test
+
+frameworkVersion: ">=1.1.0 <2.0.0"
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: eu-west-2
+  environment:
+    RESOURCE_PREFIX: ${self:service}-${opt:stage, self:provider.stage}
+    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}-c9-sessions
+
+  iamRoleStatements:
+
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:DescribeTable
+      Resource:
+        Fn::GetAtt:
+          - DataTable
+          - Arn
+
+    - Effect: Allow
+      Action:
+        - dynamodb:ListTables
+      Resource: "*"
+
+
+
+functions:
+  set_exe:
+    handler: c9.executors.awslambda.set_exe
+    environment:
+      DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
+      DYNAMODB_REGION: "eu-west-2"
+      USE_LIVE_AWS: "foo"
+    events:
+      - http:
+          path: set_exe
+          method: post
+          cors: true
+
+  new:
+    handler: c9/executors/awslambda.new
+    environment:
+      DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
+      DYNAMODB_REGION: "eu-west-2"
+      USE_LIVE_AWS: "foo"
+    events:
+      - http:
+          path: new
+          method: post
+          cors: true
+
+  resume:
+    handler: c9/executors/awslambda.resume
+    environment:
+      DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
+      DYNAMODB_REGION: "eu-west-2"
+      USE_LIVE_AWS: "foo"
+    events:
+      - http:
+          path: resume
+          method: post
+          cors: true
+
+
+resources:
+  Resources:
+
+    # MountainsTest:
+    #   Type: "AWS::SQS::Queue"
+    #   Properties:
+    #     QueueName: "MountainsTest"
+
+    DataTable:
+      Type: 'AWS::DynamoDB::Table'
+      ## Optional - uncomment this:
+      # DeletionPolicy: Retain
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+        AttributeDefinitions:
+          - AttributeName: session_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: session_id
+            KeyType: HASH
+        ## Optional - uncomment this:
+        # ProvisionedThroughput:
+        #   ReadCapacityUnits: 1
+        #   WriteCapacityUnits: 1
+        BillingMode: PAY_PER_REQUEST
