@@ -108,3 +108,10 @@ def set_exe(event, context):
     toplevel = c9parser.evaluate_toplevel(content)
     exe = c9parser.make_exe(toplevel)
     db.set_base_exe(exe)
+    return dict(
+        statusCode=200,
+        body=dict(
+            # --
+            message="Base Executable set successfully"
+        ),
+    )
