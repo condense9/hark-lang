@@ -1,3 +1,4 @@
+"""Run with multiple processes - sort of emulates AWS Lambda"""
 import multiprocessing
 import time
 import traceback
@@ -14,6 +15,7 @@ class Invoker:
     def __init__(self, data_controller, evaluator_cls):
         self.data_controller = data_controller
         self.evaluator_cls = evaluator_cls
+        self.exception = None
 
     def invoke(self, vmid, run_async=True):
         event = dict(
@@ -29,9 +31,10 @@ def resume_handler(event):
     session_id = event["session_id"]
     vmid = event["vmid"]
     session = db.Session.get(session_id)
-    controller = ddb_controller.DataController(session)
-    evaluator = ddb_controller.Evaluator
-    invoker = Invoker(controller, evaluator)
+    lock = db.SessionLocker(session)
+    controller = ddb_controller.DataController(session, lock)
+    invoker = Invoker(controller, ddb_controller.Evaluator)
+
     machine = C9Machine(vmid, invoker)
     machine.run()
     # TODO return something

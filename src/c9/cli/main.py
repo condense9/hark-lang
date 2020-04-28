@@ -21,14 +21,14 @@ Options:
   -f FUNCTION, --fn=FUNCTION  Function to run/ast [default: main]
   -o OUTPUT, --output=OUTPUT  Destination file for ast
 
-  --storage=MODE    Storage mode (memory|dynamodb) [default: memory]
-  --emulate-lamdba  Use multiple processes to emulate AWS Lambda execution
+  --storage=MODE  Storage mode (memory|dynamodb) [default: memory]
+  --exec=EXEC     Execution mode (processes|threads) [default: threads]
 
 Init Arguments:
   <DIR>  Directory to initialise [default: .]
 
 Run Arguments:
-  FILE      C9 file to read
+  FILE    C9 file to read
   <ARGS>  Arguments to pass to the executable [default: None].
 """
 
@@ -55,13 +55,13 @@ def _run(args):
     sys.path.append(".")
 
     if args["--storage"] == "memory":
-        if args["--emulate-lamdba"]:
-            raise ValueError("Can't emulate lambda with in-memory storage")
+        if args["--exec"] == "processes":
+            raise ValueError("Can't use processes with in-memory storage")
         c9.run.run_local(filename, fn, fn_args)
 
     elif args["--storage"] == "dynamodb":
-        if args["--emulate-lamdba"]:
-            c9.run.run_ddb_lambda_sim(filename, fn, fn_args)
+        if args["--exec"] == "processes":
+            c9.run.run_ddb_processes(filename, fn, fn_args)
         else:
             c9.run.run_ddb_local(filename, fn, fn_args)
 

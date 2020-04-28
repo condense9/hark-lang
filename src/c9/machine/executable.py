@@ -9,6 +9,7 @@ functions, inspect data, etc).
 from dataclasses import dataclass
 
 from .instruction import Instruction
+from . import instructionset
 
 
 @dataclass
@@ -36,5 +37,5 @@ class Executable:
 
     @classmethod
     def deserialise(cls, obj):
-        code = [Instruction.deserialise(i) for i in obj["code"]]
-        return cls(locations=obj["locations"], foreign=smap["foreign"], code=code)
+        code = [Instruction.deserialise(i, instructionset) for i in obj["code"]]
+        return cls(locations=obj["locations"], foreign=obj["foreign"], code=code)
