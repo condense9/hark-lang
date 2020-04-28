@@ -51,24 +51,32 @@ def _resolve_future(controller, vmid, value):
     if future.chain:
         continuations += _resolve_future(controller, future.chain, value)
 
-    LOG.info("Resolving %d to %s. Continuations: %s", vmid, value, continuations)
+    LOG.info("Resolved %d to %s. Continuations: %s", vmid, value, continuations)
     return continuations
 
 
 def finish(controller, vmid, value) -> list:
-    """Finish a machine, and return continuations (other waiting machines)"""
+    """Finish a machine, resolving its future
+
+    Return waiting machines to invoke, and the value to invoke them with
+
+    """
     if not isinstance(value, mt.C9FuturePtr):
         return value, _resolve_future(controller, vmid, value)
 
-    # otherwise, check if the dependent future has resolved
-    next_future = controller.get_future(vmid)
+    # Otherwise, VALUE is another future, and we can only resolve this machine's
+    # future if VALUE has also resolved. If VALUE hasn't resolved, we "chain"
+    # this machine's future to it.
+    next_future = controller.get_future(value)
     if next_future.resolved:
         return (
             next_future.value,
             _resolve_future(controller, vmid, next_future.value),
         )
     else:
+        LOG.info("Chaining %s to %s", vmid, value)
         next_future.chain = vmid
+        return None, []
 
 
 def get_or_wait(controller, vmid, future_ptr, offset):

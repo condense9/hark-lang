@@ -92,7 +92,7 @@ def run_local(filename, function, args):
     controller = local.DataController()
     invoker = c9_thread.Invoker(controller, local.Evaluator)
     interface = Interface(controller, invoker)
-    waiter = partial(wait_for_finish, 0.01, 10)
+    waiter = partial(wait_for_finish, 0.1, 10)
     run_and_wait(interface, waiter, filename, function, args)
 
 

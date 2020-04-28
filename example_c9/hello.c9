@@ -75,13 +75,21 @@
      @(d x)))
 
 
-;; Test Chain logic:
+;;; Test Chain logic:
+
+(defun chain3 (x)
+  ;; -> 4
+  (sleep 0.5)  ; Sleep a little to make sure the futures get chained
+  (+ 1 x))
 
 (defun chain2 (x)
-  x)
+  ;; -> future
+  (async chain3 (+ 1 x)))
 
 (defun chain1 (x)
-  (wait (async chain2 x)))
+  ;; -> future -> future
+  (async chain2 (+ 1 x)))
 
-(defun chain (x)
-  (wait (async chain1 x)))
+(defun chain ()
+  ;; only one wait is required to wait for N futures
+  (wait (chain1 1)))
