@@ -3,7 +3,7 @@
 import logging
 
 from . import types as mt
-from .types import C9Type
+from .types import TlType
 
 LOG = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class Future:
     @classmethod
     def deserialise(cls, data):
         if data.get("value", None):
-            data["value"] = C9Type.deserialise(data["value"])
+            data["value"] = TlType.deserialise(data["value"])
         return cls(**data)
 
     def __repr__(self):
@@ -38,7 +38,7 @@ class Future:
 
 def _resolve_future(controller, vmid, value):
     """Resolve a machine future, and any dependent futures"""
-    assert not isinstance(value, mt.C9FuturePtr)
+    assert not isinstance(value, mt.TlFuturePtr)
     future = controller.get_future(vmid)
 
     future.resolved = True
@@ -61,7 +61,7 @@ def finish(controller, vmid, value) -> list:
     Return waiting machines to invoke, and the value to invoke them with
 
     """
-    if not isinstance(value, mt.C9FuturePtr):
+    if not isinstance(value, mt.TlFuturePtr):
         return value, _resolve_future(controller, vmid, value)
 
     # Otherwise, VALUE is another future, and we can only resolve this machine's
@@ -86,7 +86,7 @@ def get_or_wait(controller, vmid, future_ptr, offset):
       - resolved (bool): whether the future has resolved
       - value: The data value, or None if not resolved
     """
-    if not isinstance(future_ptr, mt.C9FuturePtr):
+    if not isinstance(future_ptr, mt.TlFuturePtr):
         raise TypeError(future_ptr)
 
     if type(vmid) is not int:

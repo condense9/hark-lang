@@ -7,6 +7,6 @@ set -x
 set -e
 
 pip freeze | grep -v "^-e" | xargs pip uninstall -y
-pip uninstall c9
+pip uninstall teal
 
 poetry install

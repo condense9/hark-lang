@@ -6,7 +6,7 @@ import warnings
 
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
-from ..machine import C9Machine
+from ..machine import TlMachine
 from ..machine.probe import Probe
 
 
@@ -33,6 +33,6 @@ def resume_handler(event):
     controller = ddb_controller.DataController(session, lock)
     invoker = Invoker(controller)
 
-    machine = C9Machine(vmid, invoker)
+    machine = TlMachine(vmid, invoker)
     machine.run()
     # TODO return something

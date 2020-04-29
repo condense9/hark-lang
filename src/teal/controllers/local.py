@@ -74,7 +74,7 @@ class DataController:
     def get_future(self, val):
         # TODO - clean up. This should only take one type. There's some wrong
         # abstraction somewhere.
-        if isinstance(val, mt.C9FuturePtr):
+        if isinstance(val, mt.TlFuturePtr):
             return self._machine_future[val.value]
         else:
             assert type(val) is int

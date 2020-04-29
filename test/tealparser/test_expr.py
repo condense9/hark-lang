@@ -1,7 +1,7 @@
 """Test the expression parser"""
 
 import pytest
-from c9.c9parser.evaluate import evaluate_exp
+from teal.tealparser.evaluate import evaluate_exp
 
 EXPR_TESTS = [
     "1",

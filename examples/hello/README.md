@@ -1,6 +1,6 @@
 # Example
 
-Showcase a few things C9 can do. [`./hello.c9`](hello.c9) contains function
+Showcase a few things Teal can do. [`./hello.tl`](hello.tl) contains function
 definitions, and imports Python code from `./src`.
 
 Requirements:
@@ -10,13 +10,13 @@ Requirements:
 Functions can be run locally:
 
 ```
-$ c9 hello.c9
+$ teal hello.tl
 ```
 
 And to call a function (note the double-quotes around the argument):
 
 ```
-$ c9 hello.c9 -f printer '"Hello world!"'
+$ teal hello.tl -f printer '"Hello world!"'
 ```
 
 
@@ -25,20 +25,20 @@ $ c9 hello.c9 -f printer '"Hello world!"'
 Sometimes it can be helpful to visualise your program:
 
 ```
-$ c9 ast hello.c9 -f main -o ast.png
+$ teal ast hello.tl -f main -o ast.png
 $ open ast.png
 ```
 
 Or to list the bytecode:
 
 ```
-$ c9 asm hello.c9
+$ teal asm hello.tl
 ```
 
 
 ## Run with Multiple Processes
 
-The normal `c9 hello.c9` command stores program state in memory, and uses Python
+The normal `teal hello.tl` command stores program state in memory, and uses Python
 threads for concurrency. Pass the `--storage` and `--concurrency` parameters to
 change this.
 
@@ -54,16 +54,16 @@ $ ../../scripts/dynamodb_local.sh
 Then:
 
 ```
-$ export C9_REGION=eu-west-2
+$ export TL_REGION=eu-west-2
 $ export DYNAMODB_ENDPOINT=http://localhost:9000 
-$ export DYNAMODB_TABLE=C9Sessions
-$ c9 hello.c9 --storage dynamodb --concurrency processes
+$ export DYNAMODB_TABLE=TlSessions
+$ teal hello.tl --storage dynamodb --concurrency processes
 ```
 
 And for a good example of concurrency,
 
 ```
-$ c9 hello.c9 --storage dynamodb --concurrency processes --fn concurrent 5
+$ teal hello.tl --storage dynamodb --concurrency processes --fn concurrent 5
 ```
 
 
@@ -84,7 +84,7 @@ $ ../../scripts/make_layer.sh
 ```
 
 This will create `dist.zip` and `layersrc.zip` in the current directory, which
-contains the "interpreter" code and the Python code imported from `hello.c9`.
+contains the "interpreter" code and the Python code imported from `hello.tl`.
 
 Deploy the infrastructure:
 
@@ -100,10 +100,14 @@ This will create three Lambda functions, and a DynamoDB database. The functions 
 Upload the program by POSTing to `/set_exe`:
 
 ```
-$ ../../scripts/upload.sh hello.c9
+$ ../../scripts/upload.sh hello.tl
 ```
 
-Now definitions in `hello.c9` are callable, by POSTing to `new`.
+Now definitions in `hello.tl` are callable, by POSTing to `new`.
+
+Note that the source code layer can be updated independently - you only have to
+deploy the Teal infrastructure (`dist.zip`) once.
+
 
 ### Invoke
 
@@ -128,5 +132,5 @@ Example (pseudo) JSON file:
 ```
 
 The last three options configure whether the *Lambda function* returns
-immediately, or waits until the execution of the C9 function finishes.
+immediately, or waits until the execution of the Teal function finishes.
 

@@ -1,9 +1,9 @@
-"""Load the C9 parser"""
+"""Load the Teal parser"""
 import os.path
 
 import lark
 
-GRAMMAR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "c9_lisp.lark")
+GRAMMAR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "grammar.lark")
 
 
 def file_parser():

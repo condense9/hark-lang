@@ -2,8 +2,8 @@
 
 import logging
 import itertools
-import c9.machine.instructionset as mi
-import c9.machine.types as mt
+import teal.machine.instructionset as mi
+import teal.machine.types as mt
 from lark import Token
 from .read import ReadSexp, ReadLiterals
 from .load import exp_parser, file_parser
@@ -30,7 +30,7 @@ class Evaluate:
 
     def quote(self, value):
         result = ReadSexp().transform(value)
-        return [mi.PushV(mt.C9Quote(result))]
+        return [mi.PushV(mt.TlQuote(result))]
 
     def atom(self, value):
         return Evaluate(value).code
@@ -39,18 +39,18 @@ class Evaluate:
         return [mi.PushV(value)]
 
     def symbol(self, value):
-        return [mi.PushB(mt.C9Symbol(str(value)))]
+        return [mi.PushB(mt.TlSymbol(str(value)))]
 
     def list_(self, function, *args):
         # a normal call
         arg_code = flatten(Evaluate(arg).code for arg in args)
-        return arg_code + Evaluate(function).code + [mi.Call(mt.C9Int(len(args)))]
+        return arg_code + Evaluate(function).code + [mi.Call(mt.TlInt(len(args)))]
 
     def async_(self, function, *args):
         # an async call
         # FIXME - not sure what happens if this is nested.
         arg_code = flatten(Evaluate(arg).code for arg in args)
-        return arg_code + Evaluate(function).code + [mi.ACall(mt.C9Int(len(args)))]
+        return arg_code + Evaluate(function).code + [mi.ACall(mt.TlInt(len(args)))]
 
     def if_(self, cond, then, els):
         cond_code = Evaluate(cond).code
@@ -59,10 +59,10 @@ class Evaluate:
         return [
             # --
             *cond_code,
-            mi.PushV(mt.C9True()),
-            mi.JumpIE(mt.C9Int(len(else_code) + 1)),  # to then_code
+            mi.PushV(mt.TlTrue()),
+            mi.JumpIE(mt.TlInt(len(else_code) + 1)),  # to then_code
             *else_code,
-            mi.Jump(mt.C9Int(len(then_code))),  # to Return
+            mi.Jump(mt.TlInt(len(then_code))),  # to Return
             *then_code,
         ]
 
@@ -77,7 +77,7 @@ class Evaluate:
         for b in bindings.children:
             name, value = b.children[:]
             assert isinstance(name, Token)
-            code += Evaluate(value).code + [mi.Bind(mt.C9Symbol(str(name)))]
+            code += Evaluate(value).code + [mi.Bind(mt.TlSymbol(str(name)))]
         code += Evaluate(body).code
         return code
 
@@ -100,7 +100,7 @@ class EvaluateToplevel:
         assert isinstance(name, Token)
         # NOTE - arg stack is in reverse order, so the bindings are reversed
         bindings_code = [
-            mi.Bind(mt.C9Symbol(str(b))) for b in reversed(bindings.children)
+            mi.Bind(mt.TlSymbol(str(b))) for b in reversed(bindings.children)
         ]
         self.defs[str(name)] = bindings_code + Evaluate(body).code + [mi.Return()]
 

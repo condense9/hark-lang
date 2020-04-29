@@ -60,7 +60,7 @@ from typing import List, Tuple
 
 import boto3
 
-from ..machine import C9Machine, Probe
+from ..machine import TlMachine, Probe
 from ..machine import future as fut
 from ..machine import instructionset as mi
 from ..machine import types as mt
@@ -142,7 +142,7 @@ class DataController:
 
     def get_future(self, val):
         # TODO - clean up (see local.py)
-        if isinstance(val, mt.C9FuturePtr):
+        if isinstance(val, mt.TlFuturePtr):
             ptr = val.value
         else:
             assert type(val) is int

@@ -1,4 +1,4 @@
-"""The C9 virtual machine
+"""The Teal virtual machine
 
 To implement closures, just note - a closure is just an unnamed function with
 some bindings. Those bindings may be explicit, or not, but are taken from the
@@ -50,8 +50,8 @@ def import_python_function(fnname, modname):
     return fn
 
 
-class C9Machine:
-    """Virtual Machine to execute C9 bytecode.
+class TlMachine:
+    """Virtual Machine to execute Teal bytecode.
 
     The machine operates in the context of a Controller. There may be multiple
     machines connected to the same controller. All machines share the same
@@ -146,18 +146,18 @@ class C9Machine:
         #
         # local value -> functions -> foreigns -> builtins
         sym = i.operands[0]
-        if not isinstance(sym, mt.C9Symbol):
+        if not isinstance(sym, mt.TlSymbol):
             raise ValueError(sym, type(sym))
 
         ptr = str(sym)
         if ptr in self.state.bound_names:
             val = self.state.get_bind(ptr)
         elif ptr in self.exe.locations:
-            val = mt.C9Function(ptr)
+            val = mt.TlFunction(ptr)
         elif ptr in self._foreign:
-            val = mt.C9Foreign(ptr)
-        elif ptr in C9Machine.builtins:
-            val = mt.C9Instruction(ptr)
+            val = mt.TlForeign(ptr)
+        elif ptr in TlMachine.builtins:
+            val = mt.TlInstruction(ptr)
         else:
             raise Exception(f"Nothing bound to {ptr}")
 
@@ -207,10 +207,10 @@ class C9Machine:
         fn = self.state.ds_pop()
         self.probe.on_enter(self, fn)
 
-        if isinstance(fn, mt.C9Function):
+        if isinstance(fn, mt.TlFunction):
             self.state.es_enter(self.exe.locations[fn])
 
-        elif isinstance(fn, mt.C9Foreign):
+        elif isinstance(fn, mt.TlForeign):
             foreign_f = self._foreign[fn]
             args = tuple(reversed([self.state.ds_pop() for _ in range(num_args)]))
             self.probe.log(f"--> {foreign_f} {args}")
@@ -219,12 +219,12 @@ class C9Machine:
 
             py_args = map(mt.to_py_type, args)
             py_result = foreign_f(*py_args)
-            result = mt.to_c9_type(py_result)
+            result = mt.to_teal_type(py_result)
 
             self.state.ds_push(result)
 
-        elif isinstance(fn, mt.C9Instruction):
-            instr = C9Machine.builtins[fn](num_args)
+        elif isinstance(fn, mt.TlInstruction):
+            instr = TlMachine.builtins[fn](num_args)
             self.evali(instr)
 
         else:
@@ -240,7 +240,7 @@ class C9Machine:
 
         machine = self.data_controller.new_machine(args, fn_name)
         self.invoker.invoke(machine)
-        future = mt.C9FuturePtr(machine)
+        future = mt.TlFuturePtr(machine)
 
         self.probe.log(f"Fork {self} => {future}")
         self.state.ds_push(future)
@@ -250,7 +250,7 @@ class C9Machine:
         offset = 0  # TODO cleanup - no more offset!
         val = self.state.ds_peek(offset)
 
-        if isinstance(val, mt.C9FuturePtr):
+        if isinstance(val, mt.TlFuturePtr):
             resolved, result = self.data_controller.get_or_wait(self.vmid, val, offset)
             if resolved:
                 LOG.info(f"{self.vmid} Finished waiting for {val}, got {result}")
@@ -260,7 +260,7 @@ class C9Machine:
                 self.state.stopped = True
 
         elif isinstance(val, list) and any(
-            isinstance(elt, mt.C9FuturePtr) for elt in traverse(val)
+            isinstance(elt, mt.TlFuturePtr) for elt in traverse(val)
         ):
             # The programmer is responsible for waiting on all elements
             # of lists.
@@ -289,7 +289,7 @@ class C9Machine:
     def _(self, i: List):
         num_args = i.operands[0]
         elts = [self.state.ds_pop() for _ in range(num_args)]
-        self.state.ds_push(mt.C9List(reversed(elts)))
+        self.state.ds_push(mt.TlList(reversed(elts)))
 
     @evali.register
     def _(self, i: Conc):
@@ -297,15 +297,15 @@ class C9Machine:
         a = self.state.ds_pop()
 
         # Null is interpreted as the empty list for b
-        b = mt.C9List([]) if isinstance(b, mt.C9Null) else b
+        b = mt.TlList([]) if isinstance(b, mt.TlNull) else b
 
-        if not isinstance(b, mt.C9List):
+        if not isinstance(b, mt.TlList):
             raise Exception(f"b ({b}, {type(b)}) is not a list")
 
-        if isinstance(a, mt.C9List):
-            self.state.ds_push(mt.C9List(a + b))
+        if isinstance(a, mt.TlList):
+            self.state.ds_push(mt.TlList(a + b))
         else:
-            self.state.ds_push(mt.C9List([a] + b))
+            self.state.ds_push(mt.TlList([a] + b))
 
     @evali.register
     def _(self, i: First):
@@ -342,17 +342,17 @@ class C9Machine:
 
 
 def make_bool(val):
-    """Make a C9 bool-ish from val"""
+    """Make a Teal bool-ish from val"""
     # Do we need two bool types (true/false)? Is Null/nil enough?
-    return mt.C9True() if val is True else mt.C9Null()
+    return mt.TlTrue() if val is True else mt.TlNull()
 
 
 def new_number_type(a, b):
     """The number type to use on operations of two numbers"""
-    if isinstance(a, mt.C9Float) or isinstance(b, mt.C9Float):
-        return mt.C9Float
+    if isinstance(a, mt.TlFloat) or isinstance(b, mt.TlFloat):
+        return mt.TlFloat
     else:
-        return mt.C9Int
+        return mt.TlInt
 
 
 ## Notes dumping ground (here madness lies)...

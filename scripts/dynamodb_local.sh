@@ -7,7 +7,7 @@ set -e
 
 
 PORT=9000
-TABLE=C9Sessions
+TABLE=TlSessions
 
 
 docker run -p ${PORT}:8000 amazon/dynamodb-local &

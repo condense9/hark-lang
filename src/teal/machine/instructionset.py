@@ -136,7 +136,7 @@ class PushV(I):
     Useful, for example, for function-local constants.
     """
 
-    op_types = [mt.C9Type]
+    op_types = [mt.TlType]
 
 
 class Bind(I):
@@ -148,13 +148,13 @@ class Bind(I):
 
     """
 
-    op_types = [mt.C9Symbol]
+    op_types = [mt.TlSymbol]
 
 
 class PushB(I):
     """Push a bound value onto the stack"""
 
-    op_types = [mt.C9Symbol]
+    op_types = [mt.TlSymbol]
 
 
 class Pop(I):

@@ -1,10 +1,10 @@
-"""C9 Compiler.
+"""Teal Compiler.
 
 Usage:
-  c9 [options] ast <file> [--output=OUTPUT]
-  c9 [options] asm <file>
-  c9 [options] deploy <file> <url>
-  c9 [options] <file> [<fn_args>...]
+  teal [options] ast <file> [--output=OUTPUT]
+  teal [options] asm <file>
+  teal [options] deploy <file> <url>
+  teal [options] <file> [<fn_args>...]
 
 Commands:
   ast   Create a PNG representation of the Abstract Syntax Tree of a function
@@ -23,7 +23,7 @@ Options:
   -c MODE, --concurrency=MODE  (processes|threads) [default: threads]
 
 Arguments:
-  FILE     C9 file to read
+  FILE     Teal file to read
   FN_ARGS  Arguments to pass to the executable [default: None].
   URL      Base URL to deploy to
 """
@@ -39,7 +39,7 @@ import logging
 
 from docopt import docopt
 from .. import run
-from .. import c9parser
+from .. import tealparser
 
 from .. import __version__
 
@@ -72,12 +72,12 @@ def _ast(args):
         dest_png = args["--output"]
     else:
         dest_png = f"{os.path.splitext(filename)[0]}_{fn}.png"
-    c9parser.make_ast(filename, fn, dest_png)
+    tealparser.make_ast(filename, fn, dest_png)
 
 
 def _asm(args):
-    toplevel = c9parser.load_file(args["<file>"])
-    exe = c9parser.make_exe(toplevel)
+    toplevel = tealparser.load_file(args["<file>"])
+    exe = tealparser.make_exe(toplevel)
     print(exe.listing())
 
 

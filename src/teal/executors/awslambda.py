@@ -7,16 +7,16 @@ from os.path import join
 import boto3
 import botocore
 
-from .. import c9parser
+from .. import tealparser
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
-from ..machine import C9Machine
+from ..machine import TlMachine
 
 RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", "resume")
 
 
 def get_lambda_client():
-    region = os.environ.get("C9_REGION", None)
+    region = os.environ.get("TL_REGION", None)
 
     return boto3.client(
         "lambda",
@@ -60,7 +60,7 @@ def resume(event, context):
     controller = ddb_controller.DataController(session, lock)
     invoker = Invoker(controller)
 
-    machine = C9Machine(vmid, invoker)
+    machine = TlMachine(vmid, invoker)
     machine.run()
 
     return json.dumps(
@@ -90,9 +90,9 @@ def new(event, context):
     controller = ddb_controller.DataController(session, lock)
     invoker = Invoker(controller)
 
-    args = [c9parser.read_exp(arg) for arg in args]
+    args = [tealparser.read_exp(arg) for arg in args]
     vmid = controller.new_machine(args, function, is_top_level=True)
-    C9Machine(vmid, invoker).run()
+    TlMachine(vmid, invoker).run()
 
     if wait_for_finish:
         start_time = time.time()
@@ -119,8 +119,8 @@ def set_exe(event, context):
     """Set the executable for the base session"""
     db.init_base_session()
     content = event["content"]
-    toplevel = c9parser.evaluate_toplevel(content)
-    exe = c9parser.make_exe(toplevel)
+    toplevel = tealparser.evaluate_toplevel(content)
+    exe = tealparser.make_exe(toplevel)
     db.set_base_exe(exe)
     return dict(
         statusCode=200,

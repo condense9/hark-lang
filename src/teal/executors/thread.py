@@ -4,7 +4,7 @@ import traceback
 import time
 
 from ..machine.probe import Probe
-from ..machine import C9Machine
+from ..machine import TlMachine
 
 
 class Invoker:
@@ -17,7 +17,7 @@ class Invoker:
         self.exception = args
 
     def invoke(self, vmid, run_async=True):
-        m = C9Machine(vmid, self)
+        m = TlMachine(vmid, self)
         if run_async:
             thread = threading.Thread(target=m.run)
             thread.start()

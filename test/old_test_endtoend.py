@@ -10,16 +10,16 @@ from os.path import dirname, join
 import pynamodb
 import pytest
 
-import c9.lambda_utils as lambda_utils
-import c9.machine as m
-import c9.runtimes.ddb_lambda
-import c9.runtimes.ddb_threaded
-import c9.runtimes.local
-from c9.compiler import compile_all, link
-from c9.controllers import ddb
-from c9.controllers.ddb_model import Session
-from c9.executors import awslambda
-from c9.machine import c9e
+import teal.lambda_utils as lambda_utils
+import teal.machine as m
+import teal.runtimes.ddb_lambda
+import teal.runtimes.ddb_threaded
+import teal.runtimes.local
+from teal.compiler import compile_all, link
+from teal.controllers import ddb
+from teal.controllers.ddb_model import Session
+from teal.executors import awslambda
+from teal.machine import teale
 
 from .handlers.src import all_calls, call_foreign, conses, mapping, series_concurrent
 from .simple_functions import *
@@ -52,7 +52,7 @@ def setup_module():
 def run_ddb_lambda_test(executable, input_value, do_probe):
     """Simple wrapper around ddb_lambda.run specifically for the test lambda"""
     assert lambda_utils.lambda_exists("runtest")
-    return c9.runtimes.ddb_lambda.run(
+    return teal.runtimes.ddb_lambda.run(
         "runtest",
         executable,
         input_value,
@@ -66,8 +66,8 @@ VERBOSE = True
 
 RUNTIMES = {
     # --
-    "local": c9.runtimes.local.run,
-    "ddb_threaded": c9.runtimes.ddb_threaded.run,
+    "local": teal.runtimes.local.run,
+    "ddb_threaded": teal.runtimes.ddb_threaded.run,
     "ddb_lambda": run_ddb_lambda_test,
 }
 

@@ -1,5 +1,6 @@
-// https ://github.com/antlr/grammars-v4/blob/master/clojure/Clojure.g4
-// https ://www.braveclojure.com/core-functions-in-depth/
+// -*- mode : ebnf -*-
+// https    ://github.com/antlr/grammars-v4/blob/master/clojure/Clojure.g4
+// https    ://www.braveclojure.com/core-functions-in-depth/
 
 start : file
 

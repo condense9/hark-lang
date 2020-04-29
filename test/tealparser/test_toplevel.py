@@ -1,7 +1,7 @@
 """Test the file parser"""
 
 import pytest
-from c9.c9parser.evaluate import evaluate_toplevel
+from teal.tealparser.evaluate import evaluate_toplevel
 
 
 FILE_TESTS = [

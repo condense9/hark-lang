@@ -1,11 +1,16 @@
-## The C9 Language
+## The Teal Programming Language
 
-**C9 is alpha quality - unstable, but usable**
+Teal is a programming language for microservice orchestration. With it, you can 
+- get "bare-metal" concurrency on AWS Lambda
+- test data pipelines locally
+- worry less about building infrastructure
+
+**Teal is alpha quality - unstable, but usable**
 
 Clone this repository, and then see [the hello example](examples/hello) to get
 started.
 
-Do not be afraid, the parentheses will not harm you.
+*Do not be afraid, the parentheses will not harm you.*
 
 ---
 

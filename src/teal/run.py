@@ -6,14 +6,14 @@ import time
 import traceback
 from functools import partial
 
-from . import c9parser
-from .c9parser.read import read_exp
+from . import tealparser
+from .tealparser.read import read_exp
 
 LOG = logging.getLogger(__name__)
 
 
 class ThreadDied(Exception):
-    """A Thread died (C9 machine thread, not necessarily a Python thread)"""
+    """A Thread died (Teal machine thread, not necessarily a Python thread)"""
 
 
 def wait_for_finish(check_period, timeout, data_controller, invoker):
@@ -48,8 +48,8 @@ def run_and_wait(controller, invoker, waiter, filename, function, args):
         function:   Name of the function to run
         args:       Arguments to pass in to function
     """
-    toplevel = c9parser.load_file(filename)
-    exe = c9parser.make_exe(toplevel)
+    toplevel = tealparser.load_file(filename)
+    exe = tealparser.make_exe(toplevel)
     controller.set_executable(exe)
 
     args = [read_exp(arg) for arg in args]
@@ -77,34 +77,34 @@ def run_and_wait(controller, invoker, waiter, filename, function, args):
 
 
 def run_local(filename, function, args):
-    import c9.controllers.local as local
-    import c9.executors.thread as c9_thread
+    import teal.controllers.local as local
+    import teal.executors.thread as teal_thread
 
     LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
     controller = local.DataController()
-    invoker = c9_thread.Invoker(controller)
+    invoker = teal_thread.Invoker(controller)
     waiter = partial(wait_for_finish, 0.1, 10)
     run_and_wait(controller, invoker, waiter, filename, function, args)
 
 
 def run_ddb_local(filename, function, args):
-    import c9.controllers.ddb as ddb_controller
-    import c9.controllers.ddb_model as db
-    import c9.executors.thread as c9_thread
+    import teal.controllers.ddb as ddb_controller
+    import teal.controllers.ddb_model as db
+    import teal.executors.thread as teal_thread
 
     db.init_base_session()
     session = db.new_session()
     lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session, lock)
-    invoker = c9_thread.Invoker(controller)
+    invoker = teal_thread.Invoker(controller)
     waiter = partial(wait_for_finish, 1, 10)
     run_and_wait(controller, invoker, waiter, filename, function, args)
 
 
 def run_ddb_processes(filename, function, args):
-    import c9.controllers.ddb as ddb_controller
-    import c9.controllers.ddb_model as db
-    import c9.executors.multiprocess as mp
+    import teal.controllers.ddb as ddb_controller
+    import teal.controllers.ddb_model as db
+    import teal.executors.multiprocess as mp
 
     db.init_base_session()
     session = db.new_session()

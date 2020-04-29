@@ -1,7 +1,7 @@
 """Machine state representation"""
 
 from collections import deque
-from .types import C9List, C9Type, C9FuturePtr
+from .types import TlList, TlType, TlFuturePtr
 
 
 class State:
@@ -16,7 +16,7 @@ class State:
         self.stopped = False
 
     def set_bind(self, ptr, val):
-        if not isinstance(val, C9Type):
+        if not isinstance(val, TlType):
             raise TypeError(val)
         self._bindings[ptr] = val
 
@@ -28,7 +28,7 @@ class State:
         return list(self._bindings.keys())
 
     def ds_push(self, val):
-        if not isinstance(val, C9Type):
+        if not isinstance(val, TlType):
             raise TypeError(val)
         self._ds.append(val)
 
@@ -41,7 +41,7 @@ class State:
 
     def ds_set(self, offset, val):
         """Set the value at offset in the stack"""
-        if not isinstance(val, C9Type):
+        if not isinstance(val, TlType):
             raise TypeError(val)
         self._ds[-(offset + 1)] = val
 
@@ -85,14 +85,14 @@ class State:
     @classmethod
     def deserialise(cls, data: dict):
         bindings = [
-            {name: C9Type.deserialise(val) for name, val in frame.items()}
+            {name: TlType.deserialise(val) for name, val in frame.items()}
             for frame in data["all_bindings"]
         ]
         s = cls()
         s.ip = data["ip"]
         s._stopped = data["stopped"]
         s._es = deque(data["es"])
-        s._ds = deque(C9Type.deserialise(obj) for obj in data["ds"])
+        s._ds = deque(TlType.deserialise(obj) for obj in data["ds"])
         s._bs = deque(bindings[:-1])
         s._bindings = bindings[-1]
         return s

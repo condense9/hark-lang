@@ -18,9 +18,9 @@ provider:
   runtime: python3.8
   region: eu-west-2
   environment:
-    C9_REGION: ${self:provider.region}
+    TL_REGION: ${self:provider.region}
     RESOURCE_PREFIX: ${self:service}-${opt:stage, self:provider.stage}-
-    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}-c9-sessions
+    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}-teal-sessions
     USE_LIVE_AWS: "foo"  # setting this to "yes" breaks AWS...?
     RESUME_FN_NAME: ${self:provider.environment.RESOURCE_PREFIX}resume
 
@@ -49,7 +49,7 @@ provider:
 
 functions:
   set_exe:
-    handler: c9.executors.awslambda.set_exe
+    handler: teal.executors.awslambda.set_exe
     layers:
       - { Ref: SrcLambdaLayer }
     events:
@@ -59,7 +59,7 @@ functions:
           cors: true
 
   new:
-    handler: c9.executors.awslambda.new
+    handler: teal.executors.awslambda.new
     layers:
       - { Ref: SrcLambdaLayer }
     events:
@@ -69,7 +69,7 @@ functions:
           cors: true
 
   resume:
-    handler: c9.executors.awslambda.resume
+    handler: teal.executors.awslambda.resume
     layers:
       - { Ref: SrcLambdaLayer }
     events:

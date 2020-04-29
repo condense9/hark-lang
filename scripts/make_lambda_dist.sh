@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Create a lambda deployment package for C9
+# Create a lambda deployment package for Tl
 
 set -e
 set -x
@@ -24,8 +24,8 @@ mkdir libs
 pip install -q --target libs -r requirements.txt
 rm -rf libs/boto*
 
-# Install C9 manually
-cp -r "${DIR}/../src/c9" libs
+# Install Teal manually
+cp -r "${DIR}/../src/teal" libs
 
 cd libs && zip -q -r "../${DIST}" . -x "*__pycache__*"
 

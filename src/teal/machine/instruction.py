@@ -1,6 +1,6 @@
-"""The C9 Machine Instruction class"""
+"""The Teal Machine Instruction class"""
 
-from .types import C9Type
+from .types import TlType
 
 
 class BadOperandsLength(Exception):
@@ -12,7 +12,7 @@ class BadOperandsType(Exception):
 
 
 class Instruction:
-    """A C9 Machine bytecode instruction"""
+    """A Teal Machine bytecode instruction"""
 
     num_ops = None
     op_types = None
@@ -21,11 +21,11 @@ class Instruction:
     def __init__(self, *operands):
         self.name = type(self).__name__
 
-        # All operands *must* be C9Type so that the instruction can be
+        # All operands *must* be TlType so that the instruction can be
         # serialised
         for o in operands:
-            if not isinstance(o, C9Type):
-                raise BadOperandsType(self.name, o, C9Type)
+            if not isinstance(o, TlType):
+                raise BadOperandsType(self.name, o, TlType)
 
         if self.num_ops:
             if len(operands) != self.num_ops:
@@ -51,7 +51,7 @@ class Instruction:
         instruction_set: Module of Instruction types
         """
         name = obj[0]
-        operands = [C9Type.deserialise(o) for o in obj[1]]
+        operands = [TlType.deserialise(o) for o in obj[1]]
         return getattr(instruction_set, name)(*operands)
 
     def __repr__(self):

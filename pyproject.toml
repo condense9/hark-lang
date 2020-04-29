@@ -1,15 +1,15 @@
 [tool.poetry]
-name = "c9"
+name = "teal"
 version = "0.1.0"
 description = ""
 authors = ["Ric da Silva <ric@condense9.com>"]
 homepage = "https://www.condense9.com"
 packages = [
-    { include = "c9", from = "src" },
+    { include = "teal", from = "src" },
 ]
 
 [tool.poetry.scripts]
-c9 = 'c9.cli.main:main'
+teal = 'teal.cli.main:main'
 
 [tool.poetry.dependencies]
 python = "^3.8"
