@@ -7,8 +7,10 @@ Teal is a programming language for microservice orchestration. With it, you can
 
 **Teal is alpha quality - unstable, but usable**
 
-Clone this repository, and then see [the hello example](examples/hello) to get
-started.
+Getting started:
+- Clone this repository
+- `poetry install`
+- See [the hello example](examples/hello) to get started
 
 *Do not be afraid, the parentheses will not harm you.*
 

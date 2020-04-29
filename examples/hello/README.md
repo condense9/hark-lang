@@ -6,6 +6,7 @@ definitions, and imports Python code from `./src`.
 Requirements:
 - [jq](https://stedolan.github.io/jq/)
 - [Serverless Framework](https://serverless.com/)
+- [Poetry](https://python-poetry.org/)
 
 Functions can be run locally:
 
