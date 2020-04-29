@@ -5,5 +5,17 @@
 Clone this repository, and then see [the hello example](examples/hello) to get
 started.
 
-PyPI package coming soon.
+Do not be afraid, the parentheses will not harm you.
 
+---
+
+PyPI package coming soon...
+
+
+### Known Limitations and Issues
+
+Only one program file is supported (module/package system coming soon).
+
+There's no error handling. Coming soon!
+
+The tests are pretty much all broken.
