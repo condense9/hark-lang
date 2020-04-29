@@ -1,3 +1,0 @@
-
-(defun hello ()
-  "hello world")

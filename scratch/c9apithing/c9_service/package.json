@@ -1,6 +1,0 @@
-{
-  "dependencies": {},
-  "devDependencies": {
-    "serverless-localstack": "^0.4.24"
-  }
-}

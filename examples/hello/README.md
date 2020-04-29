@@ -1,12 +1,11 @@
 # Example
 
-Showcase a few things C9 can do.
+Showcase a few things C9 can do. [`./hello.c9`](hello.c9) contains function
+definitions, and imports Python code from `./src`.
 
 Requirements:
 - [jq](https://stedolan.github.io/jq/)
 - [Serverless Framework](https://serverless.com/)
-
-`hello.c9` contains function definitions, and imports Python code from `src`.
 
 Functions can be run locally:
 

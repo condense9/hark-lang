@@ -1,4 +1,0 @@
-executor:
-  type: lambda
-  params:
-    - name: "foo"
