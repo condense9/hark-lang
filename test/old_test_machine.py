@@ -4,8 +4,6 @@ import pytest
 
 from c9.machine import *
 
-from .simple_functions import *
-
 pytestmark = pytest.mark.skip(
     "Machine API changing rapidly -- use test_end2end.py for now."
 )

@@ -49,9 +49,7 @@ def test_quote():
 
 
 def test_future():
-    obj = C9Future("foo")
-    obj.resolved = True
-    obj.value = C9List([C9Int(1), C9Int(2)])
+    obj = C9FuturePtr(2)
     deser = to_json_and_back(obj)
     assert deser == obj
 

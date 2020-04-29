@@ -437,6 +437,17 @@ six = ">=0.11.0"
 yapf = ">=0.26.0"
 
 [[package]]
+category = "main"
+description = "Python interface to Graphviz's Dot"
+name = "pydot"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+version = "1.4.1"
+
+[package.dependencies]
+pyparsing = ">=2.1.4"
+
+[[package]]
 category = "dev"
 description = "Pygments is a syntax highlighting package written in Python."
 name = "pygments"
@@ -461,7 +472,7 @@ six = "*"
 signals = ["blinker (>=1.3,<2.0)"]
 
 [[package]]
-category = "dev"
+category = "main"
 description = "Python parsing module"
 name = "pyparsing"
 optional = false
@@ -752,7 +763,7 @@ python-versions = "*"
 version = "0.30.0"
 
 [metadata]
-content-hash = "1b4ed0847c6b35e16b94b4c26e02a10d37f5e5a35f81dce8e647ae4f44b21d5b"
+content-hash = "a7a4ba744a42d742c1dc44625eea6d4ddcf292bd981b1ee5c1be8f43cf29b167"
 python-versions = "^3.8"
 
 [metadata.files]
@@ -935,6 +946,10 @@ pyaes = [
 ]
 pydoc-markdown = [
     {file = "pydoc-markdown-2.1.3.tar.gz", hash = "sha256:6f4da1a1f3eaa2ce485833b1c5d250727d0225217718d2b6f640845032c7ff0a"},
+]
+pydot = [
+    {file = "pydot-1.4.1-py2.py3-none-any.whl", hash = "sha256:67be714300c78fda5fd52f79ec994039e3f76f074948c67b5ff539b433ad354f"},
+    {file = "pydot-1.4.1.tar.gz", hash = "sha256:d49c9d4dd1913beec2a997f831543c8cbd53e535b1a739e921642fe416235f01"},
 ]
 pygments = [
     {file = "Pygments-2.6.1-py3-none-any.whl", hash = "sha256:ff7a40b4860b727ab48fad6360eb351cc1b33cbf9b15a0f689ca5353e9463324"},

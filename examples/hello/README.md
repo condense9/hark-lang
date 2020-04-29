@@ -20,9 +20,61 @@ $ c9 hello.c9 -f printer '"Hello world!"'
 ```
 
 
+## ASTs and decompilation
+
+Sometimes it can be helpful to visualise your program:
+
+```
+$ c9 ast hello.c9 -f main -o ast.png
+$ open ast.png
+```
+
+Or to list the bytecode:
+
+```
+$ c9 asm hello.c9
+```
+
+
+## Run with Multiple Processes
+
+The normal `c9 hello.c9` command stores program state in memory, and uses Python
+threads for concurrency. Pass the `--storage` and `--concurrency` parameters to
+change this.
+
+Currently the only storage backend that supports concurrency is DynamoDB. Proper
+concurrency is achieved using multiple Python processes (instead of threads).
+
+Start a local dynamodb server in another terminal first:
+
+```
+$ ../../scripts/dynamodb_local.sh
+```
+
+Then:
+
+```
+$ export C9_REGION=eu-west-2
+$ export DYNAMODB_ENDPOINT=http://localhost:9000 
+$ export DYNAMODB_TABLE=C9Sessions
+$ c9 hello.c9 --storage dynamodb --concurrency processes
+```
+
+And for a good example of concurrency,
+
+```
+$ c9 hello.c9 --storage dynamodb --concurrency processes --fn concurrent 5
+```
+
+
 ## Deployment to AWS
 
-This example uses the Serverless Framework to deploy the infrastructure.
+Finally, AWS Lambda can be used as the concurrency backend, alongside DynamoDB
+for storage.
+
+The infrastructure can be deployed any way you like, and there are bash scripts
+in `../../scripts` to aid with packaging. This example uses the Serverless
+Framework to deploy it.
 
 First, create the AWS Lambda distribution package and the source code layer:
 
@@ -40,24 +92,26 @@ Deploy the infrastructure:
 $ sls deploy
 ```
 
-Finally, upload the program:
+This will create three Lambda functions, and a DynamoDB database. The functions are:
+- `set_exe` - set the executable program (i.e. the definitions of functions)
+- `new` - call a function with some arguments (start a new evaluation session)
+- `resume` - resume an evaluation session (used internally)
+
+Upload the program by POSTing to `/set_exe`:
 
 ```
 $ ../../scripts/upload.sh hello.c9
 ```
 
-Now definitions in `hello.c9` are callable.
+Now definitions in `hello.c9` are callable, by POSTing to `new`.
 
+### Invoke
 
-## Calling deployed functions
-
-Invoke a function called `new`, and pass a JSON file containing the arguments.
+Call the `new` Lambda function, and pass the configuration as in the payload.
 
 ```
-$ sls invoke -f new -p test_main.json | jq -r | jq .
+$ sls invoke -f new -p test_printer.json | jq -r | jq .
 ```
-
-(this is wrapped in `./test.sh`)
 
 Example (pseudo) JSON file:
 

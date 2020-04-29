@@ -18,6 +18,7 @@ quit() {
 trap 'quit' SIGINT
 
 
+export AWS_DEFAULT_REGION=eu-west-2
 aws dynamodb create-table --table-name ${TABLE} \
     --attribute-definitions AttributeName=session_id,AttributeType=S \
     --key-schema AttributeName=session_id,KeyType=HASH \
