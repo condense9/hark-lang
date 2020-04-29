@@ -18,14 +18,7 @@ def lambda_zip_path(function_name):
 
 
 def get_lambda_client(region_name="eu-west-2"):
-    if "LOCALSTACK_HOSTNAME" in os.environ:
-        endpoint_url = "http://" + os.environ["LOCALSTACK_HOSTNAME"] + ":4574"
-    elif "C9_TARGET_AWS" in os.environ:
-        raise NotImplementedError
-    else:
-        # default: localstack
-        endpoint_url = "http://localhost:4574"
-
+    endpoint_url = os.environ.get("LAMBDA_ENDPOINT", None)
     return boto3.client(
         "lambda",
         aws_access_key_id="",

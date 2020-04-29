@@ -72,7 +72,7 @@ class Session(Model):
     class Meta:
         table_name = os.environ["DYNAMODB_TABLE"]
         host = os.environ.get("DYNAMODB_ENDPOINT", None)
-        region = os.environ.get("DYNAMODB_REGION", None)
+        region = os.environ.get("C9_REGION", None)
 
     # Very simple, SINGLE-ENTRY, global lock for the whole session. Brutal -
     # could be optimised later

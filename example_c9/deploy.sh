@@ -6,6 +6,7 @@ set -x
 STAGE=${STAGE:-dev}
 
 cp -r src aws
+cp -r ../src/c9 aws
 cp serverless.tpl.yml aws/serverless.yml
 
 pushd aws

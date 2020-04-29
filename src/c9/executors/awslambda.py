@@ -4,13 +4,29 @@ import os
 import time
 from os.path import join
 
+import boto3
+import botocore
+
 from .. import c9parser
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
-from ..lambda_utils import get_lambda_client
 from ..machine import C9Machine
 
 RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", "resume")
+
+
+def get_lambda_client():
+    region = os.environ.get("C9_REGION", None)
+    # endpoint_url = os.environ.get("LAMBDA_ENDPOINT", None)
+
+    return boto3.client(
+        "lambda",
+        # aws_access_key_id="",
+        # aws_secret_access_key="",
+        region_name=region,
+        # endpoint_url=endpoint_url,
+        config=botocore.config.Config(retries={"max_attempts": 0}),
+    )
 
 
 class Invoker:
@@ -23,14 +39,14 @@ class Invoker:
         client = get_lambda_client()
         event = dict(
             # --
-            session_id=self.controller.session.session_id,
+            session_id=self.data_controller.session.session_id,
             vmid=vmid,
         )
         res = client.invoke(
             # --
             FunctionName=self.resume_fn_name,
             InvocationType="Event",
-            Payload=json.dumps(payload),
+            Payload=json.dumps(event),
         )
         if res["StatusCode"] != 202 or "FunctionError" in res:
             err = res["Payload"].read()
@@ -78,7 +94,7 @@ def new(event, context):
     controller = ddb_controller.DataController(session, lock)
     invoker = Invoker(controller)
 
-    args = [read_exp(arg) for arg in args]
+    args = [c9parser.read_exp(arg) for arg in args]
     vmid = controller.new_machine(args, function, is_top_level=True)
     C9Machine(vmid, invoker).run()
 
@@ -94,7 +110,7 @@ def new(event, context):
             statusCode=200,
             body=dict(
                 # --
-                session_id=session_id,
+                session_id=session.session_id,
                 vmid=vmid,
                 finished=controller.finished,
                 result=controller.result,

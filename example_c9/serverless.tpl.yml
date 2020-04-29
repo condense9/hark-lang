@@ -9,7 +9,8 @@ provider:
   runtime: python3.8
   region: eu-west-2
   environment:
-    RESOURCE_PREFIX: ${self:service}-${opt:stage, self:provider.stage}
+    REGION: ${self:provider.region}
+    RESOURCE_PREFIX: ${self:service}-${opt:stage, self:provider.stage}-
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}-c9-sessions
 
   iamRoleStatements:
@@ -24,14 +25,14 @@ provider:
         - dynamodb:DeleteItem
         - dynamodb:DescribeTable
       Resource:
-        Fn::GetAtt:
-          - DataTable
-          - Arn
+        Fn::GetAtt: [DataTable, Arn]
 
+    # Allow lambdas to invoke resume
     - Effect: Allow
       Action:
-        - dynamodb:ListTables
-      Resource: "*"
+        - lambda:InvokeFunction
+      Resource:
+        - arn:aws:lambda:${self:provider.region}:*:function:${self:provider.environment.RESOURCE_PREFIX}resume
 
 
 
@@ -40,8 +41,8 @@ functions:
     handler: c9.executors.awslambda.set_exe
     environment:
       DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
-      DYNAMODB_REGION: "eu-west-2"
-      USE_LIVE_AWS: "foo"
+      C9_REGION: ${self:provider.environment.REGION}
+      USE_LIVE_AWS: "foo"  # setting this to "yes" breaks AWS...?
     events:
       - http:
           path: set_exe
@@ -52,8 +53,9 @@ functions:
     handler: c9.executors.awslambda.new
     environment:
       DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
-      DYNAMODB_REGION: "eu-west-2"
+      C9_REGION: ${self:provider.environment.REGION}
       USE_LIVE_AWS: "foo"
+      RESUME_FN_NAME: ${self:provider.environment.RESOURCE_PREFIX}resume
     events:
       - http:
           path: new
@@ -64,8 +66,9 @@ functions:
     handler: c9.executors.awslambda.resume
     environment:
       DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
-      DYNAMODB_REGION: "eu-west-2"
+      C9_REGION: ${self:provider.environment.REGION}
       USE_LIVE_AWS: "foo"
+      RESUME_FN_NAME: ${self:provider.environment.RESOURCE_PREFIX}resume
     events:
       - http:
           path: resume

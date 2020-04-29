@@ -122,12 +122,10 @@ class C9Machine:
 
     def run(self):
         self.probe.on_run(self)
-        try:
-            while not self.stopped:
-                self.step()
-        finally:
-            self.probe.on_stopped(self)
-            self.data_controller.stop(self.vmid, self.state, self.probe)
+        while not self.stopped:
+            self.step()
+        self.probe.on_stopped(self)
+        self.data_controller.stop(self.vmid, self.state, self.probe)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
