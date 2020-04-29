@@ -28,8 +28,8 @@ This example uses the Serverless Framework to deploy the infrastructure.
 First, create the AWS Lambda distribution package and the source code layer:
 
 ```
-$ ../scripts/make_lambda_dist.sh
-$ ../scripts/make_layer.sh
+$ ../../scripts/make_lambda_dist.sh
+$ ../../scripts/make_layer.sh
 ```
 
 This will create `dist.zip` and `layersrc.zip` in the current directory, which
@@ -44,7 +44,7 @@ $ sls deploy
 Finally, upload the program:
 
 ```
-$ ../scripts/upload.sh hello.c9
+$ ../../scripts/upload.sh hello.c9
 ```
 
 Now definitions in `hello.c9` are callable.
@@ -57,6 +57,8 @@ Invoke a function called `new`, and pass a JSON file containing the arguments.
 ```
 $ sls invoke -f new -p test_main.json | jq -r | jq .
 ```
+
+(this is wrapped in `./test.sh`)
 
 Example (pseudo) JSON file:
 
