@@ -120,7 +120,7 @@ $ sls invoke -f new -p test_printer.json | jq -r | jq .
 
 Example (pseudo) JSON file:
 
-```json
+```
 {
   "function": "printer",   // the function to call
   "args": ["\"HI!\""],     // arguments to pass to the function
