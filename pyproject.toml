@@ -12,18 +12,17 @@ packages = [
 c9 = 'c9.cli.main:main'
 
 [tool.poetry.dependencies]
-boto3 = "*"
-botocore = "*"
 python = "^3.8"
 pynamodb = "*"
 docopt = "*"
 graphviz = "^0.13.2"
-requests = "^2.23.0"
 schema = "^0.7.2"
 lark-parser = "^0.8.5"
 pyyaml = "^5.3.1"
 
 [tool.poetry.dev-dependencies]
+boto3 = "*"
+botocore = "*"
 pytest = "^5.2"
 pytest-repeat = "*"
 md-tangle = {version = "*", optional = true}

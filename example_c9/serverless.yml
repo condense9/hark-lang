@@ -1,20 +1,32 @@
-# https://github.com/serverless/examples/tree/master/aws-python-rest-api-with-pynamodb
-
 service: test
 
 frameworkVersion: ">=1.1.0 <2.0.0"
+
+# https://www.serverless.com/framework/docs/providers/aws/guide/packaging/#artifact
+package:
+  artifact: dist.zip
+
+layers:
+  src:
+    package:
+      artifact: srclayer.zip
+    compatibleRuntimes: [ python3.8 ]
+
 
 provider:
   name: aws
   runtime: python3.8
   region: eu-west-2
   environment:
-    REGION: ${self:provider.region}
+    C9_REGION: ${self:provider.region}
     RESOURCE_PREFIX: ${self:service}-${opt:stage, self:provider.stage}-
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}-c9-sessions
+    USE_LIVE_AWS: "foo"  # setting this to "yes" breaks AWS...?
+    RESUME_FN_NAME: ${self:provider.environment.RESOURCE_PREFIX}resume
 
   iamRoleStatements:
 
+    # Allow access to the session database
     - Effect: Allow
       Action:
         - dynamodb:Query
@@ -35,14 +47,11 @@ provider:
         - arn:aws:lambda:${self:provider.region}:*:function:${self:provider.environment.RESOURCE_PREFIX}resume
 
 
-
 functions:
   set_exe:
     handler: c9.executors.awslambda.set_exe
-    environment:
-      DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
-      C9_REGION: ${self:provider.environment.REGION}
-      USE_LIVE_AWS: "foo"  # setting this to "yes" breaks AWS...?
+    layers:
+      - { Ref: SrcLambdaLayer }
     events:
       - http:
           path: set_exe
@@ -51,11 +60,8 @@ functions:
 
   new:
     handler: c9.executors.awslambda.new
-    environment:
-      DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
-      C9_REGION: ${self:provider.environment.REGION}
-      USE_LIVE_AWS: "foo"
-      RESUME_FN_NAME: ${self:provider.environment.RESOURCE_PREFIX}resume
+    layers:
+      - { Ref: SrcLambdaLayer }
     events:
       - http:
           path: new
@@ -64,11 +70,8 @@ functions:
 
   resume:
     handler: c9.executors.awslambda.resume
-    environment:
-      DYNAMODB_TABLE: ${self:provider.environment.DYNAMODB_TABLE}
-      C9_REGION: ${self:provider.environment.REGION}
-      USE_LIVE_AWS: "foo"
-      RESUME_FN_NAME: ${self:provider.environment.RESOURCE_PREFIX}resume
+    layers:
+      - { Ref: SrcLambdaLayer }
     events:
       - http:
           path: resume
@@ -79,10 +82,11 @@ functions:
 resources:
   Resources:
 
-    # MountainsTest:
+    # TODO:
+    # InputQueue:
     #   Type: "AWS::SQS::Queue"
     #   Properties:
-    #     QueueName: "MountainsTest"
+    #     QueueName: "Inputs"
 
     DataTable:
       Type: 'AWS::DynamoDB::Table'

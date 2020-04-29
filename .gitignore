@@ -8,6 +8,8 @@ examples/*/libs
 
 .serverless
 
+*.zip
+
 ## Python template below
 
 # Byte-compiled / optimized / DLL files

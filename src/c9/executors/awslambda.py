@@ -17,14 +17,10 @@ RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", "resume")
 
 def get_lambda_client():
     region = os.environ.get("C9_REGION", None)
-    # endpoint_url = os.environ.get("LAMBDA_ENDPOINT", None)
 
     return boto3.client(
         "lambda",
-        # aws_access_key_id="",
-        # aws_secret_access_key="",
         region_name=region,
-        # endpoint_url=endpoint_url,
         config=botocore.config.Config(retries={"max_attempts": 0}),
     )
 
