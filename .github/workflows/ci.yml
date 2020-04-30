@@ -55,11 +55,11 @@ jobs:
 
     - name: Pytest
       env:
-        - AWS_ACCESS_KEY_ID: ""
-        - AWS_SECRET_ACCESS_KEY: ""
-        - AWS_DEFAULT_REGION: eu-west-2
-        - DYNAMODB_ENDPOINT: http://localhost:9000
-        - PYTHONPATH: src
+        AWS_ACCESS_KEY_ID: ""
+        AWS_SECRET_ACCESS_KEY: ""
+        AWS_DEFAULT_REGION: eu-west-2
+        DYNAMODB_ENDPOINT: http://localhost:9000
+        PYTHONPATH: src
       run: |
         mkdir -p logs
         pytest
