@@ -10,19 +10,20 @@ default: help  ## show this help
 
 
 .PHONY: test
-test:  ## Run unit tests
-	pytest -v
+test:  ## Run all unit tests (including the slow ones!)
+	pytest --runslow
 
-.PHONY: test
+
+.PHONY: testx
 testx:  ## Run unit tests, stopping after first failure
-	pytest -vv -x
+	pytest -vv -x --runslow
 
 
-.PHONY: test-local
-test-local:  ## Run local end-to-end tests
-	pytest -x -v -k [local] test/test_endtoend.py
+.PHONY: testfast
+testfast:  ## Run the fast unit tests
+	pytest
 
 
 .PHONY: stress
-stress:  ## Run local unit tests lots of times
-	pytest -vv --count 20
+stress:  ## Run the "examples" unit tests lots of times
+	pytest -v --count 20 test/test_examples.py
