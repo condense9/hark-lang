@@ -24,5 +24,5 @@ testx:  ## Run fast unit tests, stopping after first failure
 
 
 .PHONY: stress
-stress:  ## Run the "examples" unit tests lots of times
-	pytest -v --count 20 test/test_examples.py
+stress:  ## Run the concurrency unit tests lots of times
+	pytest -x -vv -k concurrency --log-level info --show-capture=no --runslow --count 10

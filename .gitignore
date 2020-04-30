@@ -8,6 +8,12 @@ examples/*/libs
 
 .serverless
 
+# pytest logs
+logs
+
+# scratch dir
+scratch
+
 *.zip
 
 ## Python template below
