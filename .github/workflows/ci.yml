@@ -47,19 +47,14 @@ jobs:
         poetry export --dev -f requirements.txt > requirements.txt
         pip install -r requirements.txt
 
-    - name: Setup local dynamodb
-      uses: rrainn/dynamodb-action@v2.0.0
-      with:
-        port: 8000
-        cors: '*'
-
     - name: Pytest
       env:
         AWS_ACCESS_KEY_ID: foo
         AWS_SECRET_ACCESS_KEY: bar
         AWS_DEFAULT_REGION: eu-west-2
-        DYNAMODB_ENDPOINT: http://localhost:8000
+        DYNAMODB_ENDPOINT: http://localhost:9000
         PYTHONPATH: src
       run: |
         mkdir -p logs
+        sudo docker run --rm -d -p 9000:8000 amazon/dynamodb-local
         pytest
