@@ -20,24 +20,20 @@
 (defun ser-a (x)
   (print "a starting to sleep")
   ;; (random_sleep 200 500)
-  (sleep 1)
+  (sleep 0.1)
   (print "a finished sleeping")
   (+ x 1))
 
 (defun conc-b (x)
-  (print "b starting to sleep")
-  (print "b finished sleeping")
   (* (ser-a x) 1000))
 
 (defun ser-c (x)
   (print "c starting to sleep")
-  (sleep 1)
+  (sleep 0.3)
   (print "c finished sleeping")
   (+ x -1))
 
 (defun conc-d (x)
-  (print "d starting to sleep")
-  (print "d finished sleeping")
   (* (ser-c x) 10))
 
 (defun final (p q)
