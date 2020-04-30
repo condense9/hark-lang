@@ -21,16 +21,18 @@ CALL_METHODS = [
     pytest.param(run_ddb_processes, marks=[pytest.mark.slow]),
 ]
 
+# Find all examples dir and test them
 EXAMPLES_SUBDIR = Path(__file__).parent / "examples"
-EXAMPLE_NAMES = ["kitchen_sink"]
+EXAMPLE_NAMES = [p.stem for p in Path(EXAMPLES_SUBDIR).glob("*.yaml")]
 
 TESTS = teal_examples.load_examples(EXAMPLE_NAMES, EXAMPLES_SUBDIR)
+
 IDS = [f"{filepath.stem}-{fn}[{i}]" for i, (filepath, fn, _, _) in enumerate(TESTS)]
 
 
 @pytest.mark.parametrize("filename,function,args,expected", TESTS, ids=IDS)
 @pytest.mark.parametrize("call_method", CALL_METHODS)
-def test_(filename, function, args, expected, call_method):
+def test_example(filename, function, args, expected, call_method):
     result = call_method(filename, function, list(map(to_teal_type, args)))
 
     # controllers should return normal python types
