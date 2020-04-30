@@ -60,6 +60,7 @@ class MachineMap(MapAttribute):
     future = FutureAttribute()
 
 
+# Make it harder to accidentally use real AWS resources:
 if "DYNAMODB_ENDPOINT" not in os.environ and "USE_LIVE_AWS" not in os.environ:
     raise RuntimeError("One of DYNAMODB_ENDPOINT or USE_LIVE_AWS must be set!")
 
@@ -70,7 +71,7 @@ class Session(Model):
     """
 
     class Meta:
-        table_name = os.environ["DYNAMODB_TABLE"]
+        table_name = os.environ.get("DYNAMODB_TABLE", "TealSessions")
         host = os.environ.get("DYNAMODB_ENDPOINT", None)
         region = os.environ.get("TL_REGION", None)
 

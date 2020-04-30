@@ -7,6 +7,7 @@ import pytest
 import teal_examples
 from teal.machine.types import TlType, to_py_type, to_teal_type
 from teal.run.dynamodb import run_ddb_local, run_ddb_processes
+import teal.controllers.ddb_model as db
 from teal.run.local import run_local
 
 LOG = logging.getLogger(__name__)
@@ -29,6 +30,12 @@ IDS = [f"{filepath.stem}-{fn}[{i}]" for i, (filepath, fn, _, _) in enumerate(TES
 def setup_module():
     # So that the examples can import their Python code
     sys.path.append(str(EXAMPLES_SUBDIR))
+
+    # And ensure the database table exists
+    if db.Session.exists():
+        db.Session.delete_table()
+    db.Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
+    db.init_base_session()
 
 
 @pytest.mark.parametrize("filename,function,args,expected", TESTS, ids=IDS)
