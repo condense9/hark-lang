@@ -1,30 +1,12 @@
-"""AWS (lambda / ECS) runtime
+"""AWS DynamoDB backed storage
 
 In AWS, there will be one Machine executing in the current context, and others
 executing elsewhere, as part of the same "session". There is one Controller per
 session.
 
-There's a queue of "runnable machines".
-
-Run machine: push the new machine onto the queue.
-- At a fork
-- When a future resolves
-
-Stop: pop something from the queue and Start it
-
-Start top level: make a new machine and run it
-Start existing (fork or cont): take an existing stopped machine and run it
-
-
-A session is created when a handler is first called. Multiple machines
-(threads) may exist in the session.
-
 Data per session:
 - futures (resolved, value, chain, continuations - machine, offset)
 - machines (probe logs, state - ip, stopped flag, stacks, and bindings)
-
-We could lock it to a single object:
-- session (controller info, futures, machines)
 
 Data exchange points:
 - machine forks (State of new machine set to point at the fork IP)
@@ -34,20 +16,6 @@ Data exchange points:
 - top level machine finishes (Controller sets session result)
 - machine stops (upload the State)
 - machine continues (download the State)
-
-
-# NOTE - some handlers cannot terminate early, because they have to maintain a
-# connection to a client. This is a "hardware" restriction. So if an HTTP
-# handler calls something async, it has to wait for it. Anything /that/ function
-# calls can be properly async. But the top level has to stay alive. That isn't
-# true of all kinds of Handlers!!
-#
-# ONLY THE ONES THAT HAVE TO SEND A RESULT BACK
-#
-# So actually that gets abstracted into some kind of controller interface - the
-# top level "run" function. For HTTP handlers, it has to block until the
-# Controller finishes. For others, it can just return. No Controller logic
-# changes necessary. Just the entrypoint / wrapper.
 """
 
 import logging

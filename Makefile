@@ -14,14 +14,13 @@ test:  ## Run all unit tests (including the slow ones!)
 	pytest --runslow
 
 
-.PHONY: testx
-testx:  ## Run unit tests, stopping after first failure
-	pytest -vv -x --runslow
-
-
 .PHONY: testfast
 testfast:  ## Run the fast unit tests
 	pytest
+
+.PHONY: testx
+testx:  ## Run fast unit tests, stopping after first failure
+	pytest -vv -x
 
 
 .PHONY: stress
