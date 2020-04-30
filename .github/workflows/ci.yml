@@ -44,7 +44,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest poetry
-        poetry export -f requirements.txt > requirements.txt
+        poetry export --dev -f requirements.txt > requirements.txt
         pip install -r requirements.txt
 
     - name: Setup local dynamodb
