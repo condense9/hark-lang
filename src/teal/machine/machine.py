@@ -7,18 +7,19 @@ definitions, or let-bindings.
 
 """
 
-import logging
 import importlib
+import logging
+import time
 from functools import singledispatchmethod
 from typing import Any, Dict, List
 
+from . import types as mt
 from .controller import Controller
 from .executable import Executable
 from .instruction import Instruction
 from .instructionset import *
-from .state import State
 from .probe import Probe
-from . import types as mt
+from .state import State
 
 LOG = logging.getLogger(__name__)
 
@@ -66,6 +67,7 @@ class TlMachine:
 
     builtins = {
         "print": Print,
+        "sleep": Sleep,
         "=": Eq,
         "atomp": Atomp,
         "nullp": Nullp,
@@ -337,6 +339,11 @@ class TlMachine:
         cls = new_number_type(a, b)
         self.state.ds_push(cls(a * b))
 
+    @evali.register
+    def _(self, i: Sleep):
+        t = self.state.ds_peek(0)
+        time.sleep(t)
+
     def __repr__(self):
         return f"<Machine {id(self)}>"
 
@@ -353,79 +360,3 @@ def new_number_type(a, b):
         return mt.TlFloat
     else:
         return mt.TlInt
-
-
-## Notes dumping ground (here madness lies)...
-
-
-# Foreign function calls produce futures. This allows evaluation to continue. We
-# assume that they are "long-running".
-#
-# When a MFCall is encountered, there are two options:
-# - block until there is compute resource to evaluate it
-# - submit it for evaluation (local or remote), returning a future
-#
-# So FCalls always return Futures. Also, when an MFCall is made, the arguments
-# must be resolved. They are removed from the stack and replaced with a future.
-#
-# The Future returned by an MFCall can be passed around on the stack, and can be
-# waited upon. Each future can only be Waited on once. The resolved future can
-# of course be passed around. Actually maybe not - you can have multiple
-# continuations, and you continue them in the same way as performing an fcall.
-#
-# When an MFCall finishes, it resolves the future. If there is a continuation for
-# that future (ie something else Waited on it), then execution is continued from
-# that point.
-#
-# To continue execution, the IP, stack, and bindings must be retrieved.
-#
-# When a Call is encountered, it is evaluated immediately. It may modify the
-# stack (from the caller's point of view).
-#
-# Actually, there are Calls and ACalls, and FCalls are a special type of ACall
-# (or Call!). The arguments to FCalls must be resolved, but the arguments to
-# ACalls don't need to be (they can Wait).
-#
-# When a Wait is encountered, there are two options:
-# - if the future has already resolved, continue
-# - otherwise, save a continuation and terminate
-#
-# When  MFCall finishes, two options:
-# - if a continuation exists, go there
-# - otherwise, terminate
-#
-# When Return from (sync) Call is encountered, restore previous bindings and
-# stack, and jump back
-
-
-# Call or MFCall: push values onto stack. Result will be top value on the stack
-# upon return. This is ok because the stack isn't shared.
-#
-# CallA or RunA: I don't think RunA needs to be implemented. It can be wrapped
-# with CallA. CallA creates a new machine that starts at the given function, and
-# resolves the future at the top of the stack. When the future resolves, it
-# jumps back to the caller, with the caller stack.
-#
-# Function defintions themselves don't have to be "sync" or "async". CallA just
-# fills in the extra logic in the implementation. This is a CISC-style approach.
-
-
-# Programming the VM with other l.anguages
-#
-# Build a minimal "parser" - read a text file of assembly line by line. All
-# operands are numbers or strings. Then, to run it, provide an "environment"
-# (dict) of foreign functions that the machine can call. So a JS frontend can
-# work just like the python one - it just needs to compile right, and provide
-# the env.
-
-
-# MFCall runs something in *Python* syncronously. It takes a function, and a
-# number of arguments, and literally calls it. This function may be a type
-# constructor from a language point of view, or not. It may return a Future. The
-# machine knows how to wait for Futures.
-#
-# This allows "async execution" to be entirely implementation defined. The
-# machine has no idea how to do it. It knows how to handle the result though. So
-# it's becoming more like a very simple Forth-style stack machine. Be careful,
-# either approach could work - pick one. Forth: very flexible, but more complex.
-# Builtins: less flexible, but simpler.

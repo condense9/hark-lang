@@ -217,3 +217,10 @@ class Multiply(I):
 
 class Print(I):
     """Print the top value on the stack as a string"""
+
+
+##± Misc ±######################################################################
+
+
+class Sleep(I):
+    """Sleep for some time"""
