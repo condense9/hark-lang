@@ -1,5 +1,7 @@
 ## The Teal Programming Language
 
+![Build](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master)
+
 Teal is a programming language for microservice orchestration. With it, you can 
 - get "bare-metal" concurrency on AWS Lambda
 - test data pipelines locally
