@@ -50,7 +50,7 @@ jobs:
     - name: Setup local dynamodb
       uses: rrainn/dynamodb-action@v2.0.0
       with:
-        port: 9000
+        port: 8000
         cors: '*'
 
     - name: Pytest
@@ -58,7 +58,7 @@ jobs:
         AWS_ACCESS_KEY_ID: foo
         AWS_SECRET_ACCESS_KEY: bar
         AWS_DEFAULT_REGION: eu-west-2
-        DYNAMODB_ENDPOINT: http://localhost:9000
+        DYNAMODB_ENDPOINT: http://localhost:8000
         PYTHONPATH: src
       run: |
         mkdir -p logs
