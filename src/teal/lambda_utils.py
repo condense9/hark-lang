@@ -17,7 +17,7 @@ def lambda_zip_path(function_name):
     return join(ZIP_DIR, function_name + ".zip")
 
 
-def get_lambda_client(region_name="eu-west-2"):
+def get_lambda_client():
     endpoint_url = os.environ.get("LAMBDA_ENDPOINT", None)
     return boto3.client(
         "lambda",
