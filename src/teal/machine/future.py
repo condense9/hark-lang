@@ -78,7 +78,7 @@ def finish(controller, vmid, value) -> list:
         return None, []
 
 
-def get_or_wait(controller, vmid, future_ptr, offset):
+def get_or_wait(controller, vmid, future_ptr):
     """Get the value of a future in the stack, or add a continuation
 
     Return tuple:

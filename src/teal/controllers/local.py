@@ -61,10 +61,6 @@ class DataController:
     def is_top_level(self, vmid):
         return vmid == self._top_level_vmid
 
-    def stop(self, vmid, state, probe):
-        # N/A locally. In other implementations, could sync state
-        pass
-
     def get_state(self, vmid):
         return self._machine_state[vmid]
 
@@ -91,10 +87,14 @@ class DataController:
         with self.lock:
             return fut.finish(self, vmid, value)
 
-    def get_or_wait(self, vmid, future_ptr, offset):
+    def get_or_wait(self, vmid, future_ptr, state, probe):
         """Get the value of a future in the stack, or add a continuation"""
         with self.lock:
-            return fut.get_or_wait(self, vmid, future_ptr, offset)
+            # TODO fix race condition? Relevant for local?
+            resolved, value = fut.get_or_wait(self, vmid, future_ptr)
+            if not resolved:
+                state.stopped = True
+            return resolved, value
 
     @property
     def machines(self):

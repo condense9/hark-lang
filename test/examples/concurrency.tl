@@ -10,7 +10,7 @@
 ;;
 ;;                        .---[ conc-b ]---[ ser-a ]--.
 ;;                       /                             \
-;; X --[ concurrent ]---<                               >---[ final ]--->
+;; X --[ concurrent ]---+                               >---[ final ]--->
 ;;                       \                             /
 ;;                        ·---[ conc-d ]---[ ser-c ]--·
 ;;

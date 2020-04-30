@@ -27,7 +27,7 @@ class Probe:
         return probe
 
     def on_run(self, m):
-        pass
+        self.log(f"! {m.vmid} Starting")
 
     def log(self, text):
         self.logs.append(f"*** <{self._name}> {text}")

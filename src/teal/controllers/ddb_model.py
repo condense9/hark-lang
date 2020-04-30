@@ -183,22 +183,17 @@ class SessionLocker(AbstractContextManager):
 
     """
 
-    def __init__(self, session, timeout=0.5):
+    def __init__(self, session, timeout=2.0):
         self.session = session
         self.timeout = timeout
-        self.lock_count = 0
         self._thread_lock = threading.Lock()
 
     def __enter__(self):
         t = time.time() % 1000.0
         tid = threading.get_native_id()
-        # LOG.info(f"{t:.3f} :: Thread {tid} Trying to lock {self.lock_count}")
-        if self.lock_count:
-            self.lock_count += 1
-            LOG.info(f"{t:.3f} :: Thread {tid} Re-locking ({self.lock_count})")
-            return
 
         self._thread_lock.acquire()
+
         start = time.time()
         while not try_lock(self.session):
             time.sleep(0.01)
@@ -207,20 +202,17 @@ class SessionLocker(AbstractContextManager):
                 LOG.debug(f"{t:.3f} :: Timeout getting lock")
                 raise LockTimeout
 
-        self.lock_count = 1
         t = time.time() % 1000.0
-        LOG.info(f"{t:.3f} :: Thread {tid} Locked ({self.lock_count})")
+        LOG.info(f"{t:.3f} :: Thread {tid} Locked")
 
     def __exit__(self, *exc):
         t = time.time() % 1000.0
 
-        self.lock_count -= 1
-        if self.lock_count == 0:
-            self.session.locked = False
-            LOG.debug(f"{t:.3f} :: Saving %s", self.session)
-            self.session.save()
-            self._thread_lock.release()
+        self.session.locked = False
+        LOG.debug(f"{t:.3f} :: Saving %s", self.session)
+        self.session.save()
+        self._thread_lock.release()
 
         t = time.time() % 1000.0
         tid = threading.get_native_id()
-        LOG.info(f"{t:.3f} :: Thread {tid} Released ({self.lock_count})")
+        LOG.info(f"{t:.3f} :: Thread {tid} Released")

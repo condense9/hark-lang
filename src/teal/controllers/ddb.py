@@ -75,14 +75,6 @@ class DataController:
     def is_top_level(self, vmid):
         return vmid == self.session.top_level_vmid
 
-    def stop(self, vmid, state, probe):
-        with self.lock:
-            LOG.info(f"Machine stopped {vmid}")
-            self.session.machines[vmid].state = state
-            self.session.machines[vmid].probe_logs += probe.logs
-            if not state.stopped:
-                raise Exception(f"Machine {vmid} stopped unexpectedly")
-
     @property
     def finished(self):
         self.session.refresh()
@@ -121,7 +113,7 @@ class DataController:
 
     def set_future_value(self, vmid, offset, value):
         with self.lock:
-            LOG.info("Resolving %d to %s (on %d)", offset, value, vmid)
+            LOG.info("Resolving top of stack to %s (on machine %d)", value, vmid)
             state = self.session.machines[vmid].state
             state.stopped = False
             state.ds_set(offset, value)
@@ -131,9 +123,14 @@ class DataController:
         with self.lock:
             return fut.finish(self, vmid, value)
 
-    def get_or_wait(self, vmid, future_ptr, offset):
+    def get_or_wait(self, vmid, future_ptr, state, probe):
         with self.lock:
-            return fut.get_or_wait(self, vmid, future_ptr, offset)
+            resolved, value = fut.get_or_wait(self, vmid, future_ptr)
+            if not resolved:
+                state.stopped = True
+                self.session.machines[vmid].state = state
+                self.session.machines[vmid].probe_logs += probe.logs
+            return resolved, value
 
     @property
     def machines(self):

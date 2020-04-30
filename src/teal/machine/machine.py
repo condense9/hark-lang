@@ -127,7 +127,6 @@ class TlMachine:
         while not self.stopped:
             self.step()
         self.probe.on_stopped(self)
-        self.data_controller.stop(self.vmid, self.state, self.probe)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -198,6 +197,9 @@ class TlMachine:
             LOG.info(f"{self.vmid} Returning value: {value}")
             value, continuations = self.data_controller.finish(self.vmid, value)
             for machine in continuations:
+                self.probe.log(
+                    f"{self.vmid}: setting machine {machine} value to {value}"
+                )
                 self.data_controller.set_future_value(machine, 0, value)
                 self.invoker.invoke(machine)
 
@@ -215,7 +217,7 @@ class TlMachine:
         elif isinstance(fn, mt.TlForeign):
             foreign_f = self._foreign[fn]
             args = tuple(reversed([self.state.ds_pop() for _ in range(num_args)]))
-            self.probe.log(f"--> {foreign_f} {args}")
+            self.probe.log(f"{self.vmid}--> {foreign_f} {args}")
             # TODO automatically wait for the args? Somehow mark which one we're
             # waiting for in the continuation
 
@@ -253,13 +255,15 @@ class TlMachine:
         val = self.state.ds_peek(offset)
 
         if isinstance(val, mt.TlFuturePtr):
-            resolved, result = self.data_controller.get_or_wait(self.vmid, val, offset)
+            resolved, result = self.data_controller.get_or_wait(
+                self.vmid, val, self.state, self.probe
+            )
             if resolved:
                 LOG.info(f"{self.vmid} Finished waiting for {val}, got {result}")
                 self.state.ds_set(offset, result)
             else:
                 LOG.info(f"{self.vmid} waiting for {val}")
-                self.state.stopped = True
+                assert self.state.stopped
 
         elif isinstance(val, list) and any(
             isinstance(elt, mt.TlFuturePtr) for elt in traverse(val)

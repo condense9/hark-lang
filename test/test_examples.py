@@ -1,4 +1,5 @@
 import logging
+import sys
 import random
 from pathlib import Path
 
@@ -9,11 +10,6 @@ from teal.run.dynamodb import run_ddb_local, run_ddb_processes
 from teal.run.local import run_local
 
 LOG = logging.getLogger(__name__)
-
-SEED = random.randint(0, 100000)
-random.seed(SEED)
-LOG.info("Random seed", SEED)
-
 
 CALL_METHODS = [
     run_local,
@@ -30,9 +26,18 @@ TESTS = teal_examples.load_examples(EXAMPLE_NAMES, EXAMPLES_SUBDIR)
 IDS = [f"{filepath.stem}-{fn}[{i}]" for i, (filepath, fn, _, _) in enumerate(TESTS)]
 
 
+def setup_module():
+    # So that the examples can import their Python code
+    sys.path.append(str(EXAMPLES_SUBDIR))
+
+
 @pytest.mark.parametrize("filename,function,args,expected", TESTS, ids=IDS)
 @pytest.mark.parametrize("call_method", CALL_METHODS)
 def test_example(filename, function, args, expected, call_method):
+    seed = random.randint(0, 100000)
+    random.seed(seed)
+    LOG.info("Random seed: %d", seed)
+
     result = call_method(filename, function, list(map(to_teal_type, args)))
 
     # controllers should return normal python types

@@ -60,9 +60,8 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
         waiter(controller, invoker)
 
     finally:
-        LOG.debug(controller.executable.listing())
         for p in controller.probes:
-            LOG.debug(f"probe {p}:\n" + "\n".join(p.logs))
+            LOG.info(f"probe {p}:\n" + "\n".join(p.logs))
 
         for i, outputs in enumerate(controller.stdout):
             print(f"--[Machine {i} Output]--")
