@@ -75,19 +75,14 @@ def test_lock_reusable():
 
 
 def test_lock_reentrant():
-    """Test that a lock can be acquired more than once at a time"""
+    """Test that a lock cannot be acquired more than once at a time"""
     s1 = new_session()
-    lock = SessionLocker(s1, timeout=0.1)
-    lock2 = SessionLocker(s1, timeout=0.1)
+    lock = SessionLocker(s1, timeout=0.01)
+    lock2 = SessionLocker(s1, timeout=0.01)
     assert not s1.locked
     with lock:
         s1.finished = True
-        assert lock.lock_count == 1
         assert s1.locked
-        # The *same* lock on a session can be acquired more than once
-        with lock:
-            assert lock.lock_count == 2
-        # But a different lock on the same session cannot
         with pytest.raises(LockTimeout):
-            with lock2:
+            with lock:
                 pass

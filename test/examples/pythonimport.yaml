@@ -1,0 +1,10 @@
+show-format:
+  -
+    - ["Teal"]
+    - "Hello Teal!"
+
+
+show-trig:
+  -
+    - [0.0]
+    - 1.0
