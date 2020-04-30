@@ -50,8 +50,8 @@ jobs:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
-        aws-access-key-id:
-        aws-secret-access-key:
+        aws-access-key-id: foo
+        aws-secret-access-key: bar
         aws-region: eu-west-2
 
     - name: Setup local dynamodb
