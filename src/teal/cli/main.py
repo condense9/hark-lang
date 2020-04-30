@@ -90,8 +90,8 @@ def _asm(args):
     print(exe.listing())
 
 
-# def _deploy(args):
-#     requests
+def _deploy(args):
+    raise NotImplementedError
 
 
 def main():

@@ -24,7 +24,7 @@ def wait_for_finish(check_period, timeout, data_controller, invoker):
 
             for probe in data_controller.probes:
                 if probe.early_stop:
-                    raise ThreadDied(f"{m} forcibly stopped by probe (too many steps)")
+                    raise ThreadDied(f"{probe} forcibly stopped (steps: {probe.steps})")
 
             if invoker.exception:
                 raise ThreadDied from invoker.exception.exc_value

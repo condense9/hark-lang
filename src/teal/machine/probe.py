@@ -14,7 +14,7 @@ class Probe:
 
         """
         self._max_steps = max_steps
-        self._step = 0
+        self.steps = 0
         Probe.count += 1
         self._name = f"P{Probe.count}"
         self.logs = []
@@ -39,16 +39,16 @@ class Probe:
         self.log(f"<===")
 
     def on_step(self, m):
-        self._step += 1
-        preface = f"[step={self._step}, ip={m.state.ip}] {m.instruction}"
+        self.steps += 1
+        preface = f"[step={self.steps}, ip={m.state.ip}] {m.instruction}"
         data = list(m.state._ds)
         self.log(f"{preface:40.40} | {data}")
-        if self._max_steps and self._step >= self._max_steps:
+        if self._max_steps and self.steps >= self._max_steps:
             self.log(f"MAX STEPS ({self._max_steps}) REACHED!! ***")
             self.early_stop = True
             m.state.stopped = True
 
     def on_stopped(self, m):
         kind = "Terminated" if m.terminated else "Stopped"
-        self.logs.append(f"*** <{self._name}> {kind} after {self._step} steps. ***")
+        self.logs.append(f"*** <{self._name}> {kind} after {self.steps} steps. ***")
         self.logs.append(m.state.to_table())
