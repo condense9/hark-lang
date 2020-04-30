@@ -40,19 +40,20 @@ jobs:
       with:
         python-version: 3.8
 
-    - name: Install dependencies
+    - name: Install requirements
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest poetry
-        poetry install
+        pip install pytest poetry
+        poetry export -f requirements.txt > requirements.txt
+        pip install -r requirements.txt
 
-    - name: Start DynamoDB
+    - name: Setup local dynamodb
       uses: rrainn/dynamodb-action@v2.0.0
       with:
         port: 9000
         cors: '*'
 
-    - name: Test with pytest
+    - name: Pytest
       run: |
         mkdir -p logs
-        DYNAMODB_ENDPOINT=http://localhost:9000 pytest
+        DYNAMODB_ENDPOINT=http://localhost:9000 PYTHONPATH=src pytest
