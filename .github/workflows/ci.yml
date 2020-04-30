@@ -56,4 +56,8 @@ jobs:
     - name: Pytest
       run: |
         mkdir -p logs
-        DYNAMODB_ENDPOINT=http://localhost:9000 PYTHONPATH=src pytest
+        export AWS_ACCESS_KEY_ID=
+        export AWS_SECRET_ACCESS_KEY=
+        export DYNAMODB_ENDPOINT=http://localhost:9000
+        export PYTHONPATH=src
+        pytest
