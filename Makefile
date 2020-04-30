@@ -2,7 +2,11 @@
 _PADDING = 20
 .PHONY: help
 help:
+	@printf "\033[35m%-$(_PADDING)s %s\033[0m\n" TARGET EFFECT
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-$(_PADDING)s\033[0m %s\n", $$1, $$2}'
+
+
+default: help  ## show this help
 
 
 .PHONY: test
