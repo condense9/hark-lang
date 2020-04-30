@@ -3,7 +3,6 @@
 import logging
 
 from . import types as mt
-from .types import TlType
 
 LOG = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class Future:
     @classmethod
     def deserialise(cls, data):
         if data.get("value", None):
-            data["value"] = TlType.deserialise(data["value"])
+            data["value"] = mt.TlType.deserialise(data["value"])
         return cls(**data)
 
     def __repr__(self):
@@ -44,7 +43,7 @@ def _resolve_future(controller, vmid, value):
     future.resolved = True
     future.value = value
     if controller.is_top_level(vmid):
-        controller.result = value
+        controller.result = mt.to_py_type(value)
         controller.finished = True
 
     continuations = future.continuations

@@ -45,12 +45,12 @@ class TlTrue(TlAtomic):
     """Represent True"""
 
 
+class TlFalse(TlAtomic):
+    """Represent False"""
+
+
 class TlNull(TlAtomic):
     """Represent Null (None)"""
-
-
-# Use the lisp-ish convention that Nil/null is equivalent to False
-TlFalse = TlNull
 
 
 ### Literals
@@ -154,7 +154,9 @@ class TlFuturePtr(TlLiteral):
         super().__init__(value)
 
 
-### Type Mapping
+### Type Conversion
+
+# NOTE - no conversion to/from Symbols
 
 PY_TO_TL = {
     int: TlInt,
@@ -167,6 +169,7 @@ PY_TO_TL = {
 Tl_TO_PY = {
     TlNull: lambda _: None,
     TlTrue: lambda _: True,
+    TlFalse: lambda _: False,
     TlInt: int,
     TlFloat: float,
     TlString: str,
@@ -180,7 +183,7 @@ def to_teal_type(py_val):
     elif py_val is True:
         return TlTrue()
     elif py_val is False:
-        return TlNull()
+        return TlFalse()
 
     try:
         return PY_TO_TL[type(py_val)](py_val)
@@ -188,7 +191,7 @@ def to_teal_type(py_val):
         raise TypeError(type(py_val))
 
 
-def to_py_type(teal_val):
+def to_py_type(teal_val: TlType):
     try:
         return Tl_TO_PY[type(teal_val)](teal_val)
     except KeyError:

@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import time
-from os.path import join
 
 import boto3
 import botocore

@@ -88,7 +88,7 @@ class Session(Model):
     finished = BooleanAttribute(default=False)
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
-    result = JSONAttribute(null=True)  # JSON? Really?
+    result = JSONAttribute(null=True)
     num_machines = NumberAttribute(default=0)
     # NOTE!! Big gotcha - be careful what you pass in as default; pynamodb
     # saves a reference. So don't use a literal "[]"!

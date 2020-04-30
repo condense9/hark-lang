@@ -54,10 +54,18 @@ def test_future():
     assert deser == obj
 
 
-TYPE_TESTS = [1, "foo", ["nested", ["big"], "list"]]
+CONVERSION_TEST_OBJS = [
+    # --
+    1,
+    "foo",
+    ["nested", ["big"], "list"],
+    True,
+    False,
+    None,
+]
 
 
-@pytest.mark.parametrize("obj", TYPE_TESTS)
+@pytest.mark.parametrize("obj", CONVERSION_TEST_OBJS)
 def test_conversion(obj):
     teal_obj = to_teal_type(obj)
     back = to_py_type(teal_obj)

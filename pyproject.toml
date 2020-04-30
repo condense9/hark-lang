@@ -6,6 +6,7 @@ authors = ["Ric da Silva <ric@condense9.com>"]
 homepage = "https://www.condense9.com"
 packages = [
     { include = "teal", from = "src" },
+    { include = "teal_examples", from = "src" },
 ]
 
 [tool.poetry.scripts]

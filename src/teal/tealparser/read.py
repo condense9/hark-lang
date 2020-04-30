@@ -34,6 +34,9 @@ class ReadLiterals(Transformer):
     def true_(self, value):
         return mt.TlTrue()
 
+    def false_(self, value):
+        return mt.TlFalse()
+
     def nil(self, value):
         return mt.TlNull()
 
@@ -55,4 +58,4 @@ def read_exp(exp):
     """Read a single literal expression"""
     parser = exp_parser()
     tree = parser.parse(exp)
-    return ReadLiterals().transform(tree).children[0]
+    return ReadSexp().transform(ReadLiterals().transform(tree))

@@ -33,22 +33,30 @@ Arguments:
 # - typer? https://typer.tiangolo.com/
 # - colorama https://pypi.org/project/colorama/
 
-import os.path
 import sys
 import logging
+from pathlib import Path
 
 from docopt import docopt
 from .. import run
 from .. import tealparser
+from ..tealparser.read import read_exp
 
 from .. import __version__
+
+LOG = logging.getLogger(__name__)
 
 
 def _run(args):
     fn = args["--fn"]
     filename = args["<file>"]
-    fn_args = args["<fn_args>"]
     sys.path.append(".")
+
+    # FIXME - should argv just always be strings? But then you can't pass in
+    # arbitrary types to other functions. We need a single interface.
+    fn_args = [read_exp(arg) for arg in args["<fn_args>"]]
+
+    LOG.info(f"Running `{fn}` in {filename} ({len(fn_args)} args)...")
 
     if args["--storage"] == "memory":
         if args["--concurrency"] == "processes":
@@ -67,11 +75,12 @@ def _run(args):
 
 def _ast(args):
     fn = args["--fn"]
-    filename = args["<file>"]
+    filename = Path(args["<file>"])
+
     if args["--output"]:
         dest_png = args["--output"]
     else:
-        dest_png = f"{os.path.splitext(filename)[0]}_{fn}.png"
+        dest_png = f"{filename.stem}_{fn}.png"
     tealparser.make_ast(filename, fn, dest_png)
 
 

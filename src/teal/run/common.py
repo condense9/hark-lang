@@ -1,13 +1,10 @@
 import logging
-import os
-import sys
-import threading
 import time
 import traceback
-from functools import partial
+from typing import List
 
-from . import tealparser
-from .tealparser.read import read_exp
+from .. import tealparser
+from ..tealparser.read import read_exp
 
 LOG = logging.getLogger(__name__)
 
@@ -37,7 +34,7 @@ def wait_for_finish(check_period, timeout, data_controller, invoker):
         traceback.print_exc()
 
 
-def run_and_wait(controller, invoker, waiter, filename, function, args):
+def run_and_wait(controller, invoker, waiter, filename, function, args: List[str]):
     """Run a function and wait for it to finish
 
     Arguments:
@@ -46,13 +43,13 @@ def run_and_wait(controller, invoker, waiter, filename, function, args):
         waiter:     A function to call to wait for the machine to finish
         filename:   The file to load
         function:   Name of the function to run
-        args:       Arguments to pass in to function
+        args:       Arguments (as strings to be parsed) to pass in to function
     """
     toplevel = tealparser.load_file(filename)
     exe = tealparser.make_exe(toplevel)
     controller.set_executable(exe)
 
-    args = [read_exp(arg) for arg in args]
+    # args = [read_exp(arg) for arg in args]
 
     LOG.info("Running `%s` in %s", function, filename)
     LOG.info(f"Args: {args}")
@@ -74,48 +71,3 @@ def run_and_wait(controller, invoker, waiter, filename, function, args):
 
     print("--RETURNED--")
     print(controller.result)
-
-
-def run_local(filename, function, args):
-    import teal.controllers.local as local
-    import teal.executors.thread as teal_thread
-
-    LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
-    controller = local.DataController()
-    invoker = teal_thread.Invoker(controller)
-    waiter = partial(wait_for_finish, 0.1, 10)
-    run_and_wait(controller, invoker, waiter, filename, function, args)
-
-
-def run_ddb_local(filename, function, args):
-    import teal.controllers.ddb as ddb_controller
-    import teal.controllers.ddb_model as db
-    import teal.executors.thread as teal_thread
-
-    db.init_base_session()
-    session = db.new_session()
-    lock = db.SessionLocker(session)
-    controller = ddb_controller.DataController(session, lock)
-    invoker = teal_thread.Invoker(controller)
-    waiter = partial(wait_for_finish, 1, 10)
-    run_and_wait(controller, invoker, waiter, filename, function, args)
-
-
-def run_ddb_processes(filename, function, args):
-    import teal.controllers.ddb as ddb_controller
-    import teal.controllers.ddb_model as db
-    import teal.executors.multiprocess as mp
-
-    db.init_base_session()
-    session = db.new_session()
-    lock = db.SessionLocker(session)
-    controller = ddb_controller.DataController(session, lock)
-    invoker = mp.Invoker(controller)
-    waiter = partial(wait_for_finish, 1, 10)
-    run_and_wait(controller, invoker, waiter, filename, function, args)
-
-
-# lambda:
-# create the infra
-# set the base session
-# run a function with some args

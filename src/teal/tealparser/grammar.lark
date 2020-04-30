@@ -1,4 +1,5 @@
 // -*- mode : ebnf -*-
+//
 // https    ://github.com/antlr/grammars-v4/blob/master/clojure/Clojure.g4
 // https    ://www.braveclojure.com/core-functions-in-depth/
 
@@ -57,10 +58,12 @@ literal : string
         | int
         | float
         | true
+        | false
         | nil
 
 symbol : IDENTIFIER
 true   : TRUE           -> true_
+false  : FALSE          -> false_
 string : ESCAPED_STRING -> string_
 float  : SIGNED_FLOAT   -> float_
 int    : SIGNED_INT     -> int_
@@ -85,7 +88,8 @@ SIGNED_FLOAT     : ["+"|"-"] FLOAT
 // NUMBER        : FLOAT | INT
 // SIGNED_NUMBER : ["+"|"-"] NUMBER
 
-TRUE : "t"
+TRUE  : "true"
+FALSE : "false"
 
 NIL : "nil"
 

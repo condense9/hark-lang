@@ -1,0 +1,20 @@
+hello:
+  -
+    - []
+    - "hello world"
+
+hello-int:
+  -
+    - []
+    - 5
+
+ident:
+  -
+    - [5]
+    - 5
+  -
+    - ["foo"]
+    - "foo"
+  -
+    - [true]
+    - true
