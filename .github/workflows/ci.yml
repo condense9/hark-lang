@@ -47,13 +47,6 @@ jobs:
         poetry export --dev -f requirements.txt > requirements.txt
         pip install -r requirements.txt
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: foo
-        aws-secret-access-key: bar
-        aws-region: eu-west-2
-
     - name: Setup local dynamodb
       uses: rrainn/dynamodb-action@v2.0.0
       with:
@@ -62,6 +55,9 @@ jobs:
 
     - name: Pytest
       env:
+        AWS_ACCESS_KEY_ID: foo
+        AWS_SECRET_ACCESS_KEY: bar
+        AWS_DEFAULT_REGION: eu-west-2
         DYNAMODB_ENDPOINT: http://localhost:9000
         PYTHONPATH: src
       run: |
