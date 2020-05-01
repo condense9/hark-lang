@@ -1,16 +1,35 @@
 [tool.poetry]
-name = "teal"
+name = "teal-lang"
 version = "0.1.0"
-description = ""
+description = "The Teal Programming Language"
+license = "Apache-2.0"
 authors = ["Ric da Silva <ric@condense9.com>"]
+maintainers = ["Ric da Silva <ric@condense9.com>"]
+readme = "README.md"
 homepage = "https://www.condense9.com"
-packages = [
-    { include = "teal", from = "src" },
-    { include = "teal_examples", from = "src" },
+repository = "https://github.com/condense9/teal-lang"
+keywords = [
+    "serverless",
+    "orchestration",
+    "concurrency",
+    "aws",
+    "language"
 ]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Topic :: Software Development",
+    "Intended Audience :: Developers"
+]
+packages = [
+    { include = "teal_lang", from = "src" },
+]
+exclude = ["teal_lang/examples/**.*"]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/condense9/teal-lang/issues"
 
 [tool.poetry.scripts]
-teal = 'teal.cli.main:main'
+teal = 'teal_lang.cli.main:main'
 
 [tool.poetry.dependencies]
 python = "^3.8"
@@ -30,6 +49,7 @@ pytest-repeat = "*"
 # md-tangle = {version = "*", optional = true}
 # sphinx = {version = "*", optional = true}
 # pydoc-markdown = {version = "^2.1.3", optional = true}
+
 
 [build-system]
 requires = ["poetry>=0.12"]
