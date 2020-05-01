@@ -1,7 +1,6 @@
 ## The Teal Programming Language
 
-![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) \
-[![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://badge.fury.io/py/teal-lang)
+![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://badge.fury.io/py/teal-lang)
 
 Teal is a programming language for microservice orchestration. With it, you can 
 - get "bare-metal" concurrency on AWS Lambda
