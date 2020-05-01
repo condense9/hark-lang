@@ -38,7 +38,6 @@ import logging
 from pathlib import Path
 
 from docopt import docopt
-from .. import run
 from .. import tealparser
 from ..tealparser.read import read_exp
 
@@ -61,13 +60,18 @@ def _run(args):
     if args["--storage"] == "memory":
         if args["--concurrency"] == "processes":
             raise ValueError("Can't use processes with in-memory storage")
-        run.run_local(filename, fn, fn_args)
+
+        from ..run.local import run_local
+
+        run_local(filename, fn, fn_args)
 
     elif args["--storage"] == "dynamodb":
+        from ..run.dynamodb import run_ddb_local, run_ddb_processes
+
         if args["--concurrency"] == "processes":
-            run.run_ddb_processes(filename, fn, fn_args)
+            run_ddb_processes(filename, fn, fn_args)
         else:
-            run.run_ddb_local(filename, fn, fn_args)
+            run_ddb_local(filename, fn, fn_args)
 
     else:
         raise ValueError(args["--storage"])
@@ -98,7 +102,7 @@ def main():
     args = docopt(__doc__, version=__version__)
     if args["--vverbose"]:
         logging.basicConfig(level=logging.DEBUG)
-        logging.debug(args)
+        LOG.debug(args)
     elif args["--verbose"]:
         logging.basicConfig(level=logging.INFO)
 
@@ -106,10 +110,10 @@ def main():
         _ast(args)
     elif args["asm"]:
         _asm(args)
+    elif args["deploy"]:
+        _deploy(args)
     elif args["<file>"]:
         _run(args)
-    elif args["<deploy>"]:
-        _deploy(args)
     else:
         raise NotImplementedError
 

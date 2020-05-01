@@ -1,7 +1,7 @@
 """Test the AWS (pynamodb) interface"""
 import pytest
 
-from teal.controllers.ddb_model import *
+from teal_lang.controllers.ddb_model import *
 
 pytestmark = pytest.mark.skipif(
     "RUNNING_IN_GITLAB" in os.environ,

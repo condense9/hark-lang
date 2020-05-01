@@ -2,7 +2,7 @@
 
 import pytest
 
-from teal.machine import *
+from teal_lang.machine import *
 
 pytestmark = pytest.mark.skip(
     "Machine API changing rapidly -- use test_end2end.py for now."

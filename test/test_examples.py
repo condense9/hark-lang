@@ -1,14 +1,14 @@
 import logging
-import sys
 import random
+import sys
 from pathlib import Path
 
 import pytest
-import teal_examples
-from teal.machine.types import TlType, to_py_type, to_teal_type
-from teal.run.dynamodb import run_ddb_local, run_ddb_processes
-import teal.controllers.ddb_model as db
-from teal.run.local import run_local
+import teal_lang.controllers.ddb_model as db
+import teal_lang.examples as teal_examples
+from teal_lang.machine.types import TlType, to_py_type, to_teal_type
+from teal_lang.run.dynamodb import run_ddb_local, run_ddb_processes
+from teal_lang.run.local import run_local
 
 LOG = logging.getLogger(__name__)
 

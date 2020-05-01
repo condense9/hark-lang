@@ -1,13 +1,17 @@
 ## The Teal Programming Language
 
-![Build](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master)
+![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang)
 
 Teal is a programming language for microservice orchestration. With it, you can 
 - get "bare-metal" concurrency on AWS Lambda
 - test data pipelines locally
 - worry less about building infrastructure
 
-**Teal is alpha quality - unstable, but usable**
+**Teal is alpha quality - unstable, but usable.**
+
+```shell
+$ pip install teal-lang
+```
 
 Getting started:
 - Clone this repository
@@ -17,8 +21,6 @@ Getting started:
 *Do not be afraid, the parentheses will not harm you.*
 
 ---
-
-PyPI package coming soon...
 
 
 ### Known Limitations and Issues

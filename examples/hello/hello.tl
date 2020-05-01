@@ -23,14 +23,14 @@
 
 
 (defun go-async ()
-  (let ((a (async simple nil))
-        (b (async simple t)))
+  (let ((a (async simple false))
+        (b (async simple true)))
     (print "done main")
     (list (wait a) (wait b))))
 
 
 (defun main ()
-  (let ((x (async simple t))
+  (let ((x (async simple true))
         (y (+ 2 3)))
     (print (format "sleep result: {}" (wait x)))
     (format "sum: {}" y)))

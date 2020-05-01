@@ -1,5 +1,6 @@
 from pathlib import Path
-import teal_examples
+
+import teal_lang.examples as teal_examples
 
 
 def test_load_examples():
