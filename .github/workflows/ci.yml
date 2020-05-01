@@ -49,8 +49,11 @@ jobs:
 
     - name: Fast tests
       env:
-        PYTHONPATH: src
+        AWS_ACCESS_KEY_ID: foo
+        AWS_SECRET_ACCESS_KEY: bar
+        AWS_DEFAULT_REGION: eu-west-2
         DYNAMODB_ENDPOINT: http://localhost:9000
+        PYTHONPATH: src
       run: |
         mkdir -p logs
         pytest
