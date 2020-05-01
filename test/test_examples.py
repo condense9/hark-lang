@@ -27,11 +27,15 @@ TESTS = teal_examples.load_examples(EXAMPLE_NAMES, EXAMPLES_SUBDIR)
 IDS = [f"{filepath.stem}-{fn}[{i}]" for i, (filepath, fn, _, _) in enumerate(TESTS)]
 
 
-def setup_module():
+def setup_module(module):
     # So that the examples can import their Python code
     sys.path.append(str(EXAMPLES_SUBDIR))
 
-    # And ensure the database table exists
+
+@pytest.fixture(autouse=True)
+@pytest.mark.slow
+def session_db():
+    """Initialise the Teal sessions DynamoDB table"""
     if db.Session.exists():
         db.Session.delete_table()
     db.Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
