@@ -33,13 +33,15 @@ def setup_module(module):
 
 
 @pytest.fixture(autouse=True)
-@pytest.mark.slow
-def session_db():
+def session_db(pytestconfig):
     """Initialise the Teal sessions DynamoDB table"""
-    if db.Session.exists():
-        db.Session.delete_table()
-    db.Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
-    db.init_base_session()
+    if pytestconfig.getoption("--runslow"):
+        if db.Session.exists():
+            db.Session.delete_table()
+        db.Session.create_table(
+            read_capacity_units=1, write_capacity_units=1, wait=True
+        )
+        db.init_base_session()
 
 
 @pytest.mark.parametrize("filename,function,args,expected", TESTS, ids=IDS)
