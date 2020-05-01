@@ -7,7 +7,7 @@ Teal is a programming language for microservice orchestration. With it, you can
 - test data pipelines locally
 - worry less about building infrastructure
 
-**Teal is alpha quality - unstable, but usable**
+**Teal is alpha quality - unstable, but usable.**
 
 ```shell
 $ pip install teal-lang
