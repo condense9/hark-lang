@@ -27,6 +27,7 @@ exclude = ["teal_lang/examples/**.*"]
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/condense9/teal-lang/issues"
+"Changelog" = "https://github.com/condense9/teal-lang/blob/master/CHANGELOG.md"
 
 [tool.poetry.scripts]
 teal = 'teal_lang.cli.main:main'
