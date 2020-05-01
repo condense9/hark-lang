@@ -3,10 +3,7 @@ import pytest
 
 from teal_lang.controllers.ddb_model import *
 
-pytestmark = pytest.mark.skipif(
-    "RUNNING_IN_GITLAB" in os.environ,
-    reason="DynamoDB testing not configured in gitlab yet",
-)
+pytestmark = pytest.mark.slow
 
 
 def setup_module(module):

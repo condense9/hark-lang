@@ -47,7 +47,15 @@ jobs:
         poetry export --dev -f requirements.txt > requirements.txt
         pip install -r requirements.txt
 
-    - name: Pytest
+    - name: Fast tests
+      env:
+        PYTHONPATH: src
+      run: |
+        mkdir -p logs
+        pytest
+
+
+    - name: DynamoDB (slow) tests
       env:
         AWS_ACCESS_KEY_ID: foo
         AWS_SECRET_ACCESS_KEY: bar
@@ -57,4 +65,5 @@ jobs:
       run: |
         mkdir -p logs
         sudo docker run --rm -d -p 9000:8000 amazon/dynamodb-local
+        sleep 5
         pytest --runslow

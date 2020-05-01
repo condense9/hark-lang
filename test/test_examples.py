@@ -14,7 +14,7 @@ LOG = logging.getLogger(__name__)
 
 CALL_METHODS = [
     run_local,
-    run_ddb_local,
+    pytest.param(run_ddb_local, marks=[pytest.mark.slow]),
     pytest.param(run_ddb_processes, marks=[pytest.mark.slow]),
 ]
 
