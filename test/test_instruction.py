@@ -1,9 +1,9 @@
 import json
 
-import teal.machine.instructionset as instructionset
-from teal.machine.instruction import Instruction
-from teal.machine.instructionset import *
-from teal.machine.types import *
+import teal_lang.machine.instructionset as instructionset
+from teal_lang.machine.instruction import Instruction
+from teal_lang.machine.instructionset import *
+from teal_lang.machine.types import *
 
 
 def test_ser():

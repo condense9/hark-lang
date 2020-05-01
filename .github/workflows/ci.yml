@@ -57,4 +57,4 @@ jobs:
       run: |
         mkdir -p logs
         sudo docker run --rm -d -p 9000:8000 amazon/dynamodb-local
-        pytest
+        pytest --runslow

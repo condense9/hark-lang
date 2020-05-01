@@ -1,7 +1,7 @@
 import pytest
 import json
 
-from teal.machine.types import *
+from teal_lang.machine.types import *
 
 
 def to_json_and_back(obj: TlType):

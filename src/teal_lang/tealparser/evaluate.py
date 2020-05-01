@@ -1,12 +1,14 @@
 """Evaluate an AST"""
 
-import logging
 import itertools
-import teal.machine.instructionset as mi
-import teal.machine.types as mt
+import logging
+
 from lark import Token
-from .read import ReadSexp, ReadLiterals
+
+from ..machine import instructionset as mi
+from ..machine import types as mt
 from .load import exp_parser, file_parser
+from .read import ReadLiterals, ReadSexp
 
 LOG = logging.getLogger(__name__)
 
