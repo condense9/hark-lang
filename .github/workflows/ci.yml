@@ -50,6 +50,7 @@ jobs:
     - name: Fast tests
       env:
         PYTHONPATH: src
+        DYNAMODB_ENDPOINT: http://localhost:9000
       run: |
         mkdir -p logs
         pytest
