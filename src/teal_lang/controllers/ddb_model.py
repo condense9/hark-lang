@@ -131,6 +131,8 @@ def new_session() -> Session:
         executable=base_session.executable,
     )
     s.save()
+    # FIXME:
+    time.sleep(0.1)
     return s
 
 
@@ -215,6 +217,8 @@ class SessionLocker(AbstractContextManager):
         self.session.locked = False
         LOG.debug(f"{t:.3f} :: Saving %s", self.session)
         self.session.save()
+        # FIXME:
+        time.sleep(0.1)
         self._thread_lock.release()
 
         t = time.time() % 1000.0
