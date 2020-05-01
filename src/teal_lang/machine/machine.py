@@ -24,6 +24,10 @@ from .state import State
 LOG = logging.getLogger(__name__)
 
 
+class ImportPyError(Exception):
+    """Error importing some code from Python"""
+
+
 def traverse(o, tree_types=(list, tuple)):
     """Traverse an arbitrarily nested list"""
     if isinstance(o, tree_types):
@@ -43,6 +47,8 @@ def import_python_function(fnname, modname):
     """
     if modname:
         spec = importlib.util.find_spec(modname)
+        if not spec:
+            raise ImportPyError(f"Could not find module `{modname}`")
         m = spec.loader.load_module()
     else:
         m = __builtins__
