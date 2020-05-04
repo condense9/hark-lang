@@ -155,17 +155,17 @@ def new_machine(session, args, top_level=False) -> MachineMap:
 
 def try_lock(session, thread_lock) -> bool:
     """Try to acquire a lock on session, returning True if successful"""
-    try:
-        if not thread_lock.acquire(blocking=False):
-            return False
+    if not thread_lock.acquire(blocking=False):
+        return False
 
+    try:
         session.refresh()
         session.update([Session.locked.set(True)], condition=(Session.locked == False))
         return True
 
     except UpdateError as e:
+        thread_lock.release()
         if isinstance(e.cause, ClientError):
-            thread_lock.release()
             code = e.cause.response["Error"].get("Code")
             LOG.info("Failed to lock: %s", code)
             if code == "ConditionalCheckFailedException":
@@ -185,7 +185,7 @@ class SessionLocker(AbstractContextManager):
 
     __enter__: Refresh session, lock it
     ...
-    __exit__: release the lock (USER MUST SAVE THE SESSION BEFORE THIS)
+    __exit__: release the lock and save the session
 
     """
 

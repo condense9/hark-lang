@@ -14,8 +14,8 @@ LOG = logging.getLogger(__name__)
 
 CALL_METHODS = [
     run_local,
-    pytest.param(run_ddb_local, marks=[pytest.mark.slow]),
-    pytest.param(run_ddb_processes, marks=[pytest.mark.slow]),
+    pytest.param(run_ddb_local, marks=[pytest.mark.slow, pytest.mark.ddblocal]),
+    pytest.param(run_ddb_processes, marks=[pytest.mark.slow, pytest.mark.ddblocal]),
 ]
 
 # Find all examples dir and test them
@@ -35,13 +35,10 @@ def setup_module(module):
 @pytest.fixture(autouse=True)
 def session_db(pytestconfig):
     """Initialise the Teal sessions DynamoDB table"""
-    if pytestconfig.getoption("--runslow"):
-        if db.Session.exists():
-            db.Session.delete_table()
-        db.Session.create_table(
-            read_capacity_units=1, write_capacity_units=1, wait=True
-        )
-        db.init_base_session()
+    if db.Session.exists():
+        db.Session.delete_table()
+    db.Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
+    db.init_base_session()
 
 
 @pytest.mark.parametrize("filename,function,args,expected", TESTS, ids=IDS)
