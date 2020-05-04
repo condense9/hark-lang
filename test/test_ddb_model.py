@@ -3,7 +3,7 @@ import pytest
 
 from teal_lang.controllers.ddb_model import *
 
-pytestmark = pytest.mark.slow
+pytestmark = pytest.mark.ddblocal
 
 
 def setup_module(module):

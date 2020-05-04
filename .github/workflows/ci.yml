@@ -57,20 +57,8 @@ jobs:
         PYTHONPATH: src
       run: |
         mkdir -p logs
-        pytest
-
-
-    - name: DynamoDB (slow) tests
-      env:
-        AWS_ACCESS_KEY_ID: foo
-        AWS_SECRET_ACCESS_KEY: bar
-        AWS_DEFAULT_REGION: eu-west-2
-        DYNAMODB_ENDPOINT: http://localhost:9000
-        PYTHONPATH: src
-      run: |
-        mkdir -p logs
-        wget http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz -O /tmp/dynamodb_local_latest.tar.gz
+        wget -q http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz -O /tmp/dynamodb_local_latest.tar.gz
         tar -xzf /tmp/dynamodb_local_latest.tar.gz -C /tmp
         java -Djava.library.path=/tmp/DynamoDBLocal_lib -jar /tmp/DynamoDBLocal.jar -inMemory -port 9000 &
         sleep 2
-        pytest --runslow
+        pytest -v -k "not ddb_processes" --runslow
