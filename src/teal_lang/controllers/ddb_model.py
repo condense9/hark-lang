@@ -153,14 +153,18 @@ def new_machine(session, args, top_level=False) -> MachineMap:
     return vmid
 
 
-def try_lock(session) -> bool:
+def try_lock(session, thread_lock) -> bool:
     """Try to acquire a lock on session, returning True if successful"""
+    if not thread_lock.acquire(blocking=False):
+        return False
+
     try:
         session.refresh()
         session.update([Session.locked.set(True)], condition=(Session.locked == False))
         return True
 
     except UpdateError as e:
+        thread_lock.release()
         if isinstance(e.cause, ClientError):
             code = e.cause.response["Error"].get("Code")
             LOG.info("Failed to lock: %s", code)
@@ -188,13 +192,14 @@ class SessionLocker(AbstractContextManager):
     def __init__(self, session, timeout=2.0):
         self.session = session
         self.timeout = timeout
+        self._thread_lock = threading.Lock()
 
     def __enter__(self):
         t = time.time() % 1000.0
         tid = threading.get_native_id()
 
         start = time.time()
-        while not try_lock(self.session):
+        while not try_lock(self.session, self._thread_lock):
             time.sleep(0.01)
             if time.time() - start > self.timeout:
                 t = time.time() % 1000.0
@@ -210,6 +215,7 @@ class SessionLocker(AbstractContextManager):
         self.session.locked = False
         LOG.debug(f"{t:.3f} :: Saving %s", self.session)
         self.session.save()
+        self._thread_lock.release()
 
         t = time.time() % 1000.0
         tid = threading.get_native_id()

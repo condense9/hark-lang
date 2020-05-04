@@ -15,12 +15,13 @@
 ;;                        ·---[ conc-d ]---[ ser-c ]--·
 ;;
 
+(importpy random_sleep :from pysrc.main)
 
 
 (defun ser-a (x)
   (print "a starting to sleep")
-  ;; (random_sleep 200 500)
-  (sleep 0.1)
+  (random_sleep 50 500)
+  ;; (sleep 0.1)
   (print "a finished sleeping")
   (+ x 1))
 
@@ -29,7 +30,8 @@
 
 (defun ser-c (x)
   (print "c starting to sleep")
-  (sleep 0.3)
+  (random_sleep 50 500)
+  ;; (sleep 0.3)
   (print "c finished sleeping")
   (+ x -1))
 
