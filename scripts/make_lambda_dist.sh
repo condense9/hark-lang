@@ -25,7 +25,7 @@ pip install -q --target libs -r requirements.txt
 rm -rf libs/boto*
 
 # Install Teal manually
-cp -r "${DIR}/../src/teal" libs
+cp -r "${DIR}/../src/teal_lang" libs
 
 cd libs && zip -q -r "../${DIST}" . -x "*__pycache__*"
 
