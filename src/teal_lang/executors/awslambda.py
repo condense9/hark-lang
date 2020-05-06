@@ -128,3 +128,56 @@ def set_exe(event, context):
             message="Base Executable set successfully"
         ),
     )
+
+
+def set_session_exe(event, context):
+    """Set the executable for the specified session session"""
+    session_id = event.get("session_id", None)
+    content = event.get("content", None)
+
+    if not content:
+        return fail("No Teal code")
+
+    if not session_id:
+        return fail("No session ID")
+
+    try:
+        session = db.Session.get(session_id)
+    except Session.DoesNotExist:
+        return fail("Couldn't find that session")
+
+    try:
+        toplevel = tealparser.evaluate_toplevel(content)
+        exe = tealparser.make_exe(toplevel)
+    except:
+        return fail("Error compiling code")
+
+    try:
+        session.exe = exe.serialise()
+        session.save()
+    except Session.UpdateError:
+        return fail("Error saving code")
+
+    return success("Executable set successfully")
+
+
+def success(msg, code=200):
+    return dict(
+        statusCode=code,
+        body=dict(
+            # --
+            message=msg
+        ),
+    )
+
+
+def fail(msg, code=400):
+    # 400 = client error
+    # 500 = server error
+    return dict(
+        statusCode=code,
+        body=dict(
+            # --
+            message=msg
+        ),
+    )
