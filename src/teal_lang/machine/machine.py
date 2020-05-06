@@ -7,6 +7,7 @@ definitions, or let-bindings.
 
 """
 
+import builtins
 import importlib
 import logging
 import time
@@ -45,13 +46,14 @@ def import_python_function(fnname, modname):
 
     PYTHONPATH must be set up already.
     """
-    if modname:
+    if modname == "__builtins__":
+        m = builtins
+    else:
         spec = importlib.util.find_spec(modname)
         if not spec:
             raise ImportPyError(f"Could not find module `{modname}`")
         m = spec.loader.load_module()
-    else:
-        m = __builtins__
+
     fn = getattr(m, fnname)
     LOG.debug("Loaded %s", fn)
     return fn
@@ -227,7 +229,7 @@ class TlMachine:
             # TODO automatically wait for the args? Somehow mark which one we're
             # waiting for in the continuation
 
-            py_args = map(mt.to_py_type, args)
+            py_args = list(map(mt.to_py_type, args))
             py_result = foreign_f(*py_args)
             result = mt.to_teal_type(py_result)
 

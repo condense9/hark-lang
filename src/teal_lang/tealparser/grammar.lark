@@ -7,10 +7,10 @@ start : file
 
 file : ( "(" top_form ")" )*
 
-?top_form : python
+?top_form : importpy
           | def
 
-python : "importpy" IDENTIFIER ":from" IDENTIFIER [":as" IDENTIFIER]
+importpy : "importpy" IDENTIFIER [":from" IDENTIFIER] [":as"  IDENTIFIER]
 
 def        : ("def"|"defun"|"define") IDENTIFIER "(" def_params ")" def_body  -> def_
 def_params : IDENTIFIER*

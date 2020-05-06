@@ -94,8 +94,9 @@ class EvaluateToplevel:
         for c in tree.children:
             getattr(self, c.data)(*c.children)
 
-    def python(self, fn_name, mod_name, import_as=None):
+    def importpy(self, fn_name, mod_name=None, import_as=None):
         dest_name = import_as if import_as else fn_name
+        mod_name = mod_name if mod_name else "__builtins__"
         self.foreigns[str(dest_name)] = (str(fn_name), str(mod_name))
 
     def def_(self, name, bindings, body):

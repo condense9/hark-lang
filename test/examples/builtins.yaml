@@ -1,0 +1,4 @@
+pyformat:
+  -
+    - ["bar"]
+    - "foo bar"
