@@ -10,6 +10,7 @@ definitions, or let-bindings.
 import builtins
 import importlib
 import logging
+import os
 import time
 from functools import singledispatchmethod
 from typing import Any, Dict, List
@@ -47,6 +48,8 @@ def import_python_function(fnname, modname):
     PYTHONPATH must be set up already.
     """
     if modname == "__builtins__":
+        if not os.getenv("ENABLE_IMPORT_BUILTIN", False):
+            raise ImportPyError("Cannot import from builtins")
         m = builtins
     else:
         spec = importlib.util.find_spec(modname)

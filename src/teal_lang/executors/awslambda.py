@@ -80,16 +80,37 @@ def new(event, context):
     """Create a new session"""
     function = event.get("function", "main")
     args = event.get("args", [])
-    timeout = event.get("timeout", 10)
     check_period = event.get("check_period", 1)
     wait_for_finish = event.get("wait_for_finish", True)
+    code = event.get("code", None)
+    timeout = event.get("timeout", None)
+
+    if not timeout:
+        timeout = int(os.getenv("FIXED_TEAL_TIMEOUT", 5))
 
     session = db.new_session()
     lock = db.SessionLocker(session)
     controller = ddb_controller.DataController(session, lock)
     invoker = Invoker(controller)
 
-    args = [tealparser.read_exp(arg) for arg in args]
+    if code:
+        try:
+            toplevel = tealparser.evaluate_toplevel(code)
+            exe = tealparser.make_exe(toplevel)
+        except:
+            return fail("Error compiling code")
+
+        try:
+            session.exe = exe.serialise()
+            session.save()
+        except Session.UpdateError:
+            return fail("Error saving code")
+
+    try:
+        args = [tealparser.read_exp(arg) for arg in args]
+    except:
+        return fail("Could not parse args")
+
     vmid = controller.new_machine(args, function, is_top_level=True)
     TlMachine(vmid, invoker).run()
 
