@@ -62,17 +62,15 @@ def resume(event, context):
     machine = TlMachine(vmid, invoker)
     machine.run()
 
-    return json.dumps(
-        dict(
-            statusCode=200,
-            body=dict(
-                # --
-                session_id=session_id,
-                vmid=vmid,
-                finished=controller.finished,
-                result=controller.result,
-            ),
-        )
+    return dict(
+        statusCode=200,
+        body=dict(
+            # --
+            session_id=session_id,
+            vmid=vmid,
+            finished=controller.finished,
+            result=controller.result,
+        ),
     )
 
 
@@ -121,17 +119,15 @@ def new(event, context):
             if time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for finish")
 
-    return json.dumps(
-        dict(
-            statusCode=200,
-            body=dict(
-                # --
-                session_id=session.session_id,
-                vmid=vmid,
-                finished=controller.finished,
-                result=controller.result,
-            ),
-        )
+    return dict(
+        statusCode=200,
+        body=dict(
+            # --
+            session_id=session.session_id,
+            vmid=vmid,
+            finished=controller.finished,
+            result=controller.result,
+        ),
     )
 
 
