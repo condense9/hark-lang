@@ -133,7 +133,7 @@ def new_session() -> Session:
 
     ttl = os.getenv("TEAL_SESSION_TTL", None)
     if ttl:
-        expiry = int(ttl) + time.time()
+        expiry = int(int(ttl) + time.time())
     else:
         expiry = 0  # ie, don't expire if no TEAL_SESSION_TTL specified
 
