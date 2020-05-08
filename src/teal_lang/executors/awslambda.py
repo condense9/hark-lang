@@ -153,10 +153,13 @@ def new(event, context):
     except:
         return fail("Could not parse args")
 
-    lock = db.SessionLocker(session)
-    controller = ddb_controller.DataController(session, lock)
-    invoker = Invoker(controller)
-    vmid = controller.new_machine(args, function, is_top_level=True)
+    try:
+        lock = db.SessionLocker(session)
+        controller = ddb_controller.DataController(session, lock)
+        invoker = Invoker(controller)
+        vmid = controller.new_machine(args, function, is_top_level=True)
+    except Exception as exc:
+        return fail(f"Error initialising:\n{exc}")
 
     try:
         TlMachine(vmid, invoker).run()
