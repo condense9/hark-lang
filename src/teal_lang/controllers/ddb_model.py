@@ -58,6 +58,7 @@ class MachineMap(MapAttribute):
     probe_logs = ListAttribute(default=list)
     stdout = ListAttribute(default=list)
     future = FutureAttribute()
+    exception = UnicodeAttribute(default=None)
 
 
 # Make it harder to accidentally use real AWS resources:
@@ -82,6 +83,8 @@ class Session(Model):
     # To double-check the lock logic...
     # https://pynamodb.readthedocs.io/en/latest/optimistic_locking.html
     version = VersionAttribute()
+
+    expires_on = NumberAttribute()
 
     # Naming: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.NamingRules
     # Types: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes
@@ -110,7 +113,10 @@ def init_base_session():
     except Session.DoesNotExist as exc:
         LOG.info("Creating base session")
         s = Session(
-            BASE_SESSION_ID, created_at=datetime.now(), updated_at=datetime.now(),
+            BASE_SESSION_ID,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            expires_on=0,  # ie, don't expire
         )
         s.save()
 
@@ -124,10 +130,18 @@ def set_base_exe(exe):
 def new_session() -> Session:
     base_session = Session.get(BASE_SESSION_ID)
     sid = str(uuid.uuid4())
+
+    ttl = os.getenv("TEAL_SESSION_TTL", None)
+    if ttl:
+        expiry = int(ttl) + time.time()
+    else:
+        expiry = 0  # ie, don't expire if no TEAL_SESSION_TTL specified
+
     s = Session(
         sid,
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        expires_on=expiry,
         executable=base_session.executable,
     )
     s.save()
