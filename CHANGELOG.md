@@ -9,7 +9,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added 
 
-- CHANGELOG.md
+- Add ability to import from the python builtin module 
+- Env variable to enable/disable importing from builtin
+- Env variable to configure Lambda timeout 
+- Add ability to provide Teal code for just that session when calling the `new`
+  awslambda endpoint, rather than using the "base session"
+- awslambda API endpoints: set a single session executable,  get session output
+- Add "expires_on" attribute for DynamoDB Session items, so that they can be
+  deleted automatically (using DynamoDB TTL)
+- A CHANGELOG.md
+
+### Fixed
+
+- Return dict from the Lambda handlers, so that API Gateway integrations work
+  correctly.
 
 
 ## [0.1.0] (2020-05-01)
