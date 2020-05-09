@@ -55,6 +55,7 @@ jobs:
         AWS_DEFAULT_REGION: eu-west-2
         DYNAMODB_ENDPOINT: http://localhost:9000
         PYTHONPATH: src
+        ENABLE_IMPORT_BUILTIN: yep
       run: |
         mkdir -p logs
         wget -q http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz -O /tmp/dynamodb_local_latest.tar.gz

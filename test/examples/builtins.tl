@@ -2,5 +2,5 @@
 
 (importpy format)
 
-(def pyformat ()
-  (format 17 "x"))
+(def ashex (val)
+  (format val "x"))
