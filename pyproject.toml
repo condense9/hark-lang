@@ -52,6 +52,7 @@ pytest-repeat = "*"
 # pydoc-markdown = {version = "^2.1.3", optional = true}
 
 
+flake8 = "^3.7.9"
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"

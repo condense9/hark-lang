@@ -137,7 +137,7 @@ def new(event, context):
             session.executable = exe.serialise()
             session.save()
             LOG.info("Set session code")
-        except Session.UpdateError:
+        except db.Session.UpdateError:
             return fail("Error saving code")
 
     try:
