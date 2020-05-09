@@ -202,7 +202,7 @@ def set_session_exe(event, context):
 
     try:
         session = db.Session.get(session_id)
-    except Session.DoesNotExist:
+    except db.Session.DoesNotExist:
         return fail("Couldn't find that session")
 
     try:
@@ -214,7 +214,7 @@ def set_session_exe(event, context):
     try:
         session.executable = exe.serialise()
         session.save()
-    except Session.UpdateError:
+    except db.Session.UpdateError:
         return fail("Error saving code")
 
     return success(message="Executable set successfully")
@@ -229,7 +229,7 @@ def getoutput(event, context):
 
     try:
         session = db.Session.get(session_id)
-    except Session.DoesNotExist:
+    except db.Session.DoesNotExist:
         return fail("Couldn't find that session")
 
     output = [m.stdout for m in session.machines]
@@ -247,7 +247,7 @@ def getevents(event, context):
 
     try:
         session = db.Session.get(session_id)
-    except Session.DoesNotExist:
+    except db.Session.DoesNotExist:
         return fail("Couldn't find that session")
 
     events = [[pe.as_dict() for pe in m.probe_events] for m in session.machines]
