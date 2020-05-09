@@ -53,9 +53,16 @@ class StateAttribute(JSONAttribute):
         return State.deserialise(super().deserialize(value))
 
 
+class ProbeEvent(MapAttribute):
+    time = NumberAttribute()
+    event = UnicodeAttribute()
+    data = MapAttribute(null=True)
+
+
 class MachineMap(MapAttribute):
     state = StateAttribute()
     probe_logs = ListAttribute(default=list)
+    probe_events = ListAttribute(of=ProbeEvent, default=list)
     stdout = ListAttribute(default=list)
     future = FutureAttribute()
     exception = UnicodeAttribute(default=None)

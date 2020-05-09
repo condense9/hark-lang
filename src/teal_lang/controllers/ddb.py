@@ -123,14 +123,21 @@ class DataController:
         with self.lock:
             return fut.finish(self, vmid, value)
 
-    def get_or_wait(self, vmid, future_ptr, state, probe):
+    def get_or_wait(self, vmid, future_ptr, state):
         with self.lock:
             resolved, value = fut.get_or_wait(self, vmid, future_ptr)
             if not resolved:
                 state.stopped = True
+                # This must be done here in the same lock context as get_or_wait
                 self.session.machines[vmid].state = state
-                self.session.machines[vmid].probe_logs += probe.logs
             return resolved, value
+
+    def stop(self, vmid, state, probe):
+        # Sync state back
+        with self.lock:
+            self.session.machines[vmid].state = state
+            self.session.machines[vmid].probe_events += probe.serialised_events
+            self.session.machines[vmid].probe_logs += probe.logs
 
     @property
     def machines(self):

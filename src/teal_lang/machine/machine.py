@@ -138,6 +138,7 @@ class TlMachine:
         while not self.stopped:
             self.step()
         self.probe.on_stopped(self)
+        self.data_controller.stop(self.vmid, self.state, self.probe)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -220,7 +221,7 @@ class TlMachine:
         num_args = i.operands[0]
         # The value to call will have been retrieved earlier by PushB.
         fn = self.state.ds_pop()
-        self.probe.on_enter(self, fn)
+        self.probe.on_enter(self, str(fn))
 
         if isinstance(fn, mt.TlFunction):
             self.state.es_enter(self.exe.locations[fn])
@@ -267,7 +268,7 @@ class TlMachine:
 
         if isinstance(val, mt.TlFuturePtr):
             resolved, result = self.data_controller.get_or_wait(
-                self.vmid, val, self.state, self.probe
+                self.vmid, val, self.state
             )
             if resolved:
                 LOG.info(f"{self.vmid} Finished waiting for {val}, got {result}")

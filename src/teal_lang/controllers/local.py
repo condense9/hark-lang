@@ -87,7 +87,7 @@ class DataController:
         with self.lock:
             return fut.finish(self, vmid, value)
 
-    def get_or_wait(self, vmid, future_ptr, state, probe):
+    def get_or_wait(self, vmid, future_ptr, state):
         """Get the value of a future in the stack, or add a continuation"""
         with self.lock:
             # TODO fix race condition? Relevant for local?
@@ -95,6 +95,9 @@ class DataController:
             if not resolved:
                 state.stopped = True
             return resolved, value
+
+    def stop(self, vmid, state, probe):
+        assert state.stopped
 
     @property
     def machines(self):
