@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import os
@@ -100,8 +101,9 @@ def resume(event, context):
     try:
         machine.run()
     except Exception as exc:
-        with lock:
-            session.machines[vmid].exception = str(exc)
+        session.refresh()
+        session.machines[vmid].exception = str(exc)
+        session.save()
         raise
 
     return success(
@@ -110,16 +112,6 @@ def resume(event, context):
         finished=controller.finished,
         result=controller.result,
     )
-
-
-def new_apigw(event, context):
-    """API gateway interface to create a new session"""
-    try:
-        body = json.loads(event["body"])
-    except (KeyError, TypeError, json.decoder.JSONDecodeError):
-        return fail("No event body")
-
-    return new(body, context)
 
 
 def new(event, context):
@@ -164,8 +156,9 @@ def new(event, context):
     try:
         TlMachine(vmid, invoker).run()
     except Exception as exc:
-        with lock:
-            session.machines[vmid].exception = str(exc)
+        session.refresh()
+        session.machines[vmid].exception = str(exc)
+        session.save()
         return fail("Runtime error", session_id=session.session_id)
 
     if wait_for_finish:
@@ -227,21 +220,9 @@ def set_session_exe(event, context):
     return success(message="Executable set successfully")
 
 
-def getoutput_apigw(event, context):
-    """API Gateway wrapper for getoutput"""
-    try:
-        body = json.loads(event["body"])
-    except (KeyError, TypeError, json.decoder.JSONDecodeError):
-        return fail("No event body")
-
-    return getoutput(body, context)
-
-
 def getoutput(event, context):
     """Get Teal standard output for a session"""
     session_id = event.get("session_id", None)
-
-    # TODO - expire sessions in the DB, or at least disallow querying them
 
     if not session_id:
         return fail("No session ID")
@@ -254,4 +235,44 @@ def getoutput(event, context):
     output = [m.stdout for m in session.machines]
     exceptions = [m.exception for m in session.machines]
 
-    return success(output=output, exceptions=exceptions, events=[])
+    return success(output=output, exceptions=exceptions)
+
+
+def getevents(event, context):
+    """Get probe events for a session"""
+    session_id = event.get("session_id", None)
+
+    if not session_id:
+        return fail("No session ID")
+
+    try:
+        session = db.Session.get(session_id)
+    except Session.DoesNotExist:
+        return fail("Couldn't find that session")
+
+    events = [[pe.as_dict() for pe in m.probe_events] for m in session.machines]
+
+    return success(events=events)
+
+
+## API gateway wrappers
+
+
+def wrap_apigw(fn):
+    """API Gateway wrapper for FN"""
+
+    @functools.wraps(fn)
+    def _wrapper(event, context):
+        try:
+            body = json.loads(event["body"])
+        except (KeyError, TypeError, json.decoder.JSONDecodeError):
+            return fail("No event body")
+
+        return fn(body, context)
+
+    return _wrapper
+
+
+new_apigw = wrap_apigw(new)
+getoutput_apigw = wrap_apigw(getoutput)
+getevents_apigw = wrap_apigw(getevents)
