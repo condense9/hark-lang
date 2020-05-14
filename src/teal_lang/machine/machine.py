@@ -79,7 +79,7 @@ class TlMachine:
     builtins = {
         "print": Print,
         "sleep": Sleep,
-        "=": Eq,
+        "==": Eq,
         "atomp": Atomp,
         "nullp": Nullp,
         "list": List,

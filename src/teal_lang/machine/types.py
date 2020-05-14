@@ -96,14 +96,6 @@ class TlString(str, TlLiteral):
     pass
 
 
-class TlFunction(str, TlLiteral):
-    """A function defined in Tl"""
-
-
-class TlForeign(str, TlLiteral):
-    """A foreign function"""
-
-
 class TlInstruction(str, TlLiteral):
     """A Teal machine instruction"""
 
@@ -136,6 +128,14 @@ class TlList(UserList, TlType):
 
     def __eq__(self, other):
         return super().__eq__(other) and self.data == other.data
+
+
+class TlFunction(TlList):
+    """A function defined in Tl"""
+
+
+class TlForeign(TlList):
+    """A foreign function"""
 
 
 # TODO:
