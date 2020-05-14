@@ -41,9 +41,8 @@ class TealLexer(Lexer):
 
     ignore_comment = r"\#.*"
 
-    INDENT = r"(?<=\n)\s+(?=\S)"
+    NL = r"[\r\n]+\s*"
     WS = r"[ \t]+"
-    NL = r"[\r\n]+"
 
     # Identifiers and keywords
     ID = "[a-z][a-zA-Z0-9_?.]*"
@@ -76,45 +75,49 @@ class TealLexer(Lexer):
         self.index += 1
 
 
-def make_tok(t, v="gen"):
+def make_tok(t, v="gen", lineno=None, index=None):
     tok = Token()
     tok.type = t
     tok.value = v
+    tok.lineno = lineno
+    tok.index = index
     return tok
 
 
 def post(toks):
     size = 0
-    levels = {}
+    levels = {0: 0}
     level = 0
+    indent = make_tok("INDENT")
+    dedent = make_tok("DEDENT")
     for t in toks:
-        if t.type == "INDENT":
-            if len(t.value) > size:
-                size = len(t.value)
+        if t.type == "NL":
+            # continue
+            new_size = len(t.value.replace("\n", "").replace("\r", ""))
+            if new_size > size:
+                size = new_size
                 level += 1
                 levels[size] = level
-                t.value = ""
-                yield t
-            elif len(t.value) < size:
-                size = len(t.value)
-                t.type = "DEDENT"
-                t.value = ""
+                yield indent
+            elif new_size < size:
+                size = new_size
                 if size not in levels:
-                    raise Exception("Irregular indentation!")
+                    raise Exception(f"Irregular indentation! {size}, {levels}")
                 while level > levels[size]:
                     level -= 1
-                    yield t
+                    yield dedent
+            else:
+                yield t
 
         # don't care about WS anymore
         elif t.type != "WS":
             yield t
 
+    # ensure there is a terminating NL
     nl = make_tok("NL")
+    yield nl
 
-    if t.type != "NL":
-        yield nl
-
-    dedent = make_tok("DEDENT")
+    # and add missing "dedents"
     while level > 0:
         yield dedent
         level -= 1
@@ -240,17 +243,21 @@ class TealParser(Parser):
 
     # top-level things: definitions or imports
 
-    @_("top statement")
+    @_("top_item")
     def top(self, p):
-        return p.top + [p.statement]
+        return p.top_item
 
-    @_("statement")
+    @_("top_item top")
     def top(self, p):
-        return [p.statement]
+        return p.top_item + p.top
 
-    @_("import_ NL", "definition NL")
-    def statement(self, p):
-        return p[0]
+    @_("NL")
+    def top_item(self, p):
+        return []
+
+    @_("import_", "definition")
+    def top_item(self, p):
+        return [p[0]]
 
     # imports
 
@@ -288,7 +295,7 @@ class TealParser(Parser):
 
     # blocks/suites
 
-    @_("NL INDENT expr NL more_exprs DEDENT")
+    @_("INDENT expr more_exprs DEDENT")
     def expr(self, p):
         return N_Progn([p.expr] + p.more_exprs)
 
@@ -296,7 +303,7 @@ class TealParser(Parser):
     def more_exprs(self, p):
         return []
 
-    @_("expr NL more_exprs")
+    @_("more_exprs NL expr")
     def more_exprs(self, p):
         # more_exprs is a list of expressions
         return [p.expr] + p.more_exprs
@@ -455,6 +462,12 @@ def bla(x):
         5
 """,
     "def f(): async g()",
+    "def f(): g()\ndef g(): 1",
+    """def foo():
+    1
+
+def bar():
+    2""",
 ]
 
 
@@ -466,7 +479,8 @@ def testparse():
     else:
         raise ValueError(TealParser.start)
 
-    for text in values:
+    max_test = 15
+    for text in values[:max_test]:
         print(do_parse(text))
 
 
@@ -487,10 +501,16 @@ def parserepl():
 ###
 
 
-def parse(text):
+def parse(text, debug_lex=False):
     parser = TealParser()
     lexer = TealLexer()
-    return parser.parse(post(lexer.tokenize(text)))
+    text += "\n"
+    if debug_lex:
+        toks = list(post(lexer.tokenize(text)))
+        print(list((tok.type, tok.value) for tok in toks))
+        return parser.parse(iter(toks))
+    else:
+        return parser.parse(post(lexer.tokenize(text)))
 
 
 if __name__ == "__main__":

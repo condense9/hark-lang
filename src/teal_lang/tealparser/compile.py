@@ -22,7 +22,8 @@ def teal_compile(node) -> list:
 
 @teal_compile.register
 def _(n: p.N_Literal):
-    return [mi.PushV(n.value)]
+    val = mt.to_teal_type(n.value)
+    return [mi.PushV(val)]
 
 
 @teal_compile.register
@@ -133,5 +134,5 @@ if __name__ == "__main__":
     with open(sys.argv[1], "r") as f:
         text = f.read()
 
-    res = CompileToplevel(p.parse(text))
+    res = CompileToplevel(p.parse(text, debug_lex=False))
     print(res.definitions)
