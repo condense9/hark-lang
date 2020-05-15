@@ -157,7 +157,7 @@ class TlMachine:
         # The value on the stack must be a Symbol, which is used to find a
         # function to call. Binding precedence:
         #
-        # local value -> functions -> foreigns -> builtins
+        # local value -> exe global bindings -> builtins
         sym = i.operands[0]
         if not isinstance(sym, mt.TlSymbol):
             raise ValueError(sym, type(sym))
@@ -165,10 +165,8 @@ class TlMachine:
         ptr = str(sym)
         if ptr in self.state.bound_names:
             val = self.state.get_bind(ptr)
-        elif ptr in self.exe.locations:
-            val = mt.TlFunction(ptr)
-        elif ptr in self._foreign:
-            val = mt.TlForeign(ptr)
+        elif ptr in self.exe.bindings:
+            val = self.exe.bindings[ptr]
         elif ptr in TlMachine.builtins:
             val = mt.TlInstruction(ptr)
         else:
@@ -223,11 +221,11 @@ class TlMachine:
         fn = self.state.ds_pop()
         self.probe.on_enter(self, str(fn))
 
-        if isinstance(fn, mt.TlFunction):
-            self.state.es_enter(self.exe.locations[fn])
+        if isinstance(fn, mt.TlFunctionPtr):
+            self.state.es_enter(self.exe.locations[fn.identifier])
 
-        elif isinstance(fn, mt.TlForeign):
-            foreign_f = self._foreign[fn]
+        elif isinstance(fn, mt.TlForeignPtr):
+            foreign_f = self._foreign[fn.identifier]
             args = tuple(reversed([self.state.ds_pop() for _ in range(num_args)]))
             self.probe.log(f"{self.vmid}--> {foreign_f} {args}")
             # TODO automatically wait for the args? Somehow mark which one we're

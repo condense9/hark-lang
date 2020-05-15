@@ -4,6 +4,7 @@ from functools import singledispatch, singledispatchmethod
 from ..machine import instructionset as mi
 from ..machine import types as mt
 from . import parser as p
+from ..machine.executable import link
 
 import logging
 
@@ -152,3 +153,5 @@ if __name__ == "__main__":
     pprint.pprint(res.global_bindings)
     print("")
     pprint.pprint(res.functions)
+
+    print(link(res.global_bindings, res.functions).listing())
