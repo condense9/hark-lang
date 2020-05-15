@@ -69,6 +69,7 @@ class CompileToplevel:
         return [
             mi.PushV(mt.TlFunctionPtr(identifier, stack)),
             mi.Bind(mt.TlSymbol(n.name)),
+            mi.PushB(mt.TlSymbol(n.name)),  # 'return' the func ptr
         ]
 
     @compile_expr.register
@@ -144,7 +145,10 @@ if __name__ == "__main__":
     with open(sys.argv[1], "r") as f:
         text = f.read()
 
-    res = CompileToplevel(p.parse(text, debug_lex=False))
+    debug = len(sys.argv) > 2 and sys.argv[2] == "-d"
+
+    res = CompileToplevel(p.parse(text, debug_lex=debug))
+
     pprint.pprint(res.global_bindings)
     print("")
     pprint.pprint(res.functions)

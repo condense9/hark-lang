@@ -11,7 +11,6 @@ class TealLexer(Lexer):
         # whitespace
         INDENT,
         DEDENT,
-        WS,
         NL,
         # identifiers and keywords
         ID,
@@ -40,9 +39,9 @@ class TealLexer(Lexer):
     literals = {"(", ")", ":", ","}
 
     ignore_comment = r"\#.*"
+    ignore_ws = r"(?<=\S)[ \t]+"
 
     NL = r"[\r\n]+\s*"
-    WS = r"[ \t]+"
 
     # Identifiers and keywords
     ID = "[a-z][a-zA-Z0-9_?.]*"
@@ -90,9 +89,11 @@ def post(toks):
     level = 0
     indent = make_tok("INDENT")
     dedent = make_tok("DEDENT")
-    for t in toks:
+    t = next(toks)
+    for next_tok in toks:
+        yield t
+
         if t.type == "NL":
-            # continue
             new_size = len(t.value.replace("\n", "").replace("\r", ""))
             if new_size > size:
                 size = new_size
@@ -106,18 +107,14 @@ def post(toks):
                 while level > levels[size]:
                     level -= 1
                     yield dedent
-            else:
-                yield t
+                    if next_tok.type not in ("ELSE", "ELIF"):
+                        yield t
+        t = next_tok
 
-        # don't care about WS anymore
-        elif t.type != "WS":
-            yield t
-
-    # ensure there is a terminating NL
-    nl = make_tok("NL")
-    yield nl
+    yield t
 
     # and add missing "dedents"
+    nl = make_tok("NL")
     while level > 0:
         yield dedent
         level -= 1
@@ -233,36 +230,47 @@ class TealParser(Parser):
         ("nonassoc", EQ, SET),
         ("left", ADD, SUB),
         ("left", MUL, DIV),
+        ("right", ASYNC, AWAIT, DEF),
     )
 
     start = "top"
 
-    @_("", "WS")
+    @_("suite")
+    def top(self, p):
+        return p.suite
+
+    @_("")
     def nothing(self, p):
         pass
 
-    # top-level things: definitions or imports
+    @_("expr nls more_suite")
+    def suite(self, p):
+        return [p.expr] + p.more_suite
 
-    @_("top_item")
-    def top(self, p):
-        return p.top_item
+    @_("NL more_nls")
+    def nls(self, p):
+        pass
 
-    @_("top_item top")
-    def top(self, p):
-        return p.top_item + p.top
+    @_("nothing")
+    def more_nls(self, p):
+        pass
 
-    @_("NL")
-    def top_item(self, p):
+    @_("NL more_nls")
+    def more_nls(self, p):
+        pass
+
+    @_("nothing")
+    def more_suite(self, p):
         return []
 
-    @_("import_", "definition")
-    def top_item(self, p):
-        return [p[0]]
+    @_("expr NL more_suite")
+    def more_suite(self, p):
+        return [p.expr] + p.more_suite
 
     # imports
 
     @_("IMPORTPY ID FROM ID import_as")
-    def import_(self, p):
+    def expr(self, p):
         return N_Import(p.ID0, p.ID1, p.import_as)
 
     @_("nothing")
@@ -276,7 +284,7 @@ class TealParser(Parser):
     # definitions (functions only, for now)
 
     @_("DEF ID '(' paramlist ')' ':' expr")
-    def definition(self, p):
+    def expr(self, p):
         return N_Definition(p.ID, p.paramlist, p.expr)
 
     @_("nothing")
@@ -291,22 +299,11 @@ class TealParser(Parser):
     def paramlist(self, p):
         return [p.ID] + p.paramlist
 
-    ## expressions
+    # block (progn)
 
-    # blocks/suites
-
-    @_("INDENT expr more_exprs DEDENT")
+    @_("NL INDENT suite DEDENT")
     def expr(self, p):
-        return N_Progn([p.expr] + p.more_exprs)
-
-    @_("nothing")
-    def more_exprs(self, p):
-        return []
-
-    @_("more_exprs NL expr")
-    def more_exprs(self, p):
-        # more_exprs is a list of expressions
-        return [p.expr] + p.more_exprs
+        return N_Progn(p.suite)
 
     # sub
 
@@ -479,7 +476,7 @@ def testparse():
     else:
         raise ValueError(TealParser.start)
 
-    max_test = 15
+    max_test = None
     for text in values[:max_test]:
         print(do_parse(text))
 
@@ -504,10 +501,20 @@ def parserepl():
 def parse(text, debug_lex=False):
     parser = TealParser()
     lexer = TealLexer()
-    text += "\n"
+    text = text.strip() + "\n"
     if debug_lex:
         toks = list(post(lexer.tokenize(text)))
-        print(list((tok.type, tok.value) for tok in toks))
+        indent = 0
+        for tok in toks:
+            val = ""
+            if tok.type not in ("NL", "INDENT", "DEDENT") and tok.type != tok.value:
+                val = tok.value
+            space = " " * indent
+            print(f"{space}{tok.type:10} : {val}")
+            if tok.type == "INDENT":
+                indent += 2
+            elif tok.type == "DEDENT":
+                indent -= 2
         return parser.parse(iter(toks))
     else:
         return parser.parse(post(lexer.tokenize(text)))
