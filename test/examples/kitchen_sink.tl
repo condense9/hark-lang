@@ -1,10 +1,6 @@
-;;;; -*- mode: lisp -*-
 
-(def hello ()
-  "hello world")
+def hello_int(): 5
 
-(def hello-int ()
-  5)
+def hello(): "hello world"
 
-(def ident (x)
-  x)
+def ident(x): x

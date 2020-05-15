@@ -1,0 +1,47 @@
+
+builtins:
+  ashex:
+    - [17]
+    - "11"
+
+chaining:
+  main:
+    - []
+    - 4
+
+concurrency:
+  concurrent:
+    - [5]
+    - 5960
+
+kitchen_sink:
+  hello:
+    - []
+    - "hello world"
+
+  hello_int:
+    - []
+    - 5
+
+  ident:
+    - [5]
+    - 5
+
+  ident:
+    - ["foo"]
+    - "foo"
+
+  indent:
+    - [true]
+    - true
+
+
+pythonimport:
+
+  show-format:
+    - ["Teal"]
+    - "Hello Teal!"
+
+  show_trig:
+    - [0.0]
+    - 1.0

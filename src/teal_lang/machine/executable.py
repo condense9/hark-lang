@@ -18,7 +18,6 @@ class Executable:
     bindings: dict
     locations: dict
     code: list
-    # data: dict  # TODO
 
     def listing(self):
         res = " /\n"
@@ -32,14 +31,22 @@ class Executable:
         res += " \\\n"
         return res
 
+    def bindings_table(self):
+        res = ""
+        k = "NAME"
+        res += f"{k: <14} VALUE\n"
+        for k, v in self.bindings.items():
+            res += f"{k:.<14} {v}\n"
+        return res
+
     def serialise(self):
         code = [i.serialise() for i in self.code]
-        return dict(locations=self.locations, foreign=self.foreign, code=code)
+        return dict(locations=self.locations, bindings=self.bindings, code=code)
 
     @classmethod
     def deserialise(cls, obj):
         code = [Instruction.deserialise(i, instructionset) for i in obj["code"]]
-        return cls(locations=obj["locations"], foreign=obj["foreign"], code=code)
+        return cls(locations=obj["locations"], bindings=obj["bindings"], code=code)
 
 
 def link(bindings: Dict[str, Any], functions: Dict[str, list]) -> Executable:

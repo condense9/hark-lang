@@ -3,8 +3,7 @@ import time
 import traceback
 from typing import List
 
-from .. import tealparser
-from ..tealparser.read import read_exp
+from .. import load
 
 LOG = logging.getLogger(__name__)
 
@@ -45,17 +44,19 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
         function:   Name of the function to run
         args:       Arguments (as strings to be parsed) to pass in to function
     """
-    toplevel = tealparser.load_file(filename)
-    exe = tealparser.make_exe(toplevel)
+    exe = load.compile_file(filename)
     controller.set_executable(exe)
-
-    # args = [read_exp(arg) for arg in args]
 
     LOG.info("Running `%s` in %s", function, filename)
     LOG.info(f"Args: {args}")
 
     try:
-        m = controller.new_machine(args, function, is_top_level=True)
+        fn_ptr = exe.bindings[function]
+    except KeyError:
+        raise ValueError(f"Function `{function}' does not exist!")
+
+    try:
+        m = controller.new_machine(args, fn_ptr, is_top_level=True)
         invoker.invoke(m, run_async=False)
         waiter(controller, invoker)
 

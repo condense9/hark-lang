@@ -103,11 +103,12 @@ class TlMachine:
         self.exe = self.data_controller.executable
         self.evaluator = self.data_controller.evaluator_cls(self)
         self._foreign = {
-            name: import_python_function(fn, mod)
-            for name, (fn, mod) in self.exe.foreign.items()
+            name: import_python_function(val.identifier, val.module)
+            for name, val in self.exe.bindings.items()
+            if isinstance(val, mt.TlForeignPtr)
         }
         LOG.debug("locations %s", self.exe.locations.keys())
-        LOG.debug("foreign %s", self.exe.foreign.keys())
+        LOG.debug("foreign %s", self._foreign.keys())
         # No entrypoint argument - just set the IP in the state
 
     @property
@@ -249,10 +250,16 @@ class TlMachine:
         # Arguments for the function must already be on the stack
         # ACall can *only* call functions in self.locations (unlike Call)
         num_args = i.operands[0]
-        fn_name = self.state.ds_pop()
-        args = reversed([self.state.ds_pop() for _ in range(num_args)])
+        fn_ptr = self.state.ds_pop()
 
-        machine = self.data_controller.new_machine(args, fn_name)
+        if not isinstance(fn_ptr, mt.TlFunctionPtr):
+            raise ValueError(fn_ptr)
+
+        if fn_ptr.identifier not in self.exe.locations:
+            raise Exception(f"Function `{fn_ptr}` doesn't exist")
+
+        args = reversed([self.state.ds_pop() for _ in range(num_args)])
+        machine = self.data_controller.new_machine(args, fn_ptr)
         self.invoker.invoke(machine)
         future = mt.TlFuturePtr(machine)
 

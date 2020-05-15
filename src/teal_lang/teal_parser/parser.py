@@ -1,9 +1,11 @@
+import os
 from ast import literal_eval
-from dataclasses import dataclass
 from typing import Any
 
 from sly import Lexer, Parser
 from sly.lex import Token
+
+from . import nodes
 
 
 class TealLexer(Lexer):
@@ -83,7 +85,7 @@ def make_tok(t, v="gen", lineno=None, index=None):
     return tok
 
 
-def post(toks):
+def post_lex(toks):
     size = 0
     levels = {0: 0}
     level = 0
@@ -121,107 +123,10 @@ def post(toks):
         yield nl
 
 
-def lexrepl():
-    lexer = TealLexer()
-    while True:
-        try:
-            text = input("lex > ")
-        except EOFError:
-            break
-        if text:
-            print(list((tok.type, tok.value) for tok in post(lexer.tokenize(text))))
-
-
-stream = [
-    "bla",
-    "123",
-    '"bla"',
-    "123.45",
-    "-5",
-    "a.b",
-    "bla34_dsa",
-    "bar # foo\nbaz",
-    "def foo:\n  bar",
-    "foo   bar\n  baz",
-    "foo\n  bar\n    baz",
-    "foo\n  bar\n  cow\n    baz",
-]
-
-
-def testlex():
-    for text in stream:
-        lexer = TealLexer()
-        print("---")
-        print(text)
-        print(":")
-        toks = post(lexer.tokenize(text))
-        print(list((tok.type, tok.value) for tok in toks))
-
-
 ### PARSER
 
 
-@dataclass
-class N_Definition:
-    name: str
-    paramlist: list
-    body: list
-
-
-@dataclass
-class N_Import:
-    name: str
-    mod: str
-    as_: str
-
-
-@dataclass
-class N_Call:
-    fn: str
-    args: list
-
-
-@dataclass
-class N_Async:
-    call: N_Call
-
-
-@dataclass
-class N_Await:
-    expr: list
-
-
-@dataclass
-class N_Binop:
-    lhs: Any
-    op: str
-    rhs: Any
-
-
-@dataclass
-class N_If:
-    cond: Any
-    then: list
-    els: list
-
-
-@dataclass
-class N_Progn:
-    exprs: list
-
-
-@dataclass
-class N_Id:
-    name: str
-
-
-@dataclass
-class N_Literal:
-    value: Any
-
-
 class TealParser(Parser):
-    debugfile = "parser.out"
     tokens = TealLexer.tokens
     precedence = (
         # ("nonassoc", LESSTHAN, GREATERTHAN),
@@ -230,7 +135,7 @@ class TealParser(Parser):
         ("nonassoc", EQ, SET),
         ("left", ADD, SUB),
         ("left", MUL, DIV),
-        ("right", ASYNC, AWAIT, DEF),
+        # ("right", ASYNC, AWAIT, DEF),
     )
 
     start = "top"
@@ -243,35 +148,33 @@ class TealParser(Parser):
     def nothing(self, p):
         pass
 
-    @_("expr nls more_suite")
+    # suites
+
+    @_("suite_item more_suite")
     def suite(self, p):
-        return [p.expr] + p.more_suite
-
-    @_("NL more_nls")
-    def nls(self, p):
-        pass
-
-    @_("nothing")
-    def more_nls(self, p):
-        pass
-
-    @_("NL more_nls")
-    def more_nls(self, p):
-        pass
+        return p.suite_item + p.more_suite
 
     @_("nothing")
     def more_suite(self, p):
         return []
 
-    @_("expr NL more_suite")
+    @_("suite_item more_suite")
     def more_suite(self, p):
-        return [p.expr] + p.more_suite
+        return p.suite_item + p.more_suite
+
+    @_("expr NL")
+    def suite_item(self, p):
+        return [p.expr]
+
+    @_("NL")
+    def suite_item(self, p):
+        return []
 
     # imports
 
     @_("IMPORTPY ID FROM ID import_as")
     def expr(self, p):
-        return N_Import(p.ID0, p.ID1, p.import_as)
+        return nodes.N_Import(p.ID0, p.ID1, p.import_as)
 
     @_("nothing")
     def import_as(self, p):
@@ -285,7 +188,7 @@ class TealParser(Parser):
 
     @_("DEF ID '(' paramlist ')' ':' expr")
     def expr(self, p):
-        return N_Definition(p.ID, p.paramlist, p.expr)
+        return nodes.N_Definition(p.ID, p.paramlist, p.expr)
 
     @_("nothing")
     def paramlist(self, p):
@@ -303,7 +206,7 @@ class TealParser(Parser):
 
     @_("NL INDENT suite DEDENT")
     def expr(self, p):
-        return N_Progn(p.suite)
+        return nodes.N_Progn(p.suite)
 
     # sub
 
@@ -311,21 +214,11 @@ class TealParser(Parser):
     def expr(self, p):
         return p.expr
 
-    # async/await
-
-    @_("ASYNC expr")
-    def expr(self, p):
-        return N_Async(p.expr)
-
-    @_("AWAIT expr")
-    def expr(self, p):
-        return N_Await(p.expr)
-
     # function call
 
     @_("expr '(' arglist ')'")
     def expr(self, p):
-        return N_Call(p.expr, p.arglist)
+        return nodes.N_Call(p.expr, p.arglist)
 
     @_("nothing")
     def arglist(self, p):
@@ -339,11 +232,21 @@ class TealParser(Parser):
     def arglist(self, p):
         return [p.expr] + p.arglist
 
+    # async/await
+
+    @_("ASYNC expr")
+    def expr(self, p):
+        return nodes.N_Async(p.expr)
+
+    @_("AWAIT expr")
+    def expr(self, p):
+        return nodes.N_Await(p.expr)
+
     # conditional
 
     @_("IF expr ':' expr rest_if")
     def expr(self, p):
-        return N_If(p.expr0, p.expr1, p.rest_if)
+        return nodes.N_If(p.expr0, p.expr1, p.rest_if)
 
     @_("nothing")
     def rest_if(self, p):
@@ -351,7 +254,7 @@ class TealParser(Parser):
 
     @_("ELIF expr ':' expr rest_if")
     def rest_if(self, p):
-        return [N_If(p.expr0, p.expr1, p.rest_if)]
+        return [nodes.N_If(p.expr0, p.expr1, p.rest_if)]
 
     @_("ELSE ':' expr")
     def rest_if(self, p):
@@ -370,140 +273,32 @@ class TealParser(Parser):
         "expr SET expr",
     )
     def expr(self, p):
-        return N_Binop(p[0], p[1], p[2])
+        return nodes.N_Binop(p[0], p[1], p[2])
 
     # literals
 
     @_("ID")
     def expr(self, p):
-        return N_Id(p.ID)
+        return nodes.N_Id(p.ID)
 
     @_("NUMBER")
     def expr(self, p):
-        return N_Literal(literal_eval(p.NUMBER))
+        return nodes.N_Literal(literal_eval(p.NUMBER))
 
     @_("STRING")
     def expr(self, p):
-        return N_Literal(literal_eval(p.STRING))
-
-
-def do_parse(text, debug=True):
-    parser = TealParser()
-    lexer = TealLexer()
-    print("\n---")
-    print(text.strip())
-    print(":")
-    toks = list(post(lexer.tokenize(text)))
-    if debug:
-        print(list((tok.type, tok.value) for tok in toks))
-    return parser.parse(iter(toks))
-
-
-exprs = [
-    "foo",
-    "foo()",
-    "foo(1)",
-    "foo(1, 2, 3)",
-    "foo(1, g(), 3)",
-    "1 + 2",
-    "1 + 2 + 3",
-    "1 + 2 * 3",
-    "(1 + 2) * 3",
-    "1 + (foo() + 4)",
-]
-
-
-top_stmts = [
-    "importpy foo from bar.baz",
-    "importpy foo from bar.baz as cow",
-    "def foo(): 1",
-    "def foo(): g()()",
-    "def foo(x):\n    x",
-    """def foo():
-    1
-    2
-""",
-    """
-def bla(x):
-    if x: 1
-""",
-    """
-def bla(x):
-    if x:
-        1
-""",
-    """importpy foo from bar.baz as cow
-
-def bla(x):
-    1
-    """,
-    """
-def bla(x):
-    if x:
-        1
-    else:
-        2
-    """,
-    """
-def bla(x):
-    if x: 1 else: 2
-    """,
-    """
-def bla(x):
-    if x:
-        1
-    elif y:
-        3
-    else:
-        4
-        5
-""",
-    "def f(): async g()",
-    "def f(): g()\ndef g(): 1",
-    """def foo():
-    1
-
-def bar():
-    2""",
-]
-
-
-def testparse():
-    if TealParser.start == "top":
-        values = [t.strip() + "\n" for t in top_stmts]
-    elif TealParser.start == "expr":
-        values = exprs
-    else:
-        raise ValueError(TealParser.start)
-
-    max_test = None
-    for text in values[:max_test]:
-        print(do_parse(text))
-
-
-def parserepl():
-    if TealParser.start != "expr":
-        print("! Set TealParser.start to 'expr' to use the REPL")
-        return
-
-    while True:
-        try:
-            text = input("expr > ")
-        except EOFError:
-            break
-        if text:
-            do_parse(text, debug=False)
+        return nodes.N_Literal(literal_eval(p.STRING))
 
 
 ###
 
 
-def parse(text, debug_lex=False):
+def tl_parse(text, debug_lex=False):
     parser = TealParser()
     lexer = TealLexer()
     text = text.strip() + "\n"
     if debug_lex:
-        toks = list(post(lexer.tokenize(text)))
+        toks = list(post_lex(lexer.tokenize(text)))
         indent = 0
         for tok in toks:
             val = ""
@@ -517,11 +312,4 @@ def parse(text, debug_lex=False):
                 indent -= 2
         return parser.parse(iter(toks))
     else:
-        return parser.parse(post(lexer.tokenize(text)))
-
-
-if __name__ == "__main__":
-    # testlex()
-    # lexrepl()
-    testparse()
-    # parserepl()
+        return parser.parse(post_lex(lexer.tokenize(text)))

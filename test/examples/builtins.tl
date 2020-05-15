@@ -1,6 +1,6 @@
 ;; -*- mode: lisp -*-
 
-(importpy format)
+importpy format
 
-(def ashex (val)
-  (format val "x"))
+define ashex(x):
+  format(val x)
