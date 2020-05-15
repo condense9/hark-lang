@@ -9,6 +9,8 @@ Teal is a programming language for microservice orchestration. With it, you can
 
 **Teal is alpha quality - unstable, but usable.**
 
+[Play with Teal in your browser!](https://www.condense9.com/playground)
+
 ```shell
 $ pip install teal-lang
 ```
