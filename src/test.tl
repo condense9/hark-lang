@@ -5,6 +5,7 @@ def hello(x):
 
 def main(x):
     print("foo")
+
     if a:
         print(1)
     else:
