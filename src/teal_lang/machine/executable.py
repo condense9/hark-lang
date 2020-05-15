@@ -1,10 +1,4 @@
-"""The Teal Machine Executable class
-
-Think about this like a Lisp Image - contains all definitions and data required.
-You can fire up a machine with one of these, and then evaluate things (run
-functions, inspect data, etc).
-
-"""
+"""The Teal Machine Executable class"""
 
 from dataclasses import dataclass
 from typing import Any, Dict
@@ -16,11 +10,14 @@ from .types import TlType
 
 @dataclass
 class Executable:
+    """Teal executable"""
+
     bindings: dict
     locations: dict
     code: list
 
-    def listing(self):
+    def listing(self) -> str:
+        """Get a pretty assembly listing string"""
         res = " /\n"
         for i, instr in enumerate(self.code):
             if i in self.locations.values():
@@ -33,6 +30,7 @@ class Executable:
         return res
 
     def bindings_table(self):
+        """Get a pretty table of bindings"""
         res = ""
         k = "NAME"
         res += f"{k: <14} VALUE\n"
@@ -40,13 +38,15 @@ class Executable:
             res += f"{k:.<14} {v}\n"
         return res
 
-    def serialise(self):
+    def serialise(self) -> dict:
+        """Serialise the executable into a JSON-able dict"""
         code = [i.serialise() for i in self.code]
         bindings = {name: val.serialise() for name, val in self.bindings.items()}
         return dict(locations=self.locations, bindings=bindings, code=code)
 
     @classmethod
-    def deserialise(cls, obj):
+    def deserialise(cls, obj: dict):
+        """Deserialise the dict created by serialise"""
         code = [Instruction.deserialise(i, instructionset) for i in obj["code"]]
         bindings = {
             name: TlType.deserialise(val) for name, val in obj["bindings"].items()
