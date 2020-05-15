@@ -11,6 +11,7 @@ from typing import Any, Dict
 
 from . import instructionset
 from .instruction import Instruction
+from .types import TlType
 
 
 @dataclass
@@ -41,12 +42,16 @@ class Executable:
 
     def serialise(self):
         code = [i.serialise() for i in self.code]
-        return dict(locations=self.locations, bindings=self.bindings, code=code)
+        bindings = {name: val.serialise() for name, val in self.bindings.items()}
+        return dict(locations=self.locations, bindings=bindings, code=code)
 
     @classmethod
     def deserialise(cls, obj):
         code = [Instruction.deserialise(i, instructionset) for i in obj["code"]]
-        return cls(locations=obj["locations"], bindings=obj["bindings"], code=code)
+        bindings = {
+            name: TlType.deserialise(val) for name, val in obj["bindings"].items()
+        }
+        return cls(locations=obj["locations"], bindings=bindings, code=code)
 
 
 def link(bindings: Dict[str, Any], functions: Dict[str, list]) -> Executable:

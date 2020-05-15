@@ -24,23 +24,15 @@ kitchen_sink:
     - 5
 
   ident:
-    - [5]
-    - 5
-
-  ident:
     - ["foo"]
     - "foo"
-
-  indent:
-    - [true]
-    - true
 
 
 pythonimport:
 
-  show-format:
-    - ["Teal"]
-    - "Hello Teal!"
+  show_format:
+    - ["World"]
+    - "Hello World!"
 
   show_trig:
     - [0.0]
