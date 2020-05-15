@@ -28,6 +28,8 @@ class TealLexer(Lexer):
         # values
         NUMBER,
         STRING,
+        TRUE,
+        FALSE,
         # operators
         ADD,
         SUB,
@@ -36,6 +38,8 @@ class TealLexer(Lexer):
         AND,
         OR,
         EQ,
+        GT,
+        LT,
         SET,  # must come after EQ
     }
     literals = {"(", ")", ":", ","}
@@ -56,6 +60,8 @@ class TealLexer(Lexer):
     ID["as"] = AS
     ID["async"] = ASYNC
     ID["await"] = AWAIT
+    ID["true"] = TRUE
+    ID["false"] = FALSE
 
     # values
     NUMBER = r"[+-]?[\d.]+"
@@ -69,6 +75,8 @@ class TealLexer(Lexer):
     EQ = r"=="
     SET = r"="
     AND = r"&&"
+    GT = r">"
+    LT = r"<"
     OR = r"\|\|"
 
     def error(self, t):
@@ -129,7 +137,7 @@ def post_lex(toks):
 class TealParser(Parser):
     tokens = TealLexer.tokens
     precedence = (
-        # ("nonassoc", LESSTHAN, GREATERTHAN),
+        ("nonassoc", LT, GT),
         ("right", OR),
         ("right", AND),
         ("nonassoc", EQ, SET),
@@ -263,6 +271,8 @@ class TealParser(Parser):
     # binops
 
     @_(
+        "expr GT expr",
+        "expr LT expr",
         "expr ADD expr",
         "expr SUB expr",
         "expr MUL expr",
@@ -280,6 +290,14 @@ class TealParser(Parser):
     @_("ID")
     def expr(self, p):
         return nodes.N_Id(p.ID)
+
+    @_("TRUE")
+    def expr(self, p):
+        return nodes.N_Literal(True)
+
+    @_("FALSE")
+    def expr(self, p):
+        return nodes.N_Literal(False)
 
     @_("NUMBER")
     def expr(self, p):
