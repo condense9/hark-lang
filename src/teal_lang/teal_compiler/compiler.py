@@ -33,7 +33,7 @@ class CompileToplevel:
 
     def compile_function(self, n) -> list:
         """Compile a function into executable code"""
-        bindings = [mi.Bind(mt.TlSymbol(arg)) for arg in reversed(n.paramlist)]
+        bindings = flatten([[mi.Bind(mt.TlSymbol(arg)), mi.Pop()] for arg in reversed(n.paramlist)])
         body = self.compile_expr(n.body)
         return bindings + body + [mi.Return()]
 
@@ -102,6 +102,8 @@ class CompileToplevel:
 
     @compile_expr.register
     def _(self, n: nodes.N_Await):
+        if not isinstance(n.expr, (nodes.N_Call, nodes.N_Id)):
+            raise ValueError(f"Can't use async with {n.expr}")
         val = self.compile_expr(n.expr)
         return val + [mi.Wait(mt.TlInt(0))]
 
@@ -125,7 +127,7 @@ class CompileToplevel:
         rhs = self.compile_expr(n.rhs)
 
         if n.op == "=":
-            if not isinstance(n.lhs, N_Id):
+            if not isinstance(n.lhs, nodes.N_Id):
                 raise ValueError(f"Can't assign to non-identifier {n.lhs}")
             return rhs + [mi.Bind(mt.TlSymbol(str(n.lhs.name)))]
 

@@ -10,8 +10,8 @@ chaining:
     - 4
 
 concurrency:
-  concurrent:
-    - [5]
+  main:
+    - []
     - 5960
 
 kitchen_sink:
