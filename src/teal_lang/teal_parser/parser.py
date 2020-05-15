@@ -143,7 +143,8 @@ class TealParser(Parser):
         ("nonassoc", EQ, SET),
         ("left", ADD, SUB),
         ("left", MUL, DIV),
-        # ("right", ASYNC, AWAIT, DEF),
+        ("right", AWAIT, ASYNC),
+        ("left", "("),  # funcall has highest precedence
     )
 
     start = "top"
@@ -240,16 +241,6 @@ class TealParser(Parser):
     def arglist(self, p):
         return [p.expr] + p.arglist
 
-    # async/await
-
-    @_("ASYNC expr")
-    def expr(self, p):
-        return nodes.N_Async(p.expr)
-
-    @_("AWAIT expr")
-    def expr(self, p):
-        return nodes.N_Await(p.expr)
-
     # conditional
 
     @_("IF expr ':' expr rest_if")
@@ -267,6 +258,16 @@ class TealParser(Parser):
     @_("ELSE ':' expr")
     def rest_if(self, p):
         return p.expr
+
+    # async/await
+
+    @_("ASYNC expr")
+    def expr(self, p):
+        return nodes.N_Async(p.expr)
+
+    @_("AWAIT expr")
+    def expr(self, p):
+        return nodes.N_Await(p.expr)
 
     # binops
 

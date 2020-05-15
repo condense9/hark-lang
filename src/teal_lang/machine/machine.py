@@ -160,7 +160,7 @@ class TlMachine:
     def _(self, i: Bind):
         ptr = i.operands[0]
         try:
-            val = self.state.ds_pop()
+            val = self.state.ds_peek(0)
         except IndexError as exc:
             self.error(exc, "Missing argument to function!")
         self.state.set_bind(ptr, val)
