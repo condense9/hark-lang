@@ -7,7 +7,8 @@ import time
 import boto3
 import botocore
 
-from .. import tealparser
+from .. import __version__
+from .. import load
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..machine import TlMachine
@@ -128,8 +129,7 @@ def new(event, context):
 
     if code:
         try:
-            toplevel = tealparser.evaluate_toplevel(code)
-            exe = tealparser.make_exe(toplevel)
+            exe = load.compile_text(code)
         except Exception as exc:
             return fail(f"Error compiling code:\n{exc}")
 
@@ -141,15 +141,11 @@ def new(event, context):
             return fail("Error saving code")
 
     try:
-        args = [tealparser.read_exp(arg) for arg in args]
-    except:
-        return fail("Could not parse args")
-
-    try:
         lock = db.SessionLocker(session)
         controller = ddb_controller.DataController(session, lock)
         invoker = Invoker(controller)
-        vmid = controller.new_machine(args, function, is_top_level=True)
+        fn_ptr = exe.bindings[function]
+        vmid = controller.new_machine(args, fn_ptr, is_top_level=True)
     except Exception as exc:
         return fail(f"Error initialising:\n{exc}")
 
@@ -180,8 +176,7 @@ def set_exe(event, context):
     """Set the executable for the base session"""
     db.init_base_session()
     content = event["content"]
-    toplevel = tealparser.evaluate_toplevel(content)
-    exe = tealparser.make_exe(toplevel)
+    exe = load.compile_text(content)
     db.set_base_exe(exe)
     return success(
         # --
@@ -206,8 +201,7 @@ def set_session_exe(event, context):
         return fail("Couldn't find that session")
 
     try:
-        toplevel = tealparser.evaluate_toplevel(content)
-        exe = tealparser.make_exe(toplevel)
+        exe = load.compile_text(content)
     except:
         return fail("Error compiling code")
 
@@ -255,6 +249,10 @@ def getevents(event, context):
     return success(events=events)
 
 
+def version(event, context):
+    return success(version=__version__)
+
+
 ## API gateway wrappers
 
 
@@ -276,3 +274,4 @@ def wrap_apigw(fn):
 new_apigw = wrap_apigw(new)
 getoutput_apigw = wrap_apigw(getoutput)
 getevents_apigw = wrap_apigw(getevents)
+version_apigw = wrap_apigw(version)

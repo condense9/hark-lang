@@ -7,13 +7,18 @@ from .teal_compiler import tl_compile
 from .teal_parser import tl_parse
 
 
+def compile_text(text: str, *, debug_lex=False) -> Executable:
+    "Compile a Teal file, creating an Executable ready to be used"
+    bindings, functions = tl_compile(tl_parse(text, debug_lex=debug_lex))
+    return link(bindings, functions)
+
+
 def compile_file(filename: Path, *, debug_lex=False) -> Executable:
     "Compile a Teal file, creating an Executable ready to be used"
     with open(filename, "r") as f:
         text = f.read()
 
-    bindings, functions = tl_compile(tl_parse(text, debug_lex=debug_lex))
-    return link(bindings, functions)
+    return compile_text(text, debug_lex=debug_lex)
 
 
 if __name__ == "__main__":
