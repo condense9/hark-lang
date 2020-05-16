@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 @dataclass
 class N_Definition:
-    name: str
     paramlist: list
     body: list
 
@@ -15,18 +14,17 @@ class N_Definition:
 class N_Import:
     name: str
     mod: str
-    as_: str
 
 
 @dataclass
 class N_Call:
-    fn: str
+    fn: Any
     args: list
 
 
 @dataclass
 class N_Async:
-    call: N_Call
+    expr: str
 
 
 @dataclass
@@ -56,6 +54,17 @@ class N_Progn:
 @dataclass
 class N_Id:
     name: str
+
+
+@dataclass
+class N_Symbol:
+    name: str
+
+
+@dataclass
+class N_Argument:
+    symbol: str
+    value: Any
 
 
 @dataclass

@@ -1,6 +1,7 @@
 import os
 from ast import literal_eval
 from typing import Any
+from itertools import chain
 
 from sly import Lexer, Parser
 from sly.lex import Token
@@ -10,26 +11,22 @@ from . import nodes
 
 class TealLexer(Lexer):
     tokens = {
-        # whitespace
-        INDENT,
-        DEDENT,
+        TERM,
         NL,
-        # identifiers and keywords
+        SYMBOL,
         ID,
-        DEF,
+        # keywords
+        FN,
         IF,
         ELIF,
         ELSE,
-        IMPORTPY,
-        FROM,
-        AS,
         ASYNC,
         AWAIT,
+        TRUE,
+        FALSE,
         # values
         NUMBER,
         STRING,
-        TRUE,
-        FALSE,
         # operators
         ADD,
         SUB,
@@ -42,26 +39,24 @@ class TealLexer(Lexer):
         LT,
         SET,  # must come after EQ
     }
-    literals = {"(", ")", ":", ","}
+    literals = {"(", ")", ",", "{", "}"}
 
-    ignore_comment = r"\#.*"
-    ignore_ws = r"(?<=\S)[ \t]+"
-
-    NL = r"[\r\n]+\s*"
+    ignore = r" \t"
+    ignore_comment = r"//.*"
+    ignore_block = r"/\*.*\*/"
 
     # Identifiers and keywords
     ID = "[a-z][a-zA-Z0-9_?.]*"
-    ID["def"] = DEF
+    ID["fn"] = FN
     ID["if"] = IF
     ID["elif"] = ELIF
     ID["else"] = ELSE
-    ID["importpy"] = IMPORTPY
-    ID["from"] = FROM
-    ID["as"] = AS
     ID["async"] = ASYNC
     ID["await"] = AWAIT
     ID["true"] = TRUE
     ID["false"] = FALSE
+
+    SYMBOL = r":[a-z][a-zA-Z0-9_]*"
 
     # values
     NUMBER = r"[+-]?[\d.]+"
@@ -79,56 +74,45 @@ class TealLexer(Lexer):
     LT = r"<"
     OR = r"\|\|"
 
+    TERM = r";+"
+
+    @_(r"\n+")
+    def NL(self, t):
+        self.lineno = t.lineno + t.value.count("\n")
+        return t
+
+    # def error(self, t):
+    #     print("Illegal character '%s'" % t.value[0])
+    #     self.index += 1
+
     def error(self, t):
-        print("Illegal character '%s'" % t.value[0])
+        print(
+            f"{self.cls_module}.{self.cls_name}:{self.lineno}: * Illegal character",
+            repr(self.text[self.index]),
+        )
         self.index += 1
 
 
-def make_tok(t, v="gen", lineno=None, index=None):
-    tok = Token()
-    tok.type = t
-    tok.value = v
-    tok.lineno = lineno
-    tok.index = index
-    return tok
-
-
 def post_lex(toks):
-    size = 0
-    levels = {0: 0}
-    level = 0
-    indent = make_tok("INDENT")
-    dedent = make_tok("DEDENT")
+    # Add the optional terminators after lines/blocks
+    term = Token()
+    term.value = ";"
+    term.type = "TERM"
+    nl = Token()
+    nl.type = "NL"
+
     t = next(toks)
-    for next_tok in toks:
-        yield t
-
-        if t.type == "NL":
-            new_size = len(t.value.replace("\n", "").replace("\r", ""))
-            if new_size > size:
-                size = new_size
-                level += 1
-                levels[size] = level
-                yield indent
-            elif new_size < size:
-                size = new_size
-                if size not in levels:
-                    raise Exception(f"Irregular indentation! {size}, {levels}")
-                while level > levels[size]:
-                    level -= 1
-                    yield dedent
-                    if next_tok.type not in ("ELSE", "ELIF"):
-                        yield t
+    for next_tok in chain(toks, [nl]):
+        if t.type != "NL":
+            yield t
+        term.lineno = t.lineno
+        term.index = t.index
+        if t.type == "}" and next_tok.type != "TERM":
+            yield term
+        elif next_tok.type == "NL" and t.type != "TERM":
+            # terminate
+            yield term
         t = next_tok
-
-    yield t
-
-    # and add missing "dedents"
-    nl = make_tok("NL")
-    while level > 0:
-        yield dedent
-        level -= 1
-        yield nl
 
 
 ### PARSER
@@ -144,60 +128,56 @@ class TealParser(Parser):
         ("left", ADD, SUB),
         ("left", MUL, DIV),
         ("right", AWAIT, ASYNC),
-        ("left", "("),  # funcall has highest precedence
+        ("right", "("),
     )
 
     start = "top"
-
-    @_("suite")
-    def top(self, p):
-        return p.suite
 
     @_("")
     def nothing(self, p):
         pass
 
-    # suites
+    # blocks
 
-    @_("suite_item more_suite")
-    def suite(self, p):
-        return p.suite_item + p.more_suite
+    @_("'{' expressions '}'")
+    def block_expr(self, p):
+        return nodes.N_Progn(p.expressions)
+
+    @_("terminated_expr more_expressions")
+    def expressions(self, p):
+        return p.terminated_expr + p.more_expressions
 
     @_("nothing")
-    def more_suite(self, p):
+    def more_expressions(self, p):
         return []
 
-    @_("suite_item more_suite")
-    def more_suite(self, p):
-        return p.suite_item + p.more_suite
+    @_("terminated_expr more_expressions")
+    def more_expressions(self, p):
+        return p.terminated_expr + p.more_expressions
 
-    @_("expr NL")
-    def suite_item(self, p):
+    @_("TERM")
+    def terminated_expr(self, p):
+        return []
+
+    @_("expr TERM")
+    def terminated_expr(self, p):
         return [p.expr]
 
-    @_("NL")
-    def suite_item(self, p):
-        return []
-
-    # imports
-
-    @_("IMPORTPY ID FROM ID import_as")
-    def expr(self, p):
-        return nodes.N_Import(p.ID0, p.ID1, p.import_as)
+    # TOP
 
     @_("nothing")
-    def import_as(self, p):
-        return None
+    def top(self, p):
+        return []
 
-    @_("AS ID")
-    def import_as(self, p):
-        return p.ID
+    @_("expressions")
+    def top(self, p):
+        return p.expressions
 
     # definitions (functions only, for now)
 
-    @_("DEF ID '(' paramlist ')' ':' expr")
+    @_("FN '(' paramlist ')' block_expr")
     def expr(self, p):
-        return nodes.N_Definition(p.ID, p.paramlist, p.expr)
+        return nodes.N_Definition(p.paramlist, p.block_expr)
 
     @_("nothing")
     def paramlist(self, p):
@@ -211,18 +191,6 @@ class TealParser(Parser):
     def paramlist(self, p):
         return [p.ID] + p.paramlist
 
-    # block (progn)
-
-    @_("NL INDENT suite DEDENT")
-    def expr(self, p):
-        return nodes.N_Progn(p.suite)
-
-    # sub
-
-    @_("'(' expr ')'")
-    def expr(self, p):
-        return p.expr
-
     # function call
 
     @_("expr '(' arglist ')'")
@@ -233,31 +201,46 @@ class TealParser(Parser):
     def arglist(self, p):
         return []
 
-    @_("expr")
+    @_("arg_item")
     def arglist(self, p):
-        return [p.expr]
+        return [p.arg_item]
 
-    @_("expr ',' arglist")
+    @_("arg_item ',' arglist")
     def arglist(self, p):
-        return [p.expr] + p.arglist
+        return [p.arg_item] + p.arglist
+
+    @_("expr")
+    def arg_item(self, p):
+        return nodes.N_Argument(None, p.expr)
+
+    @_("SYMBOL expr")
+    def arg_item(self, p):
+        # A bit icky - conflicts with SYMBOL
+        return nodes.N_Argument(p.SYMBOL, p.expr)
+
+    # sub
+
+    @_("'(' expr ')'")
+    def expr(self, p):
+        return p.expr
 
     # conditional
 
-    @_("IF expr ':' expr rest_if")
+    @_("IF expr block_expr rest_if")
     def expr(self, p):
-        return nodes.N_If(p.expr0, p.expr1, p.rest_if)
+        return nodes.N_If(p.expr, p.block_expr, p.rest_if)
 
     @_("nothing")
     def rest_if(self, p):
         return []
 
-    @_("ELIF expr ':' expr rest_if")
+    @_("ELIF expr block_expr rest_if")
     def rest_if(self, p):
-        return [nodes.N_If(p.expr0, p.expr1, p.rest_if)]
+        return nodes.N_If(p.expr, p.block_expr, p.rest_if)
 
-    @_("ELSE ':' expr")
+    @_("ELSE block_expr")
     def rest_if(self, p):
-        return p.expr
+        return p.block_expr
 
     # async/await
 
@@ -292,6 +275,10 @@ class TealParser(Parser):
     def expr(self, p):
         return nodes.N_Id(p.ID)
 
+    @_("SYMBOL")
+    def expr(self, p):
+        return nodes.N_Symbol(p.SYMBOL)
+
     @_("TRUE")
     def expr(self, p):
         return nodes.N_Literal(True)
@@ -307,6 +294,11 @@ class TealParser(Parser):
     @_("STRING")
     def expr(self, p):
         return nodes.N_Literal(literal_eval(p.STRING))
+
+    def error(self, p):
+        print(
+            f'{getattr(p,"lineno","")}: ' f'Syntax error at {getattr(p,"value","EOC")}'
+        )
 
 
 ###

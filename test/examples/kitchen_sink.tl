@@ -1,8 +1,13 @@
-# Some basic examples
+// Some basic examples
 
-def hello_int(): 5
+hello_int = fn() {
+  v = 10;
+  print(v)
+  v;
+}
 
-def hello(): "hello world"  # a line-comment
+hello = fn() { "hello world"; /* inline comment */ }
 
-def ident(x):
-    x
+ident = fn(x) {
+  x;
+}

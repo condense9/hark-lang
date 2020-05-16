@@ -15,6 +15,10 @@ def flatten(list_of_lists: list) -> list:
     return list(itertools.chain.from_iterable(list_of_lists))
 
 
+class CompileError(Exception):
+    pass
+
+
 class CompileToplevel:
     def __init__(self, exprs):
         """Compile a toplevel list of expressions"""
@@ -23,17 +27,19 @@ class CompileToplevel:
         for e in exprs:
             self.compile_toplevel(e)
 
-    def make_function(self, n: nodes.N_Definition) -> str:
+    def make_function(self, n: nodes.N_Definition, name="anon") -> str:
         """Make a new executable function object with a unique name, and save it"""
         count = len(self.functions)
-        identifier = f"#{count}:{n.name}"
+        identifier = f"#{count}:{name}"
         fn_code = self.compile_function(n)
         self.functions[identifier] = fn_code
         return identifier
 
-    def compile_function(self, n) -> list:
+    def compile_function(self, n: nodes.N_Definition) -> list:
         """Compile a function into executable code"""
-        bindings = flatten([[mi.Bind(mt.TlSymbol(arg)), mi.Pop()] for arg in reversed(n.paramlist)])
+        bindings = flatten(
+            [[mi.Bind(mt.TlSymbol(arg)), mi.Pop()] for arg in reversed(n.paramlist)]
+        )
         body = self.compile_expr(n.body)
         return bindings + body + [mi.Return()]
 
@@ -44,22 +50,51 @@ class CompileToplevel:
         raise NotImplementedError(n)
 
     @compile_toplevel.register
-    def _(self, n: nodes.N_Definition):
-        # Add to the global bindings table
-        identifier = self.make_function(n)
-        self.bindings[n.name] = mt.TlFunctionPtr(identifier, None)
+    def _(self, n: nodes.N_Binop):
+        if n.op != "=":
+            raise CompileError(f"{n}: Only assignment allowed at the top level.")
 
-    @compile_toplevel.register
-    def _(self, n: nodes.N_Import):
-        # TODO __builtins__?
-        name = n.as_ or n.name
-        self.bindings[name] = mt.TlForeignPtr(n.name, n.mod)
+        if not isinstance(n.lhs, nodes.N_Id):
+            raise CompileError(f"{n}: Can only assign to symbols at top level")
+
+        if isinstance(n.rhs, nodes.N_Definition):
+            identifier = self.make_function(n.rhs, name=n.lhs.name)
+            val = mt.TlFunctionPtr(identifier, None)
+
+        elif isinstance(n.rhs, nodes.N_Call):
+            if isinstance(n.rhs.fn, nodes.N_Id) and n.rhs.fn.name == "import":
+                identifier = n.rhs.args[0].value.name
+                sym = n.rhs.args[1].symbol
+                mod = n.rhs.args[1].value.name
+                if sym and sym != ":frompy":
+                    raise CompileError(f"{n}: Can't import non-python")
+
+                val = mt.TlForeignPtr(identifier, mod)
+            else:
+                raise CompileError(f"{n}: Only import() calls are supported for now")
+
+        else:
+            raise CompileError(f"{n}: Only functions / imports allowed")
+
+        self.bindings[n.lhs.name] = val
+
+    # @compile_toplevel.register
+    # def _(self, n: nodes.N_Definition):
+    #     # Add to the global bindings table
+    #     identifier = self.make_function(n)
+    #     self.bindings[n.name] = mt.TlFunctionPtr(identifier, None)
+
+    # @compile_toplevel.register
+    # def _(self, n: nodes.N_Import):
+    #     # TODO __builtins__?
+    #     name = n.as_ or n.name
+    #     self.bindings[name] = mt.TlForeignPtr(n.name, n.mod)
 
     # Expressions result in executable code being created
 
     @singledispatchmethod
     def compile_expr(self, node) -> list:
-        raise NotImplementedError(n)
+        raise NotImplementedError(node)
 
     @compile_expr.register
     def _(self, n: nodes.N_Definition):
@@ -90,15 +125,19 @@ class CompileToplevel:
     @compile_expr.register
     def _(self, n: nodes.N_Call):
         arg_code = flatten(self.compile_expr(arg) for arg in n.args)
-        return arg_code + self.compile_expr(n.fn) + [mi.Call(mt.TlInt(len(n.args)))]
+        call_inst = mi.ACall if isinstance(n.fn, nodes.N_Async) else mi.Call
+        return arg_code + self.compile_expr(n.fn) + [call_inst(mt.TlInt(len(n.args)))]
 
     @compile_expr.register
     def _(self, n: nodes.N_Async):
-        if not isinstance(n.call, nodes.N_Call):
-            raise ValueError(f"Can't use async with {n.call}")
-        call = self.compile_expr(n.call)
-        # swap the normal call for an ACall
-        return call[:-1] + [mi.ACall(mt.TlInt(len(n.call.args)))]
+        if not isinstance(n.expr, nodes.N_Id):
+            raise ValueError(f"Can't use async with {n.expr}")
+        return self.compile_expr(n.expr)
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Argument):
+        # TODO optional arguments...
+        return self.compile_expr(n.value)
 
     @compile_expr.register
     def _(self, n: nodes.N_Await):
