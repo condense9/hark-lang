@@ -1,7 +1,7 @@
 // Some basic examples
 
 hello_int = fn() {
-  v = 10;
+  v = 5;
   print(v)
   v;
 }

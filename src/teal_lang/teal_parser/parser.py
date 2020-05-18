@@ -12,7 +12,6 @@ from . import nodes
 class TealLexer(Lexer):
     tokens = {
         TERM,
-        NL,
         SYMBOL,
         ID,
         # keywords
@@ -42,8 +41,18 @@ class TealLexer(Lexer):
     literals = {"(", ")", ",", "{", "}"}
 
     ignore = r" \t"
-    ignore_comment = r"//.*"
-    ignore_block = r"/\*.*\*/"
+
+    # Must come before DIV (same starting char)
+    @_(r"(/\*(.|\n)*?\*/)|(//.*)")
+    def COMMENT(self, t):
+        t.lineno += t.value.count("\n")
+
+    # Not a token used by parsing, but used in post_lex as an alternative
+    # terminator.
+    @_(r"\n+")
+    def NL(self, t):
+        self.lineno = t.lineno + t.value.count("\n")
+        return t
 
     # Identifiers and keywords
     ID = "[a-z][a-zA-Z0-9_?.]*"
@@ -59,7 +68,7 @@ class TealLexer(Lexer):
     SYMBOL = r":[a-z][a-zA-Z0-9_]*"
 
     # values
-    NUMBER = r"[+-]?[\d.]+"
+    NUMBER = r"[+-]?[\d]+[\d.]*"
     STRING = r'"[^\"]+"'
 
     # Special symbols
@@ -76,19 +85,9 @@ class TealLexer(Lexer):
 
     TERM = r";+"
 
-    @_(r"\n+")
-    def NL(self, t):
-        self.lineno = t.lineno + t.value.count("\n")
-        return t
-
-    # def error(self, t):
-    #     print("Illegal character '%s'" % t.value[0])
-    #     self.index += 1
-
     def error(self, t):
         print(
-            f"{self.cls_module}.{self.cls_name}:{self.lineno}: * Illegal character",
-            repr(self.text[self.index]),
+            f"{self.lineno}: * Illegal character", repr(self.text[self.index]),
         )
         self.index += 1
 
@@ -127,8 +126,9 @@ class TealParser(Parser):
         ("nonassoc", EQ, SET),
         ("left", ADD, SUB),
         ("left", MUL, DIV),
-        ("right", AWAIT, ASYNC),
+        ("right", AWAIT),
         ("right", "("),
+        ("right", ASYNC),
     )
 
     start = "top"
@@ -216,7 +216,7 @@ class TealParser(Parser):
     @_("SYMBOL expr")
     def arg_item(self, p):
         # A bit icky - conflicts with SYMBOL
-        return nodes.N_Argument(p.SYMBOL, p.expr)
+        return nodes.N_Argument(nodes.N_Symbol(p.SYMBOL), p.expr)
 
     # sub
 

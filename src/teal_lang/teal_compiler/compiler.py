@@ -50,33 +50,51 @@ class CompileToplevel:
         raise NotImplementedError(n)
 
     @compile_toplevel.register
+    def _(self, n: nodes.N_Call):
+        if not isinstance(n.fn, nodes.N_Id) or n.fn.name != "import":
+            raise CompileError(f"{n}: Only `import' can be called at top level")
+
+        if len(n.args) not in (2, 3):
+            raise CompileError(f"{n}: usage: import(name, source, [qualifier])")
+
+        if not isinstance(n.args[0].value, nodes.N_Id):
+            raise CompileErorr(f"{n}: Import name must be an identifier")
+
+        if not isinstance(n.args[1].value, nodes.N_Id):
+            raise CompileErorr(f"{n}: Import source must be an identifier")
+
+        import_symb = n.args[0].value.name
+        from_kw = n.args[1].symbol
+        from_val = n.args[1].value.name
+
+        if from_kw and from_kw.name != ":python":
+            raise CompileError(f"{n}: Can't import non-python")
+
+        if len(n.args) == 3:
+            # TODO? check n.args[2].symbol == ":as"
+            if not isinstance(n.args[2].value, nodes.N_Id):
+                raise CompileErorr(f"{n}: Import qualifier must be an identifier")
+
+            as_val = n.args[2].value.name
+        else:
+            as_val = import_symb
+
+        self.bindings[as_val] = mt.TlForeignPtr(import_symb, from_val)
+
+    @compile_toplevel.register
     def _(self, n: nodes.N_Binop):
         if n.op != "=":
-            raise CompileError(f"{n}: Only assignment allowed at the top level.")
+            raise CompileError(f"{n}: No effect at the top level.")
 
         if not isinstance(n.lhs, nodes.N_Id):
             raise CompileError(f"{n}: Can only assign to symbols at top level")
 
-        if isinstance(n.rhs, nodes.N_Definition):
-            identifier = self.make_function(n.rhs, name=n.lhs.name)
-            val = mt.TlFunctionPtr(identifier, None)
+        if not isinstance(n.rhs, nodes.N_Definition):
+            raise CompileError(f"{n}: Only functions can be defined at top level")
 
-        elif isinstance(n.rhs, nodes.N_Call):
-            if isinstance(n.rhs.fn, nodes.N_Id) and n.rhs.fn.name == "import":
-                identifier = n.rhs.args[0].value.name
-                sym = n.rhs.args[1].symbol
-                mod = n.rhs.args[1].value.name
-                if sym and sym != ":frompy":
-                    raise CompileError(f"{n}: Can't import non-python")
+        identifier = self.make_function(n.rhs, name=n.lhs.name)
+        self.bindings[n.lhs.name] = mt.TlFunctionPtr(identifier, None)
 
-                val = mt.TlForeignPtr(identifier, mod)
-            else:
-                raise CompileError(f"{n}: Only import() calls are supported for now")
-
-        else:
-            raise CompileError(f"{n}: Only functions / imports allowed")
-
-        self.bindings[n.lhs.name] = val
 
     # @compile_toplevel.register
     # def _(self, n: nodes.N_Definition):
@@ -142,7 +160,7 @@ class CompileToplevel:
     @compile_expr.register
     def _(self, n: nodes.N_Await):
         if not isinstance(n.expr, (nodes.N_Call, nodes.N_Id)):
-            raise ValueError(f"Can't use async with {n.expr}")
+            raise ValueError(f"Can't use await with {n.expr} - {type(n.expr)}")
         val = self.compile_expr(n.expr)
         return val + [mi.Wait(mt.TlInt(0))]
 
