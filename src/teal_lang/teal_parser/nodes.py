@@ -6,6 +6,13 @@ from dataclasses import dataclass
 
 @dataclass
 class N_Definition:
+    name: str
+    paramlist: list
+    body: list
+
+
+@dataclass
+class N_Lambda:
     paramlist: list
     body: list
 

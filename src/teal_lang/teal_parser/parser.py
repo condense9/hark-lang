@@ -16,6 +16,7 @@ class TealLexer(Lexer):
         ID,
         # keywords
         FN,
+        LAMBDA,
         IF,
         ELIF,
         ELSE,
@@ -26,6 +27,7 @@ class TealLexer(Lexer):
         # values
         NUMBER,
         STRING,
+        NULL,
         # operators
         ADD,
         SUB,
@@ -40,7 +42,7 @@ class TealLexer(Lexer):
     }
     literals = {"(", ")", ",", "{", "}"}
 
-    ignore = r" \t"
+    ignore = " \t"
 
     # Must come before DIV (same starting char)
     @_(r"(/\*(.|\n)*?\*/)|(//.*)")
@@ -57,6 +59,7 @@ class TealLexer(Lexer):
     # Identifiers and keywords
     ID = "[a-z][a-zA-Z0-9_?.]*"
     ID["fn"] = FN
+    ID["lambda"] = LAMBDA
     ID["if"] = IF
     ID["elif"] = ELIF
     ID["else"] = ELSE
@@ -64,6 +67,7 @@ class TealLexer(Lexer):
     ID["await"] = AWAIT
     ID["true"] = TRUE
     ID["false"] = FALSE
+    ID["null"] = NULL
 
     SYMBOL = r":[a-z][a-zA-Z0-9_]*"
 
@@ -106,11 +110,14 @@ def post_lex(toks):
             yield t
         term.lineno = t.lineno
         term.index = t.index
+
+        if next_tok.type == "}" and t.type != "TERM":
+            yield term
         if t.type == "}" and next_tok.type != "TERM":
             yield term
         elif next_tok.type == "NL" and t.type != "TERM":
-            # terminate
             yield term
+
         t = next_tok
 
 
@@ -175,9 +182,13 @@ class TealParser(Parser):
 
     # definitions (functions only, for now)
 
-    @_("FN '(' paramlist ')' block_expr")
+    @_("FN ID '(' paramlist ')' block_expr")
     def expr(self, p):
-        return nodes.N_Definition(p.paramlist, p.block_expr)
+        return nodes.N_Definition(p.ID, p.paramlist, p.block_expr)
+
+    @_("LAMBDA '(' paramlist ')' block_expr")
+    def expr(self, p):
+        return nodes.N_Lambda(p.paramlist, p.block_expr)
 
     @_("nothing")
     def paramlist(self, p):
@@ -226,7 +237,7 @@ class TealParser(Parser):
 
     # conditional
 
-    @_("IF expr block_expr rest_if")
+    @_("IF expr block_expr TERM rest_if")
     def expr(self, p):
         return nodes.N_If(p.expr, p.block_expr, p.rest_if)
 
@@ -234,7 +245,7 @@ class TealParser(Parser):
     def rest_if(self, p):
         return []
 
-    @_("ELIF expr block_expr rest_if")
+    @_("ELIF expr block_expr TERM rest_if")
     def rest_if(self, p):
         return nodes.N_If(p.expr, p.block_expr, p.rest_if)
 
@@ -286,6 +297,10 @@ class TealParser(Parser):
     @_("FALSE")
     def expr(self, p):
         return nodes.N_Literal(False)
+
+    @_("NULL")
+    def expr(self, p):
+        return nodes.N_Literal(None)
 
     @_("NUMBER")
     def expr(self, p):

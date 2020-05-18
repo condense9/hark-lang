@@ -27,7 +27,7 @@ class CompileToplevel:
         for e in exprs:
             self.compile_toplevel(e)
 
-    def make_function(self, n: nodes.N_Definition, name="anon") -> str:
+    def make_function(self, n: nodes.N_Definition, name="lambda") -> str:
         """Make a new executable function object with a unique name, and save it"""
         count = len(self.functions)
         identifier = f"#{count}:{name}"
@@ -43,11 +43,11 @@ class CompileToplevel:
         body = self.compile_expr(n.body)
         return bindings + body + [mi.Return()]
 
-    # At the toplevel, no executable code is created - only bindings
+    ## At the toplevel, no executable code is created - only bindings
 
     @singledispatchmethod
     def compile_toplevel(self, n) -> None:
-        raise NotImplementedError(n)
+        raise CompileError(f"{n}: Invalid at top level")
 
     @compile_toplevel.register
     def _(self, n: nodes.N_Call):
@@ -82,48 +82,22 @@ class CompileToplevel:
         self.bindings[as_val] = mt.TlForeignPtr(import_symb, from_val)
 
     @compile_toplevel.register
-    def _(self, n: nodes.N_Binop):
-        if n.op != "=":
-            raise CompileError(f"{n}: No effect at the top level.")
+    def _(self, n: nodes.N_Definition):
+        identifier = self.make_function(n, n.name)
+        self.bindings[n.name] = mt.TlFunctionPtr(identifier, None)
 
-        if not isinstance(n.lhs, nodes.N_Id):
-            raise CompileError(f"{n}: Can only assign to symbols at top level")
-
-        if not isinstance(n.rhs, nodes.N_Definition):
-            raise CompileError(f"{n}: Only functions can be defined at top level")
-
-        identifier = self.make_function(n.rhs, name=n.lhs.name)
-        self.bindings[n.lhs.name] = mt.TlFunctionPtr(identifier, None)
-
-
-    # @compile_toplevel.register
-    # def _(self, n: nodes.N_Definition):
-    #     # Add to the global bindings table
-    #     identifier = self.make_function(n)
-    #     self.bindings[n.name] = mt.TlFunctionPtr(identifier, None)
-
-    # @compile_toplevel.register
-    # def _(self, n: nodes.N_Import):
-    #     # TODO __builtins__?
-    #     name = n.as_ or n.name
-    #     self.bindings[name] = mt.TlForeignPtr(n.name, n.mod)
-
-    # Expressions result in executable code being created
+    ## Expressions result in executable code being created
 
     @singledispatchmethod
     def compile_expr(self, node) -> list:
         raise NotImplementedError(node)
 
     @compile_expr.register
-    def _(self, n: nodes.N_Definition):
+    def _(self, n: nodes.N_Lambda):
         # Create a local binding to the function
         identifier = self.make_function(n)
-        stack = None  # TODO?!
-        return [
-            mi.PushV(mt.TlFunctionPtr(identifier, stack)),
-            mi.Bind(mt.TlSymbol(n.name)),
-            mi.PushB(mt.TlSymbol(n.name)),  # 'return' the func ptr
-        ]
+        stack = None  # TODO?! closures!
+        return [mi.PushV(mt.TlFunctionPtr(identifier, stack))]
 
     @compile_expr.register
     def _(self, n: nodes.N_Literal):
@@ -166,6 +140,7 @@ class CompileToplevel:
 
     @compile_expr.register
     def _(self, n: nodes.N_If):
+        print(n)
         cond_code = self.compile_expr(n.cond)
         else_code = self.compile_expr(n.els)
         then_code = self.compile_expr(n.then)

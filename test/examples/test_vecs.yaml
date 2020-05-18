@@ -1,8 +1,12 @@
+hello_world:
+  main:
+    - []
+    - "Hello World!"
 
-builtins:
-  ashex:
-    - [17]
-    - "11"
+ponder:
+  main:
+    - []
+    - "The answer is... 42!"
 
 chaining:
   main:
@@ -13,6 +17,19 @@ concurrency:
   main:
     - []
     - 5960
+
+conditional:
+  test:
+    - [0.2]
+    - "no"
+
+  test:
+    - [0.8]
+    - "yes"
+
+  if_expr:
+    - [0.1]
+    - "nah"
 
 kitchen_sink:
   hello:

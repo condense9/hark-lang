@@ -8,19 +8,23 @@
 // which *also* returns a future, and `chain1' does not `wait' on its result.
 
 
-chain3 = fn(x) {
+fn chain3(x) {
+  // -> 4
   sleep(0.5)
   x + 1
 }
 
-chain2 = fn(x) {
+fn chain2(x) {
+  // -> future
   async chain3(x + 1)
 }
 
-chain1 = fn(x) {
+fn chain1(x) {
+  // -> future -> future
   async chain2(x + 1)
 }
 
-main = fn() {
+fn main() {
+  // Wait for both futures, return value will be 4
   await chain1(1)
 }

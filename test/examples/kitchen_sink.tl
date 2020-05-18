@@ -1,13 +1,13 @@
 // Some basic examples
 
-hello_int = fn() {
+fn hello_int() {
   v = 5;
   print(v)
   v;
 }
 
-hello = fn() { "hello world"; /* inline comment */ }
+fn hello() { "hello world"; /* inline comment */ }
 
-ident = fn(x) {
+fn ident(x) {
   x;
 }
