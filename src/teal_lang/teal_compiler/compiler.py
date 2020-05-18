@@ -58,10 +58,10 @@ class CompileToplevel:
             raise CompileError(f"{n}: usage: import(name, source, [qualifier])")
 
         if not isinstance(n.args[0].value, nodes.N_Id):
-            raise CompileErorr(f"{n}: Import name must be an identifier")
+            raise CompileError(f"{n}: Import name must be an identifier")
 
         if not isinstance(n.args[1].value, nodes.N_Id):
-            raise CompileErorr(f"{n}: Import source must be an identifier")
+            raise CompileError(f"{n}: Import source must be an identifier")
 
         import_symb = n.args[0].value.name
         from_kw = n.args[1].symbol
@@ -73,7 +73,7 @@ class CompileToplevel:
         if len(n.args) == 3:
             # TODO? check n.args[2].symbol == ":as"
             if not isinstance(n.args[2].value, nodes.N_Id):
-                raise CompileErorr(f"{n}: Import qualifier must be an identifier")
+                raise CompileError(f"{n}: Import qualifier must be an identifier")
 
             as_val = n.args[2].value.name
         else:
