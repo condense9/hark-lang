@@ -140,7 +140,6 @@ class CompileToplevel:
 
     @compile_expr.register
     def _(self, n: nodes.N_If):
-        print(n)
         cond_code = self.compile_expr(n.cond)
         else_code = self.compile_expr(n.els)
         then_code = self.compile_expr(n.then)

@@ -1,8 +1,7 @@
 /* Concurrency
  *
- * Functions `conc-b' and `conc-d' are called asynchronously from `concurrent'
- * (using two different syntaxes, just for funs). Functions `ser-a' and `ser-c'
- * are called normally.
+ * Functions `conc-b' and `conc-d' are called asynchronously from `concurrent'.
+ * Functions `ser-a' and `ser-c' are called normally.
  *
  * So the evaluation/data-flow graph looks like:
  *
