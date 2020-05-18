@@ -5,6 +5,7 @@ Requirement: all types must be trivially JSON serialisable.
 See https://docs.python.org/3/library/json.html#py-to-json-table
 """
 
+from typing import Optional
 from collections import UserList, UserDict
 
 
@@ -14,11 +15,11 @@ class TlType:
     def __repr__(self):
         return f"<{type(self).__name__}>"
 
-    def __eq__(self, other):
-        return type(self) == type(other)
-
     def serialise(self) -> list:
         return [type(self).__name__, self.serialise_data()]
+
+    def __eq__(self, other):
+        return self.serialise() == other.serialise()
 
     @classmethod
     def deserialise(cls, obj: list):
@@ -76,9 +77,6 @@ class TlLiteral(TlType):
         kind = type(self).__name__
         return f"<{kind} {self.value}>"
 
-    def __eq__(self, other):
-        return super().__eq__(other) and self.value == other.value
-
 
 class TlSymbol(str, TlLiteral):
     pass
@@ -96,16 +94,17 @@ class TlString(str, TlLiteral):
     pass
 
 
-class TlFunction(str, TlLiteral):
-    """A function defined in Tl"""
-
-
-class TlForeign(str, TlLiteral):
-    """A foreign function"""
-
-
 class TlInstruction(str, TlLiteral):
     """A Teal machine instruction"""
+
+
+class TlFuturePtr(TlLiteral):
+    """Pointer to a TlFuture"""
+
+    def __init__(self, value):
+        if type(value) is not int:
+            raise TypeError(value)
+        super().__init__(value)
 
 
 ### Complex types
@@ -134,24 +133,57 @@ class TlList(UserList, TlType):
     def from_data(cls, data):
         return cls([TlType.deserialise(a) for a in data])
 
-    def __eq__(self, other):
-        return super().__eq__(other) and self.data == other.data
+
+class TlFunctionPtr(TlType):
+    """Pointer to a function or closure defined in Tl"""
+
+    def __init__(self, identifier: str, stack_ptr: Optional[int] = None):
+        if not isinstance(identifier, str):
+            raise ValueError(identifier)
+        if stack_ptr and not isinstance(stack_ptr, int):
+            raise ValueError(stack_ptr)
+
+        self.identifier = identifier
+        self.stack_ptr = stack_ptr
+
+    def serialise_data(self):
+        return [self.identifier, self.stack_ptr]
+
+    @classmethod
+    def from_data(cls, data):
+        return cls(data[0], data[1])
+
+    def __repr__(self):
+        kind = type(self).__name__
+        return f"<{kind} {self.identifier}>"
+
+
+class TlForeignPtr(TlType):
+    """Pointer to an imported python function"""
+
+    def __init__(self, identifier: str, module: str):
+        if not isinstance(identifier, str):
+            raise ValueError(identifier)
+        if not isinstance(module, str):
+            raise ValueError(module)
+
+        self.identifier = identifier
+        self.module = module
+
+    def serialise_data(self):
+        return [self.identifier, self.module]
+
+    @classmethod
+    def from_data(cls, data):
+        return cls(data[0], data[1])
+
+    def __repr__(self):
+        kind = type(self).__name__
+        return f"<{kind} {self.module}.{self.identifier}>"
 
 
 # TODO:
-# class TlDict(UserDict, TlCompound):
-
-
-# TODO - some kind of "struct" type
-
-
-class TlFuturePtr(TlLiteral):
-    """Pointer to a TlFuture"""
-
-    def __init__(self, value):
-        if type(value) is not int:
-            raise TypeError(value)
-        super().__init__(value)
+# class TlObject(UserDict, TlType):
 
 
 ### Type Conversion
@@ -188,11 +220,11 @@ def to_teal_type(py_val):
     try:
         return PY_TO_TL[type(py_val)](py_val)
     except KeyError:
-        raise TypeError(type(py_val))
+        raise TypeError(f"Can't convert {type(py_val)} to a Teal type")
 
 
 def to_py_type(teal_val: TlType):
     try:
         return Tl_TO_PY[type(teal_val)](teal_val)
     except KeyError:
-        raise TypeError(type(teal_val))
+        raise TypeError(f"Can't convert {type(teal_val)} to a Python type")

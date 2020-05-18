@@ -63,13 +63,12 @@ class DataController:
         with self.lock:
             self.session.executable = exe.serialise()
 
-    def new_machine(self, args, fn_name, is_top_level=False):
-        if fn_name not in self.executable.locations:
-            raise Exception(f"Function `{fn_name}` doesn't exist")
+    def new_machine(self, args, fn_ptr, is_top_level=False):
+        entrypoint_ptr = self.executable.locations[fn_ptr.identifier]
         with self.lock:
             vmid = db.new_machine(self.session, args, top_level=is_top_level)
             state = self.session.machines[vmid].state
-            state.ip = self.executable.locations[fn_name]
+            state.ip = entrypoint_ptr
         return vmid
 
     def is_top_level(self, vmid):

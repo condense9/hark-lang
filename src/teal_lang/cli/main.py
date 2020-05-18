@@ -38,8 +38,8 @@ import logging
 from pathlib import Path
 
 from docopt import docopt
-from .. import tealparser
-from ..tealparser.read import read_exp
+from .. import load
+from ..machine import executable
 
 from .. import __version__
 
@@ -51,9 +51,7 @@ def _run(args):
     filename = args["<file>"]
     sys.path.append(".")
 
-    # FIXME - should argv just always be strings? But then you can't pass in
-    # arbitrary types to other functions. We need a single interface.
-    fn_args = [read_exp(arg) for arg in args["<fn_args>"]]
+    fn_args = args["<fn_args>"]
 
     LOG.info(f"Running `{fn}` in {filename} ({len(fn_args)} args)...")
 
@@ -85,13 +83,13 @@ def _ast(args):
         dest_png = args["--output"]
     else:
         dest_png = f"{filename.stem}_{fn}.png"
-    tealparser.make_ast(filename, fn, dest_png)
+    raise NotImplementedError
 
 
 def _asm(args):
-    toplevel = tealparser.load_file(args["<file>"])
-    exe = tealparser.make_exe(toplevel)
+    exe = load.compile_file(Path(args["<file>"]))
     print(exe.listing())
+    print(exe.bindings_table())
 
 
 def _deploy(args):

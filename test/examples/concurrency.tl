@@ -1,47 +1,54 @@
-;;;; -*- mode: lisp -*-
+/* Concurrency
+ *
+ * Functions `conc-b' and `conc-d' are called asynchronously from `concurrent'.
+ * Functions `ser-a' and `ser-c' are called normally.
+ *
+ * So the evaluation/data-flow graph looks like:
+ *
+ *                        .---[ conc-b ]---[ ser-a ]--.
+ *                       /                             \
+ * X --[ concurrent ]---+                               >---[ final ]--->
+ *                       \                             /
+ *                        ·---[ conc-d ]---[ ser-c ]--·
+ *
+ **/
 
-;;; Concurrency
-;;
-;; Functions `conc-b' and `conc-d' are called asynchronously from `concurrent'
-;; (using two different syntaxes, just for funs). Functions `ser-a' and `ser-c'
-;; are called normally.
-;;
-;; So the evaluation/data-flow graph looks like:
-;;
-;;                        .---[ conc-b ]---[ ser-a ]--.
-;;                       /                             \
-;; X --[ concurrent ]---+                               >---[ final ]--->
-;;                       \                             /
-;;                        ·---[ conc-d ]---[ ser-c ]--·
-;;
-
-(importpy random_sleep :from pysrc.main)
+import(random_sleep, :python pysrc.main)
 
 
-(defun ser-a (x)
-  (print "a starting to sleep")
-  (random_sleep 50 500)
-  ;; (sleep 0.1)
-  (print "a finished sleeping")
-  (+ x 1))
+fn ser_a (x) {
+  print("a starting to sleep")
+  random_sleep(50, 500)
+  print("a finished sleeping")
+  x + 1
+}
 
-(defun conc-b (x)
-  (* (ser-a x) 1000))
+fn conc_b(x) {
+  ser_a(x) * 1000
+}
 
-(defun ser-c (x)
-  (print "c starting to sleep")
-  (random_sleep 50 500)
-  ;; (sleep 0.3)
-  (print "c finished sleeping")
-  (+ x -1))
+fn ser_c(x) {
+  print ("c starting to sleep")
+  random_sleep(50, 500)
+  print("c finished sleeping")
+  x + -1
+}
 
-(defun conc-d (x)
-  (* (ser-c x) 10))
+fn conc_d(x){
+  ser_c(x) * 10
+}
 
-(defun final (p q)
-  (+ $p (* (wait q) -1)))
+fn final(p, q) {
+  await p + await q * -1
+}
 
-(defun concurrent (x)
-  ;; (1000 * (x + 1)) - (10 * (x - 1)) = 5960 if x is 5
-  (final (async conc-b x)
-         @(conc-d x)))
+fn concurrent(x) {
+  // (1000 * (x + 1)) - (10 * (x - 1)) = 5960 if x is 5
+  final(async conc_b(x), async conc_d(x))
+}
+
+
+fn main() {
+  x = 5
+  concurrent(x)
+}

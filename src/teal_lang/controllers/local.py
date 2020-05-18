@@ -39,14 +39,14 @@ class DataController:
     def set_executable(self, exe):
         self.executable = exe
 
-    def new_machine(self, args, fn_name, is_top_level=False):
-        if fn_name not in self.executable.locations:
-            raise Exception(f"Function `{fn_name}` doesn't exist")
+    def new_machine(self, args, fn_ptr, is_top_level=False):
+        entrypoint_ptr = self.executable.locations[fn_ptr.identifier]
+        # TODO retrive a closure's stack frame
+        state = State(*args)
+        state.ip = entrypoint_ptr
+        vmid = self._machine_idx
         future = fut.Future()
         probe = Probe()
-        state = State(*args)
-        state.ip = self.executable.locations[fn_name]
-        vmid = self._machine_idx
         self._machine_idx += 1
         self._machine_future[vmid] = future
         self._machine_state[vmid] = state

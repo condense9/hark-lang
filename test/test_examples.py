@@ -20,7 +20,7 @@ CALL_METHODS = [
 
 # Find all examples dir and test them
 EXAMPLES_SUBDIR = Path(__file__).parent / "examples"
-EXAMPLE_NAMES = [p.stem for p in Path(EXAMPLES_SUBDIR).glob("*.yaml")]
+EXAMPLE_NAMES = [p.stem for p in Path(EXAMPLES_SUBDIR).glob("*.tl")]
 
 TESTS = teal_examples.load_examples(EXAMPLE_NAMES, EXAMPLES_SUBDIR)
 

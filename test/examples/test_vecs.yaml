@@ -1,0 +1,56 @@
+hello_world:
+  main:
+    - []
+    - "Hello World!"
+
+ponder:
+  main:
+    - []
+    - "The answer is... 42!"
+
+chaining:
+  main:
+    - []
+    - 4
+
+concurrency:
+  main:
+    - []
+    - 5960
+
+conditional:
+  test:
+    - [0.2]
+    - "no"
+
+  test:
+    - [0.8]
+    - "yes"
+
+  if_expr:
+    - [0.1]
+    - "nah"
+
+kitchen_sink:
+  hello:
+    - []
+    - "hello world"
+
+  hello_int:
+    - []
+    - 5
+
+  ident:
+    - ["foo"]
+    - "foo"
+
+
+pythonimport:
+
+  show_format:
+    - ["World"]
+    - "Hello World!"
+
+  show_trig:
+    - [0.0]
+    - 1.0

@@ -1,10 +1,13 @@
-;;;; -*- mode: lisp -*-
+// Some basic examples
 
-(def hello ()
-  "hello world")
+fn hello_int() {
+  v = 5;
+  print(v)
+  v;
+}
 
-(def hello-int ()
-  5)
+fn hello() { "hello world"; /* inline comment */ }
 
-(def ident (x)
-  x)
+fn ident(x) {
+  x;
+}

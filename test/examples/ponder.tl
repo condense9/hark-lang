@@ -1,0 +1,21 @@
+// Call 'ponder' twice in parallel, and wait for the answer
+
+import(format, :python pysrc.main)
+import(random_sleep, :python pysrc.main)
+
+
+fn ponder() {
+  random_sleep()
+  print("thinking really hard!")
+  21
+}
+
+fn main() {
+  print("beginning...")
+  x = async ponder()
+  y = async ponder()
+  print("waiting for an answer...")
+
+  answer = await x + await y
+  format("The answer is... {}!", answer)
+}

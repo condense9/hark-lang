@@ -30,6 +30,10 @@ class ImportPyError(Exception):
     """Error importing some code from Python"""
 
 
+class TealRuntimeError(Exception):
+    """Error while executing Teal code"""
+
+
 def traverse(o, tree_types=(list, tuple)):
     """Traverse an arbitrarily nested list"""
     if isinstance(o, tree_types):
@@ -79,19 +83,20 @@ class TlMachine:
     builtins = {
         "print": Print,
         "sleep": Sleep,
-        "=": Eq,
         "atomp": Atomp,
         "nullp": Nullp,
         "list": List,
         "conc": Conc,
         "first": First,
         "rest": Rest,
-        "wait": Wait,
-        "future": Future,
+        # "future": Future,
+        "nth": Nth,
+        "==": Eq,
         "+": Plus,
         # "-": Minus
         "*": Multiply,
-        "nth": Nth,
+        ">": GreaterThan,
+        "<": LessThan,
     }
 
     def __init__(self, vmid, invoker):
@@ -103,12 +108,17 @@ class TlMachine:
         self.exe = self.data_controller.executable
         self.evaluator = self.data_controller.evaluator_cls(self)
         self._foreign = {
-            name: import_python_function(fn, mod)
-            for name, (fn, mod) in self.exe.foreign.items()
+            name: import_python_function(val.identifier, val.module)
+            for name, val in self.exe.bindings.items()
+            if isinstance(val, mt.TlForeignPtr)
         }
         LOG.debug("locations %s", self.exe.locations.keys())
-        LOG.debug("foreign %s", self.exe.foreign.keys())
+        LOG.debug("foreign %s", self._foreign.keys())
         # No entrypoint argument - just set the IP in the state
+
+    def error(self, original, msg):
+        # TODO stacktraces
+        raise TealRuntimeError(msg) from original
 
     @property
     def stopped(self):
@@ -149,7 +159,10 @@ class TlMachine:
     @evali.register
     def _(self, i: Bind):
         ptr = i.operands[0]
-        val = self.state.ds_pop()
+        try:
+            val = self.state.ds_peek(0)
+        except IndexError as exc:
+            self.error(exc, "Missing argument to function!")
         self.state.set_bind(ptr, val)
 
     @evali.register
@@ -157,7 +170,7 @@ class TlMachine:
         # The value on the stack must be a Symbol, which is used to find a
         # function to call. Binding precedence:
         #
-        # local value -> functions -> foreigns -> builtins
+        # local value -> exe global bindings -> builtins
         sym = i.operands[0]
         if not isinstance(sym, mt.TlSymbol):
             raise ValueError(sym, type(sym))
@@ -165,10 +178,8 @@ class TlMachine:
         ptr = str(sym)
         if ptr in self.state.bound_names:
             val = self.state.get_bind(ptr)
-        elif ptr in self.exe.locations:
-            val = mt.TlFunction(ptr)
-        elif ptr in self._foreign:
-            val = mt.TlForeign(ptr)
+        elif ptr in self.exe.bindings:
+            val = self.exe.bindings[ptr]
         elif ptr in TlMachine.builtins:
             val = mt.TlInstruction(ptr)
         else:
@@ -223,11 +234,11 @@ class TlMachine:
         fn = self.state.ds_pop()
         self.probe.on_enter(self, str(fn))
 
-        if isinstance(fn, mt.TlFunction):
-            self.state.es_enter(self.exe.locations[fn])
+        if isinstance(fn, mt.TlFunctionPtr):
+            self.state.es_enter(self.exe.locations[fn.identifier])
 
-        elif isinstance(fn, mt.TlForeign):
-            foreign_f = self._foreign[fn]
+        elif isinstance(fn, mt.TlForeignPtr):
+            foreign_f = self._foreign[fn.identifier]
             args = tuple(reversed([self.state.ds_pop() for _ in range(num_args)]))
             self.probe.log(f"{self.vmid}--> {foreign_f} {args}")
             # TODO automatically wait for the args? Somehow mark which one we're
@@ -251,10 +262,16 @@ class TlMachine:
         # Arguments for the function must already be on the stack
         # ACall can *only* call functions in self.locations (unlike Call)
         num_args = i.operands[0]
-        fn_name = self.state.ds_pop()
-        args = reversed([self.state.ds_pop() for _ in range(num_args)])
+        fn_ptr = self.state.ds_pop()
 
-        machine = self.data_controller.new_machine(args, fn_name)
+        if not isinstance(fn_ptr, mt.TlFunctionPtr):
+            raise ValueError(fn_ptr)
+
+        if fn_ptr.identifier not in self.exe.locations:
+            raise Exception(f"Function `{fn_ptr}` doesn't exist")
+
+        args = reversed([self.state.ds_pop() for _ in range(num_args)])
+        machine = self.data_controller.new_machine(args, fn_ptr)
         self.invoker.invoke(machine)
         future = mt.TlFuturePtr(machine)
 
@@ -336,12 +353,6 @@ class TlMachine:
         self.state.ds_push(lst[1:])
 
     @evali.register
-    def _(self, i: Eq):
-        a = self.state.ds_pop()
-        b = self.state.ds_pop()
-        self.state.ds_push(make_bool(a == b))
-
-    @evali.register
     def _(self, i: Plus):
         a = self.state.ds_pop()
         b = self.state.ds_pop()
@@ -356,6 +367,24 @@ class TlMachine:
         self.state.ds_push(cls(a * b))
 
     @evali.register
+    def _(self, i: Eq):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self.state.ds_push(tl_bool(a == b))
+
+    @evali.register
+    def _(self, i: GreaterThan):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self.state.ds_push(tl_bool(a > b))
+
+    @evali.register
+    def _(self, i: LessThan):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self.state.ds_push(tl_bool(a < b))
+
+    @evali.register
     def _(self, i: Sleep):
         t = self.state.ds_peek(0)
         time.sleep(t)
@@ -364,10 +393,9 @@ class TlMachine:
         return f"<Machine {id(self)}>"
 
 
-def make_bool(val):
+def tl_bool(val):
     """Make a Teal bool-ish from val"""
-    # Do we need two bool types (true/false)? Is Null/nil enough?
-    return mt.TlTrue() if val is True else mt.TlNull()
+    return mt.TlTrue() if val is True else mt.TlFalse()
 
 
 def new_number_type(a, b):

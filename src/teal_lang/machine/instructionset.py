@@ -168,6 +168,14 @@ class Eq(I):
     """Check whether the top two items on the stack are equal"""
 
 
+class GreaterThan(I):
+    pass
+
+
+class LessThan(I):
+    pass
+
+
 class Atomp(I):
     """Check whether something is an atom"""
 

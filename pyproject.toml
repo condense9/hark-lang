@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "teal-lang"
-version = "0.1.0"
+version = "0.2.0"
 description = "The Teal Programming Language"
 license = "Apache-2.0"
 authors = ["Ric da Silva <ric@condense9.com>"]
@@ -41,6 +41,7 @@ schema = "^0.7.2"
 lark-parser = "^0.8.5"
 pyyaml = "^5.3.1"
 pydot = "^1.4.1"
+sly = "^0.4"
 
 [tool.poetry.dev-dependencies]
 boto3 = "*"

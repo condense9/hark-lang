@@ -317,6 +317,17 @@ version = "1.14.0"
 
 [[package]]
 category = "main"
+description = "SLY - Sly Lex Yacc"
+name = "sly"
+optional = false
+python-versions = "*"
+version = "0.4"
+
+[package.extras]
+test = ["pytest", "regex"]
+
+[[package]]
+category = "main"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 marker = "python_version != \"3.4\""
 name = "urllib3"
@@ -338,7 +349,7 @@ python-versions = "*"
 version = "0.1.9"
 
 [metadata]
-content-hash = "566782f99ea183f10cb909948c4a2e97fbbda0eb1e32f806ea03e57cb7ae891a"
+content-hash = "48406ab5d8e8df4282b632ac0a63617838bafef07028de5918062a3b61af28aa"
 python-versions = "^3.8"
 
 [metadata.files]
@@ -470,6 +481,9 @@ schema = [
 six = [
     {file = "six-1.14.0-py2.py3-none-any.whl", hash = "sha256:8f3cd2e254d8f793e7f3d6d9df77b92252b52637291d0f0da013c76ea2724b6c"},
     {file = "six-1.14.0.tar.gz", hash = "sha256:236bdbdce46e6e6a3d61a337c0f8b763ca1e8717c03b369e87a7ec7ce1319c0a"},
+]
+sly = [
+    {file = "sly-0.4.tar.gz", hash = "sha256:e5f2266a231322cc17519fbc3a3ba1c6335fed5a9a55abe0e598a35aea0ac32a"},
 ]
 urllib3 = [
     {file = "urllib3-1.25.9-py2.py3-none-any.whl", hash = "sha256:88206b0eb87e6d677d424843ac5209e3fb9d0190d0ee169599165ec25e9d9115"},
