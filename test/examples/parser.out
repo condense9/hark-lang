@@ -1,0 +1,2268 @@
+Grammar:
+
+Rule 0     S' -> top
+Rule 1     nothing -> <empty>
+Rule 2     block_expr -> { block_inner }
+Rule 3     block_inner -> expr TERM block_inner
+Rule 4     block_inner -> expr TERM
+Rule 5     top -> expr top
+Rule 6     top -> TERM
+Rule 7     top -> nothing
+Rule 8     expr -> STRING
+Rule 9     expr -> NUMBER
+Rule 10    expr -> FALSE
+Rule 11    expr -> TRUE
+Rule 12    expr -> ID
+Rule 13    expr -> expr SET expr  [precedence=nonassoc, level=4]
+Rule 14    expr -> expr EQ expr  [precedence=nonassoc, level=4]
+Rule 15    expr -> expr OR expr  [precedence=right, level=2]
+Rule 16    expr -> expr AND expr  [precedence=right, level=3]
+Rule 17    expr -> expr DIV expr  [precedence=left, level=6]
+Rule 18    expr -> expr MUL expr  [precedence=left, level=6]
+Rule 19    expr -> expr SUB expr  [precedence=left, level=5]
+Rule 20    expr -> expr ADD expr  [precedence=left, level=5]
+Rule 21    expr -> expr LT expr  [precedence=nonassoc, level=1]
+Rule 22    expr -> expr GT expr  [precedence=nonassoc, level=1]
+Rule 23    expr -> AWAIT expr  [precedence=right, level=7]
+Rule 24    expr -> ASYNC expr  [precedence=right, level=7]
+Rule 25    expr -> IF expr block_expr rest_if
+Rule 26    expr -> ( expr )
+Rule 27    expr -> expr ( arglist )
+Rule 28    expr -> ID ( paramlist ) block_expr
+Rule 29    paramlist -> ID , paramlist
+Rule 30    paramlist -> ID
+Rule 31    paramlist -> nothing
+Rule 32    arglist -> arg_item , arglist
+Rule 33    arglist -> arg_item
+Rule 34    arglist -> nothing
+Rule 35    arg_item -> SYMBOL expr
+Rule 36    arg_item -> expr
+Rule 37    rest_if -> ELSE block_expr
+Rule 38    rest_if -> ELIF expr block_expr rest_if
+Rule 39    rest_if -> nothing
+
+Terminals, with rules where they appear:
+
+(                    : 26 27 28
+)                    : 26 27 28
+,                    : 29 32
+ADD                  : 20
+AND                  : 16
+ASYNC                : 24
+AWAIT                : 23
+DIV                  : 17
+ELIF                 : 38
+ELSE                 : 37
+EQ                   : 14
+FALSE                : 10
+GT                   : 22
+ID                   : 12 28 29 30
+IF                   : 25
+LT                   : 21
+MUL                  : 18
+NUMBER               : 9
+OR                   : 15
+SET                  : 13
+STRING               : 8
+SUB                  : 19
+SYMBOL               : 35
+TERM                 : 3 4 6
+TRUE                 : 11
+error                : 
+{                    : 2
+}                    : 2
+
+Nonterminals, with rules where they appear:
+
+arg_item             : 32 33
+arglist              : 27 32
+block_expr           : 25 28 37 38
+block_inner          : 2 3
+expr                 : 3 4 5 13 13 14 14 15 15 16 16 17 17 18 18 19 19 20 20 21 21 22 22 23 24 25 26 27 35 36 38
+nothing              : 7 31 34 39
+paramlist            : 28 29
+rest_if              : 25 38
+top                  : 5 0
+
+
+state 0
+
+    (0) S' -> . top
+    (5) top -> . expr top
+    (6) top -> . TERM
+    (7) top -> . nothing
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    (1) nothing -> .
+    TERM            shift and go to state 3
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+    $end            reduce using rule 1 (nothing -> .)
+
+    top                            shift and go to state 1
+    expr                           shift and go to state 2
+    nothing                        shift and go to state 4
+
+state 1
+
+    (0) S' -> top .
+
+
+state 2
+
+    (5) top -> expr . top
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    (5) top -> . expr top
+    (6) top -> . TERM
+    (7) top -> . nothing
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    (1) nothing -> .
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+    LT              shift and go to state 23
+    GT              shift and go to state 24
+    (               shift and go to state 25
+    TERM            shift and go to state 3
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    $end            reduce using rule 1 (nothing -> .)
+
+    expr                           shift and go to state 2
+    top                            shift and go to state 14
+    nothing                        shift and go to state 4
+
+state 3
+
+    (6) top -> TERM .
+    $end            reduce using rule 6 (top -> TERM .)
+
+
+state 4
+
+    (7) top -> nothing .
+    $end            reduce using rule 7 (top -> nothing .)
+
+
+state 5
+
+    (8) expr -> STRING .
+    SET             reduce using rule 8 (expr -> STRING .)
+    EQ              reduce using rule 8 (expr -> STRING .)
+    OR              reduce using rule 8 (expr -> STRING .)
+    AND             reduce using rule 8 (expr -> STRING .)
+    DIV             reduce using rule 8 (expr -> STRING .)
+    MUL             reduce using rule 8 (expr -> STRING .)
+    SUB             reduce using rule 8 (expr -> STRING .)
+    ADD             reduce using rule 8 (expr -> STRING .)
+    LT              reduce using rule 8 (expr -> STRING .)
+    GT              reduce using rule 8 (expr -> STRING .)
+    (               reduce using rule 8 (expr -> STRING .)
+    TERM            reduce using rule 8 (expr -> STRING .)
+    STRING          reduce using rule 8 (expr -> STRING .)
+    NUMBER          reduce using rule 8 (expr -> STRING .)
+    FALSE           reduce using rule 8 (expr -> STRING .)
+    TRUE            reduce using rule 8 (expr -> STRING .)
+    ID              reduce using rule 8 (expr -> STRING .)
+    AWAIT           reduce using rule 8 (expr -> STRING .)
+    ASYNC           reduce using rule 8 (expr -> STRING .)
+    IF              reduce using rule 8 (expr -> STRING .)
+    $end            reduce using rule 8 (expr -> STRING .)
+    {               reduce using rule 8 (expr -> STRING .)
+    )               reduce using rule 8 (expr -> STRING .)
+    ,               reduce using rule 8 (expr -> STRING .)
+
+
+state 6
+
+    (9) expr -> NUMBER .
+    SET             reduce using rule 9 (expr -> NUMBER .)
+    EQ              reduce using rule 9 (expr -> NUMBER .)
+    OR              reduce using rule 9 (expr -> NUMBER .)
+    AND             reduce using rule 9 (expr -> NUMBER .)
+    DIV             reduce using rule 9 (expr -> NUMBER .)
+    MUL             reduce using rule 9 (expr -> NUMBER .)
+    SUB             reduce using rule 9 (expr -> NUMBER .)
+    ADD             reduce using rule 9 (expr -> NUMBER .)
+    LT              reduce using rule 9 (expr -> NUMBER .)
+    GT              reduce using rule 9 (expr -> NUMBER .)
+    (               reduce using rule 9 (expr -> NUMBER .)
+    TERM            reduce using rule 9 (expr -> NUMBER .)
+    STRING          reduce using rule 9 (expr -> NUMBER .)
+    NUMBER          reduce using rule 9 (expr -> NUMBER .)
+    FALSE           reduce using rule 9 (expr -> NUMBER .)
+    TRUE            reduce using rule 9 (expr -> NUMBER .)
+    ID              reduce using rule 9 (expr -> NUMBER .)
+    AWAIT           reduce using rule 9 (expr -> NUMBER .)
+    ASYNC           reduce using rule 9 (expr -> NUMBER .)
+    IF              reduce using rule 9 (expr -> NUMBER .)
+    $end            reduce using rule 9 (expr -> NUMBER .)
+    {               reduce using rule 9 (expr -> NUMBER .)
+    )               reduce using rule 9 (expr -> NUMBER .)
+    ,               reduce using rule 9 (expr -> NUMBER .)
+
+
+state 7
+
+    (10) expr -> FALSE .
+    SET             reduce using rule 10 (expr -> FALSE .)
+    EQ              reduce using rule 10 (expr -> FALSE .)
+    OR              reduce using rule 10 (expr -> FALSE .)
+    AND             reduce using rule 10 (expr -> FALSE .)
+    DIV             reduce using rule 10 (expr -> FALSE .)
+    MUL             reduce using rule 10 (expr -> FALSE .)
+    SUB             reduce using rule 10 (expr -> FALSE .)
+    ADD             reduce using rule 10 (expr -> FALSE .)
+    LT              reduce using rule 10 (expr -> FALSE .)
+    GT              reduce using rule 10 (expr -> FALSE .)
+    (               reduce using rule 10 (expr -> FALSE .)
+    TERM            reduce using rule 10 (expr -> FALSE .)
+    STRING          reduce using rule 10 (expr -> FALSE .)
+    NUMBER          reduce using rule 10 (expr -> FALSE .)
+    FALSE           reduce using rule 10 (expr -> FALSE .)
+    TRUE            reduce using rule 10 (expr -> FALSE .)
+    ID              reduce using rule 10 (expr -> FALSE .)
+    AWAIT           reduce using rule 10 (expr -> FALSE .)
+    ASYNC           reduce using rule 10 (expr -> FALSE .)
+    IF              reduce using rule 10 (expr -> FALSE .)
+    $end            reduce using rule 10 (expr -> FALSE .)
+    {               reduce using rule 10 (expr -> FALSE .)
+    )               reduce using rule 10 (expr -> FALSE .)
+    ,               reduce using rule 10 (expr -> FALSE .)
+
+
+state 8
+
+    (11) expr -> TRUE .
+    SET             reduce using rule 11 (expr -> TRUE .)
+    EQ              reduce using rule 11 (expr -> TRUE .)
+    OR              reduce using rule 11 (expr -> TRUE .)
+    AND             reduce using rule 11 (expr -> TRUE .)
+    DIV             reduce using rule 11 (expr -> TRUE .)
+    MUL             reduce using rule 11 (expr -> TRUE .)
+    SUB             reduce using rule 11 (expr -> TRUE .)
+    ADD             reduce using rule 11 (expr -> TRUE .)
+    LT              reduce using rule 11 (expr -> TRUE .)
+    GT              reduce using rule 11 (expr -> TRUE .)
+    (               reduce using rule 11 (expr -> TRUE .)
+    TERM            reduce using rule 11 (expr -> TRUE .)
+    STRING          reduce using rule 11 (expr -> TRUE .)
+    NUMBER          reduce using rule 11 (expr -> TRUE .)
+    FALSE           reduce using rule 11 (expr -> TRUE .)
+    TRUE            reduce using rule 11 (expr -> TRUE .)
+    ID              reduce using rule 11 (expr -> TRUE .)
+    AWAIT           reduce using rule 11 (expr -> TRUE .)
+    ASYNC           reduce using rule 11 (expr -> TRUE .)
+    IF              reduce using rule 11 (expr -> TRUE .)
+    $end            reduce using rule 11 (expr -> TRUE .)
+    {               reduce using rule 11 (expr -> TRUE .)
+    )               reduce using rule 11 (expr -> TRUE .)
+    ,               reduce using rule 11 (expr -> TRUE .)
+
+
+state 9
+
+    (12) expr -> ID .
+    (28) expr -> ID . ( paramlist ) block_expr
+  ! shift/reduce conflict for ( resolved as shift
+    SET             reduce using rule 12 (expr -> ID .)
+    EQ              reduce using rule 12 (expr -> ID .)
+    OR              reduce using rule 12 (expr -> ID .)
+    AND             reduce using rule 12 (expr -> ID .)
+    DIV             reduce using rule 12 (expr -> ID .)
+    MUL             reduce using rule 12 (expr -> ID .)
+    SUB             reduce using rule 12 (expr -> ID .)
+    ADD             reduce using rule 12 (expr -> ID .)
+    LT              reduce using rule 12 (expr -> ID .)
+    GT              reduce using rule 12 (expr -> ID .)
+    TERM            reduce using rule 12 (expr -> ID .)
+    STRING          reduce using rule 12 (expr -> ID .)
+    NUMBER          reduce using rule 12 (expr -> ID .)
+    FALSE           reduce using rule 12 (expr -> ID .)
+    TRUE            reduce using rule 12 (expr -> ID .)
+    ID              reduce using rule 12 (expr -> ID .)
+    AWAIT           reduce using rule 12 (expr -> ID .)
+    ASYNC           reduce using rule 12 (expr -> ID .)
+    IF              reduce using rule 12 (expr -> ID .)
+    $end            reduce using rule 12 (expr -> ID .)
+    {               reduce using rule 12 (expr -> ID .)
+    )               reduce using rule 12 (expr -> ID .)
+    ,               reduce using rule 12 (expr -> ID .)
+    (               shift and go to state 26
+
+
+state 10
+
+    (23) expr -> AWAIT . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 27
+
+state 11
+
+    (24) expr -> ASYNC . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 28
+
+state 12
+
+    (25) expr -> IF . expr block_expr rest_if
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 29
+
+state 13
+
+    (26) expr -> ( . expr )
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 30
+
+state 14
+
+    (5) top -> expr top .
+    $end            reduce using rule 5 (top -> expr top .)
+
+
+state 15
+
+    (13) expr -> expr SET . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 31
+
+state 16
+
+    (14) expr -> expr EQ . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 32
+
+state 17
+
+    (15) expr -> expr OR . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 33
+
+state 18
+
+    (16) expr -> expr AND . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 34
+
+state 19
+
+    (17) expr -> expr DIV . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 35
+
+state 20
+
+    (18) expr -> expr MUL . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 36
+
+state 21
+
+    (19) expr -> expr SUB . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 37
+
+state 22
+
+    (20) expr -> expr ADD . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 38
+
+state 23
+
+    (21) expr -> expr LT . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 39
+
+state 24
+
+    (22) expr -> expr GT . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 40
+
+state 25
+
+    (27) expr -> expr ( . arglist )
+    (26) expr -> ( . expr )
+    (32) arglist -> . arg_item , arglist
+    (33) arglist -> . arg_item
+    (34) arglist -> . nothing
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    (35) arg_item -> . SYMBOL expr
+    (36) arg_item -> . expr
+    (1) nothing -> .
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+    SYMBOL          shift and go to state 45
+    )               reduce using rule 1 (nothing -> .)
+
+    expr                           shift and go to state 41
+    arglist                        shift and go to state 42
+    arg_item                       shift and go to state 43
+    nothing                        shift and go to state 44
+
+state 26
+
+    (28) expr -> ID ( . paramlist ) block_expr
+    (29) paramlist -> . ID , paramlist
+    (30) paramlist -> . ID
+    (31) paramlist -> . nothing
+    (1) nothing -> .
+    ID              shift and go to state 46
+    )               reduce using rule 1 (nothing -> .)
+
+    paramlist                      shift and go to state 47
+    nothing                        shift and go to state 48
+
+state 27
+
+    (23) expr -> AWAIT expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    SET             reduce using rule 23 (expr -> AWAIT expr .)
+    EQ              reduce using rule 23 (expr -> AWAIT expr .)
+    OR              reduce using rule 23 (expr -> AWAIT expr .)
+    AND             reduce using rule 23 (expr -> AWAIT expr .)
+    DIV             reduce using rule 23 (expr -> AWAIT expr .)
+    MUL             reduce using rule 23 (expr -> AWAIT expr .)
+    SUB             reduce using rule 23 (expr -> AWAIT expr .)
+    ADD             reduce using rule 23 (expr -> AWAIT expr .)
+    LT              reduce using rule 23 (expr -> AWAIT expr .)
+    GT              reduce using rule 23 (expr -> AWAIT expr .)
+    (               reduce using rule 23 (expr -> AWAIT expr .)
+    TERM            reduce using rule 23 (expr -> AWAIT expr .)
+    STRING          reduce using rule 23 (expr -> AWAIT expr .)
+    NUMBER          reduce using rule 23 (expr -> AWAIT expr .)
+    FALSE           reduce using rule 23 (expr -> AWAIT expr .)
+    TRUE            reduce using rule 23 (expr -> AWAIT expr .)
+    ID              reduce using rule 23 (expr -> AWAIT expr .)
+    AWAIT           reduce using rule 23 (expr -> AWAIT expr .)
+    ASYNC           reduce using rule 23 (expr -> AWAIT expr .)
+    IF              reduce using rule 23 (expr -> AWAIT expr .)
+    $end            reduce using rule 23 (expr -> AWAIT expr .)
+    {               reduce using rule 23 (expr -> AWAIT expr .)
+    )               reduce using rule 23 (expr -> AWAIT expr .)
+    ,               reduce using rule 23 (expr -> AWAIT expr .)
+
+
+state 28
+
+    (24) expr -> ASYNC expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    SET             reduce using rule 24 (expr -> ASYNC expr .)
+    EQ              reduce using rule 24 (expr -> ASYNC expr .)
+    OR              reduce using rule 24 (expr -> ASYNC expr .)
+    AND             reduce using rule 24 (expr -> ASYNC expr .)
+    DIV             reduce using rule 24 (expr -> ASYNC expr .)
+    MUL             reduce using rule 24 (expr -> ASYNC expr .)
+    SUB             reduce using rule 24 (expr -> ASYNC expr .)
+    ADD             reduce using rule 24 (expr -> ASYNC expr .)
+    LT              reduce using rule 24 (expr -> ASYNC expr .)
+    GT              reduce using rule 24 (expr -> ASYNC expr .)
+    (               reduce using rule 24 (expr -> ASYNC expr .)
+    TERM            reduce using rule 24 (expr -> ASYNC expr .)
+    STRING          reduce using rule 24 (expr -> ASYNC expr .)
+    NUMBER          reduce using rule 24 (expr -> ASYNC expr .)
+    FALSE           reduce using rule 24 (expr -> ASYNC expr .)
+    TRUE            reduce using rule 24 (expr -> ASYNC expr .)
+    ID              reduce using rule 24 (expr -> ASYNC expr .)
+    AWAIT           reduce using rule 24 (expr -> ASYNC expr .)
+    ASYNC           reduce using rule 24 (expr -> ASYNC expr .)
+    IF              reduce using rule 24 (expr -> ASYNC expr .)
+    $end            reduce using rule 24 (expr -> ASYNC expr .)
+    {               reduce using rule 24 (expr -> ASYNC expr .)
+    )               reduce using rule 24 (expr -> ASYNC expr .)
+    ,               reduce using rule 24 (expr -> ASYNC expr .)
+
+
+state 29
+
+    (25) expr -> IF expr . block_expr rest_if
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    (2) block_expr -> . { block_inner }
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+    LT              shift and go to state 23
+    GT              shift and go to state 24
+    (               shift and go to state 49
+    {               shift and go to state 51
+
+    block_expr                     shift and go to state 50
+
+state 30
+
+    (26) expr -> ( expr . )
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    )               shift and go to state 52
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+    LT              shift and go to state 23
+    GT              shift and go to state 24
+    (               shift and go to state 49
+
+
+state 31
+
+    (13) expr -> expr SET expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    SET             reduce using rule 13 (expr -> expr SET expr .)
+    EQ              reduce using rule 13 (expr -> expr SET expr .)
+    OR              reduce using rule 13 (expr -> expr SET expr .)
+    AND             reduce using rule 13 (expr -> expr SET expr .)
+    LT              reduce using rule 13 (expr -> expr SET expr .)
+    GT              reduce using rule 13 (expr -> expr SET expr .)
+    (               reduce using rule 13 (expr -> expr SET expr .)
+    TERM            reduce using rule 13 (expr -> expr SET expr .)
+    STRING          reduce using rule 13 (expr -> expr SET expr .)
+    NUMBER          reduce using rule 13 (expr -> expr SET expr .)
+    FALSE           reduce using rule 13 (expr -> expr SET expr .)
+    TRUE            reduce using rule 13 (expr -> expr SET expr .)
+    ID              reduce using rule 13 (expr -> expr SET expr .)
+    AWAIT           reduce using rule 13 (expr -> expr SET expr .)
+    ASYNC           reduce using rule 13 (expr -> expr SET expr .)
+    IF              reduce using rule 13 (expr -> expr SET expr .)
+    $end            reduce using rule 13 (expr -> expr SET expr .)
+    {               reduce using rule 13 (expr -> expr SET expr .)
+    )               reduce using rule 13 (expr -> expr SET expr .)
+    ,               reduce using rule 13 (expr -> expr SET expr .)
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+
+
+state 32
+
+    (14) expr -> expr EQ expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    SET             reduce using rule 14 (expr -> expr EQ expr .)
+    EQ              reduce using rule 14 (expr -> expr EQ expr .)
+    OR              reduce using rule 14 (expr -> expr EQ expr .)
+    AND             reduce using rule 14 (expr -> expr EQ expr .)
+    LT              reduce using rule 14 (expr -> expr EQ expr .)
+    GT              reduce using rule 14 (expr -> expr EQ expr .)
+    (               reduce using rule 14 (expr -> expr EQ expr .)
+    TERM            reduce using rule 14 (expr -> expr EQ expr .)
+    STRING          reduce using rule 14 (expr -> expr EQ expr .)
+    NUMBER          reduce using rule 14 (expr -> expr EQ expr .)
+    FALSE           reduce using rule 14 (expr -> expr EQ expr .)
+    TRUE            reduce using rule 14 (expr -> expr EQ expr .)
+    ID              reduce using rule 14 (expr -> expr EQ expr .)
+    AWAIT           reduce using rule 14 (expr -> expr EQ expr .)
+    ASYNC           reduce using rule 14 (expr -> expr EQ expr .)
+    IF              reduce using rule 14 (expr -> expr EQ expr .)
+    $end            reduce using rule 14 (expr -> expr EQ expr .)
+    {               reduce using rule 14 (expr -> expr EQ expr .)
+    )               reduce using rule 14 (expr -> expr EQ expr .)
+    ,               reduce using rule 14 (expr -> expr EQ expr .)
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+
+
+state 33
+
+    (15) expr -> expr OR expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    LT              reduce using rule 15 (expr -> expr OR expr .)
+    GT              reduce using rule 15 (expr -> expr OR expr .)
+    (               reduce using rule 15 (expr -> expr OR expr .)
+    TERM            reduce using rule 15 (expr -> expr OR expr .)
+    STRING          reduce using rule 15 (expr -> expr OR expr .)
+    NUMBER          reduce using rule 15 (expr -> expr OR expr .)
+    FALSE           reduce using rule 15 (expr -> expr OR expr .)
+    TRUE            reduce using rule 15 (expr -> expr OR expr .)
+    ID              reduce using rule 15 (expr -> expr OR expr .)
+    AWAIT           reduce using rule 15 (expr -> expr OR expr .)
+    ASYNC           reduce using rule 15 (expr -> expr OR expr .)
+    IF              reduce using rule 15 (expr -> expr OR expr .)
+    $end            reduce using rule 15 (expr -> expr OR expr .)
+    {               reduce using rule 15 (expr -> expr OR expr .)
+    )               reduce using rule 15 (expr -> expr OR expr .)
+    ,               reduce using rule 15 (expr -> expr OR expr .)
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+
+
+state 34
+
+    (16) expr -> expr AND expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    OR              reduce using rule 16 (expr -> expr AND expr .)
+    LT              reduce using rule 16 (expr -> expr AND expr .)
+    GT              reduce using rule 16 (expr -> expr AND expr .)
+    (               reduce using rule 16 (expr -> expr AND expr .)
+    TERM            reduce using rule 16 (expr -> expr AND expr .)
+    STRING          reduce using rule 16 (expr -> expr AND expr .)
+    NUMBER          reduce using rule 16 (expr -> expr AND expr .)
+    FALSE           reduce using rule 16 (expr -> expr AND expr .)
+    TRUE            reduce using rule 16 (expr -> expr AND expr .)
+    ID              reduce using rule 16 (expr -> expr AND expr .)
+    AWAIT           reduce using rule 16 (expr -> expr AND expr .)
+    ASYNC           reduce using rule 16 (expr -> expr AND expr .)
+    IF              reduce using rule 16 (expr -> expr AND expr .)
+    $end            reduce using rule 16 (expr -> expr AND expr .)
+    {               reduce using rule 16 (expr -> expr AND expr .)
+    )               reduce using rule 16 (expr -> expr AND expr .)
+    ,               reduce using rule 16 (expr -> expr AND expr .)
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+
+
+state 35
+
+    (17) expr -> expr DIV expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    SET             reduce using rule 17 (expr -> expr DIV expr .)
+    EQ              reduce using rule 17 (expr -> expr DIV expr .)
+    OR              reduce using rule 17 (expr -> expr DIV expr .)
+    AND             reduce using rule 17 (expr -> expr DIV expr .)
+    DIV             reduce using rule 17 (expr -> expr DIV expr .)
+    MUL             reduce using rule 17 (expr -> expr DIV expr .)
+    SUB             reduce using rule 17 (expr -> expr DIV expr .)
+    ADD             reduce using rule 17 (expr -> expr DIV expr .)
+    LT              reduce using rule 17 (expr -> expr DIV expr .)
+    GT              reduce using rule 17 (expr -> expr DIV expr .)
+    (               reduce using rule 17 (expr -> expr DIV expr .)
+    TERM            reduce using rule 17 (expr -> expr DIV expr .)
+    STRING          reduce using rule 17 (expr -> expr DIV expr .)
+    NUMBER          reduce using rule 17 (expr -> expr DIV expr .)
+    FALSE           reduce using rule 17 (expr -> expr DIV expr .)
+    TRUE            reduce using rule 17 (expr -> expr DIV expr .)
+    ID              reduce using rule 17 (expr -> expr DIV expr .)
+    AWAIT           reduce using rule 17 (expr -> expr DIV expr .)
+    ASYNC           reduce using rule 17 (expr -> expr DIV expr .)
+    IF              reduce using rule 17 (expr -> expr DIV expr .)
+    $end            reduce using rule 17 (expr -> expr DIV expr .)
+    {               reduce using rule 17 (expr -> expr DIV expr .)
+    )               reduce using rule 17 (expr -> expr DIV expr .)
+    ,               reduce using rule 17 (expr -> expr DIV expr .)
+
+
+state 36
+
+    (18) expr -> expr MUL expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    SET             reduce using rule 18 (expr -> expr MUL expr .)
+    EQ              reduce using rule 18 (expr -> expr MUL expr .)
+    OR              reduce using rule 18 (expr -> expr MUL expr .)
+    AND             reduce using rule 18 (expr -> expr MUL expr .)
+    DIV             reduce using rule 18 (expr -> expr MUL expr .)
+    MUL             reduce using rule 18 (expr -> expr MUL expr .)
+    SUB             reduce using rule 18 (expr -> expr MUL expr .)
+    ADD             reduce using rule 18 (expr -> expr MUL expr .)
+    LT              reduce using rule 18 (expr -> expr MUL expr .)
+    GT              reduce using rule 18 (expr -> expr MUL expr .)
+    (               reduce using rule 18 (expr -> expr MUL expr .)
+    TERM            reduce using rule 18 (expr -> expr MUL expr .)
+    STRING          reduce using rule 18 (expr -> expr MUL expr .)
+    NUMBER          reduce using rule 18 (expr -> expr MUL expr .)
+    FALSE           reduce using rule 18 (expr -> expr MUL expr .)
+    TRUE            reduce using rule 18 (expr -> expr MUL expr .)
+    ID              reduce using rule 18 (expr -> expr MUL expr .)
+    AWAIT           reduce using rule 18 (expr -> expr MUL expr .)
+    ASYNC           reduce using rule 18 (expr -> expr MUL expr .)
+    IF              reduce using rule 18 (expr -> expr MUL expr .)
+    $end            reduce using rule 18 (expr -> expr MUL expr .)
+    {               reduce using rule 18 (expr -> expr MUL expr .)
+    )               reduce using rule 18 (expr -> expr MUL expr .)
+    ,               reduce using rule 18 (expr -> expr MUL expr .)
+
+
+state 37
+
+    (19) expr -> expr SUB expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    SET             reduce using rule 19 (expr -> expr SUB expr .)
+    EQ              reduce using rule 19 (expr -> expr SUB expr .)
+    OR              reduce using rule 19 (expr -> expr SUB expr .)
+    AND             reduce using rule 19 (expr -> expr SUB expr .)
+    SUB             reduce using rule 19 (expr -> expr SUB expr .)
+    ADD             reduce using rule 19 (expr -> expr SUB expr .)
+    LT              reduce using rule 19 (expr -> expr SUB expr .)
+    GT              reduce using rule 19 (expr -> expr SUB expr .)
+    (               reduce using rule 19 (expr -> expr SUB expr .)
+    TERM            reduce using rule 19 (expr -> expr SUB expr .)
+    STRING          reduce using rule 19 (expr -> expr SUB expr .)
+    NUMBER          reduce using rule 19 (expr -> expr SUB expr .)
+    FALSE           reduce using rule 19 (expr -> expr SUB expr .)
+    TRUE            reduce using rule 19 (expr -> expr SUB expr .)
+    ID              reduce using rule 19 (expr -> expr SUB expr .)
+    AWAIT           reduce using rule 19 (expr -> expr SUB expr .)
+    ASYNC           reduce using rule 19 (expr -> expr SUB expr .)
+    IF              reduce using rule 19 (expr -> expr SUB expr .)
+    $end            reduce using rule 19 (expr -> expr SUB expr .)
+    {               reduce using rule 19 (expr -> expr SUB expr .)
+    )               reduce using rule 19 (expr -> expr SUB expr .)
+    ,               reduce using rule 19 (expr -> expr SUB expr .)
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+
+
+state 38
+
+    (20) expr -> expr ADD expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    SET             reduce using rule 20 (expr -> expr ADD expr .)
+    EQ              reduce using rule 20 (expr -> expr ADD expr .)
+    OR              reduce using rule 20 (expr -> expr ADD expr .)
+    AND             reduce using rule 20 (expr -> expr ADD expr .)
+    SUB             reduce using rule 20 (expr -> expr ADD expr .)
+    ADD             reduce using rule 20 (expr -> expr ADD expr .)
+    LT              reduce using rule 20 (expr -> expr ADD expr .)
+    GT              reduce using rule 20 (expr -> expr ADD expr .)
+    (               reduce using rule 20 (expr -> expr ADD expr .)
+    TERM            reduce using rule 20 (expr -> expr ADD expr .)
+    STRING          reduce using rule 20 (expr -> expr ADD expr .)
+    NUMBER          reduce using rule 20 (expr -> expr ADD expr .)
+    FALSE           reduce using rule 20 (expr -> expr ADD expr .)
+    TRUE            reduce using rule 20 (expr -> expr ADD expr .)
+    ID              reduce using rule 20 (expr -> expr ADD expr .)
+    AWAIT           reduce using rule 20 (expr -> expr ADD expr .)
+    ASYNC           reduce using rule 20 (expr -> expr ADD expr .)
+    IF              reduce using rule 20 (expr -> expr ADD expr .)
+    $end            reduce using rule 20 (expr -> expr ADD expr .)
+    {               reduce using rule 20 (expr -> expr ADD expr .)
+    )               reduce using rule 20 (expr -> expr ADD expr .)
+    ,               reduce using rule 20 (expr -> expr ADD expr .)
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+
+
+state 39
+
+    (21) expr -> expr LT expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    LT              reduce using rule 21 (expr -> expr LT expr .)
+    GT              reduce using rule 21 (expr -> expr LT expr .)
+    (               reduce using rule 21 (expr -> expr LT expr .)
+    TERM            reduce using rule 21 (expr -> expr LT expr .)
+    STRING          reduce using rule 21 (expr -> expr LT expr .)
+    NUMBER          reduce using rule 21 (expr -> expr LT expr .)
+    FALSE           reduce using rule 21 (expr -> expr LT expr .)
+    TRUE            reduce using rule 21 (expr -> expr LT expr .)
+    ID              reduce using rule 21 (expr -> expr LT expr .)
+    AWAIT           reduce using rule 21 (expr -> expr LT expr .)
+    ASYNC           reduce using rule 21 (expr -> expr LT expr .)
+    IF              reduce using rule 21 (expr -> expr LT expr .)
+    $end            reduce using rule 21 (expr -> expr LT expr .)
+    {               reduce using rule 21 (expr -> expr LT expr .)
+    )               reduce using rule 21 (expr -> expr LT expr .)
+    ,               reduce using rule 21 (expr -> expr LT expr .)
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+
+
+state 40
+
+    (22) expr -> expr GT expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    LT              reduce using rule 22 (expr -> expr GT expr .)
+    GT              reduce using rule 22 (expr -> expr GT expr .)
+    (               reduce using rule 22 (expr -> expr GT expr .)
+    TERM            reduce using rule 22 (expr -> expr GT expr .)
+    STRING          reduce using rule 22 (expr -> expr GT expr .)
+    NUMBER          reduce using rule 22 (expr -> expr GT expr .)
+    FALSE           reduce using rule 22 (expr -> expr GT expr .)
+    TRUE            reduce using rule 22 (expr -> expr GT expr .)
+    ID              reduce using rule 22 (expr -> expr GT expr .)
+    AWAIT           reduce using rule 22 (expr -> expr GT expr .)
+    ASYNC           reduce using rule 22 (expr -> expr GT expr .)
+    IF              reduce using rule 22 (expr -> expr GT expr .)
+    $end            reduce using rule 22 (expr -> expr GT expr .)
+    {               reduce using rule 22 (expr -> expr GT expr .)
+    )               reduce using rule 22 (expr -> expr GT expr .)
+    ,               reduce using rule 22 (expr -> expr GT expr .)
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+
+
+state 41
+
+    (26) expr -> ( expr . )
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    (36) arg_item -> expr .
+  ! shift/reduce conflict for ) resolved as shift
+    )               shift and go to state 52
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+    LT              shift and go to state 23
+    GT              shift and go to state 24
+    (               shift and go to state 49
+    ,               reduce using rule 36 (arg_item -> expr .)
+
+
+state 42
+
+    (27) expr -> expr ( arglist . )
+    )               shift and go to state 53
+
+
+state 43
+
+    (32) arglist -> arg_item . , arglist
+    (33) arglist -> arg_item .
+    ,               shift and go to state 54
+    )               reduce using rule 33 (arglist -> arg_item .)
+
+
+state 44
+
+    (34) arglist -> nothing .
+    )               reduce using rule 34 (arglist -> nothing .)
+
+
+state 45
+
+    (35) arg_item -> SYMBOL . expr
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 55
+
+state 46
+
+    (29) paramlist -> ID . , paramlist
+    (30) paramlist -> ID .
+    ,               shift and go to state 56
+    )               reduce using rule 30 (paramlist -> ID .)
+
+
+state 47
+
+    (28) expr -> ID ( paramlist . ) block_expr
+    )               shift and go to state 57
+
+
+state 48
+
+    (31) paramlist -> nothing .
+    )               reduce using rule 31 (paramlist -> nothing .)
+
+
+state 49
+
+    (27) expr -> expr ( . arglist )
+    (32) arglist -> . arg_item , arglist
+    (33) arglist -> . arg_item
+    (34) arglist -> . nothing
+    (35) arg_item -> . SYMBOL expr
+    (36) arg_item -> . expr
+    (1) nothing -> .
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    SYMBOL          shift and go to state 45
+    )               reduce using rule 1 (nothing -> .)
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 58
+    arglist                        shift and go to state 42
+    arg_item                       shift and go to state 43
+    nothing                        shift and go to state 44
+
+state 50
+
+    (25) expr -> IF expr block_expr . rest_if
+    (37) rest_if -> . ELSE block_expr
+    (38) rest_if -> . ELIF expr block_expr rest_if
+    (39) rest_if -> . nothing
+    (1) nothing -> .
+    ELSE            shift and go to state 60
+    ELIF            shift and go to state 61
+    SET             reduce using rule 1 (nothing -> .)
+    EQ              reduce using rule 1 (nothing -> .)
+    OR              reduce using rule 1 (nothing -> .)
+    AND             reduce using rule 1 (nothing -> .)
+    DIV             reduce using rule 1 (nothing -> .)
+    MUL             reduce using rule 1 (nothing -> .)
+    SUB             reduce using rule 1 (nothing -> .)
+    ADD             reduce using rule 1 (nothing -> .)
+    LT              reduce using rule 1 (nothing -> .)
+    GT              reduce using rule 1 (nothing -> .)
+    (               reduce using rule 1 (nothing -> .)
+    TERM            reduce using rule 1 (nothing -> .)
+    STRING          reduce using rule 1 (nothing -> .)
+    NUMBER          reduce using rule 1 (nothing -> .)
+    FALSE           reduce using rule 1 (nothing -> .)
+    TRUE            reduce using rule 1 (nothing -> .)
+    ID              reduce using rule 1 (nothing -> .)
+    AWAIT           reduce using rule 1 (nothing -> .)
+    ASYNC           reduce using rule 1 (nothing -> .)
+    IF              reduce using rule 1 (nothing -> .)
+    $end            reduce using rule 1 (nothing -> .)
+    {               reduce using rule 1 (nothing -> .)
+    )               reduce using rule 1 (nothing -> .)
+    ,               reduce using rule 1 (nothing -> .)
+
+    rest_if                        shift and go to state 59
+    nothing                        shift and go to state 62
+
+state 51
+
+    (2) block_expr -> { . block_inner }
+    (3) block_inner -> . expr TERM block_inner
+    (4) block_inner -> . expr TERM
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    block_inner                    shift and go to state 63
+    expr                           shift and go to state 64
+
+state 52
+
+    (26) expr -> ( expr ) .
+    SET             reduce using rule 26 (expr -> ( expr ) .)
+    EQ              reduce using rule 26 (expr -> ( expr ) .)
+    OR              reduce using rule 26 (expr -> ( expr ) .)
+    AND             reduce using rule 26 (expr -> ( expr ) .)
+    DIV             reduce using rule 26 (expr -> ( expr ) .)
+    MUL             reduce using rule 26 (expr -> ( expr ) .)
+    SUB             reduce using rule 26 (expr -> ( expr ) .)
+    ADD             reduce using rule 26 (expr -> ( expr ) .)
+    LT              reduce using rule 26 (expr -> ( expr ) .)
+    GT              reduce using rule 26 (expr -> ( expr ) .)
+    (               reduce using rule 26 (expr -> ( expr ) .)
+    TERM            reduce using rule 26 (expr -> ( expr ) .)
+    STRING          reduce using rule 26 (expr -> ( expr ) .)
+    NUMBER          reduce using rule 26 (expr -> ( expr ) .)
+    FALSE           reduce using rule 26 (expr -> ( expr ) .)
+    TRUE            reduce using rule 26 (expr -> ( expr ) .)
+    ID              reduce using rule 26 (expr -> ( expr ) .)
+    AWAIT           reduce using rule 26 (expr -> ( expr ) .)
+    ASYNC           reduce using rule 26 (expr -> ( expr ) .)
+    IF              reduce using rule 26 (expr -> ( expr ) .)
+    $end            reduce using rule 26 (expr -> ( expr ) .)
+    {               reduce using rule 26 (expr -> ( expr ) .)
+    )               reduce using rule 26 (expr -> ( expr ) .)
+    ,               reduce using rule 26 (expr -> ( expr ) .)
+
+
+state 53
+
+    (27) expr -> expr ( arglist ) .
+    SET             reduce using rule 27 (expr -> expr ( arglist ) .)
+    EQ              reduce using rule 27 (expr -> expr ( arglist ) .)
+    OR              reduce using rule 27 (expr -> expr ( arglist ) .)
+    AND             reduce using rule 27 (expr -> expr ( arglist ) .)
+    DIV             reduce using rule 27 (expr -> expr ( arglist ) .)
+    MUL             reduce using rule 27 (expr -> expr ( arglist ) .)
+    SUB             reduce using rule 27 (expr -> expr ( arglist ) .)
+    ADD             reduce using rule 27 (expr -> expr ( arglist ) .)
+    LT              reduce using rule 27 (expr -> expr ( arglist ) .)
+    GT              reduce using rule 27 (expr -> expr ( arglist ) .)
+    (               reduce using rule 27 (expr -> expr ( arglist ) .)
+    TERM            reduce using rule 27 (expr -> expr ( arglist ) .)
+    STRING          reduce using rule 27 (expr -> expr ( arglist ) .)
+    NUMBER          reduce using rule 27 (expr -> expr ( arglist ) .)
+    FALSE           reduce using rule 27 (expr -> expr ( arglist ) .)
+    TRUE            reduce using rule 27 (expr -> expr ( arglist ) .)
+    ID              reduce using rule 27 (expr -> expr ( arglist ) .)
+    AWAIT           reduce using rule 27 (expr -> expr ( arglist ) .)
+    ASYNC           reduce using rule 27 (expr -> expr ( arglist ) .)
+    IF              reduce using rule 27 (expr -> expr ( arglist ) .)
+    $end            reduce using rule 27 (expr -> expr ( arglist ) .)
+    {               reduce using rule 27 (expr -> expr ( arglist ) .)
+    )               reduce using rule 27 (expr -> expr ( arglist ) .)
+    ,               reduce using rule 27 (expr -> expr ( arglist ) .)
+
+
+state 54
+
+    (32) arglist -> arg_item , . arglist
+    (32) arglist -> . arg_item , arglist
+    (33) arglist -> . arg_item
+    (34) arglist -> . nothing
+    (35) arg_item -> . SYMBOL expr
+    (36) arg_item -> . expr
+    (1) nothing -> .
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    SYMBOL          shift and go to state 45
+    )               reduce using rule 1 (nothing -> .)
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    arg_item                       shift and go to state 43
+    arglist                        shift and go to state 65
+    nothing                        shift and go to state 44
+    expr                           shift and go to state 58
+
+state 55
+
+    (35) arg_item -> SYMBOL expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    ,               reduce using rule 35 (arg_item -> SYMBOL expr .)
+    )               reduce using rule 35 (arg_item -> SYMBOL expr .)
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+    LT              shift and go to state 23
+    GT              shift and go to state 24
+    (               shift and go to state 49
+
+
+state 56
+
+    (29) paramlist -> ID , . paramlist
+    (29) paramlist -> . ID , paramlist
+    (30) paramlist -> . ID
+    (31) paramlist -> . nothing
+    (1) nothing -> .
+    ID              shift and go to state 46
+    )               reduce using rule 1 (nothing -> .)
+
+    paramlist                      shift and go to state 66
+    nothing                        shift and go to state 48
+
+state 57
+
+    (28) expr -> ID ( paramlist ) . block_expr
+    (2) block_expr -> . { block_inner }
+    {               shift and go to state 51
+
+    block_expr                     shift and go to state 67
+
+state 58
+
+    (36) arg_item -> expr .
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    ,               reduce using rule 36 (arg_item -> expr .)
+    )               reduce using rule 36 (arg_item -> expr .)
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+    LT              shift and go to state 23
+    GT              shift and go to state 24
+    (               shift and go to state 49
+
+
+state 59
+
+    (25) expr -> IF expr block_expr rest_if .
+    SET             reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    EQ              reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    OR              reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    AND             reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    DIV             reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    MUL             reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    SUB             reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    ADD             reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    LT              reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    GT              reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    (               reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    TERM            reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    STRING          reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    NUMBER          reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    FALSE           reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    TRUE            reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    ID              reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    AWAIT           reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    ASYNC           reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    IF              reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    $end            reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    {               reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    )               reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+    ,               reduce using rule 25 (expr -> IF expr block_expr rest_if .)
+
+
+state 60
+
+    (37) rest_if -> ELSE . block_expr
+    (2) block_expr -> . { block_inner }
+    {               shift and go to state 51
+
+    block_expr                     shift and go to state 68
+
+state 61
+
+    (38) rest_if -> ELIF . expr block_expr rest_if
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 69
+
+state 62
+
+    (39) rest_if -> nothing .
+    SET             reduce using rule 39 (rest_if -> nothing .)
+    EQ              reduce using rule 39 (rest_if -> nothing .)
+    OR              reduce using rule 39 (rest_if -> nothing .)
+    AND             reduce using rule 39 (rest_if -> nothing .)
+    DIV             reduce using rule 39 (rest_if -> nothing .)
+    MUL             reduce using rule 39 (rest_if -> nothing .)
+    SUB             reduce using rule 39 (rest_if -> nothing .)
+    ADD             reduce using rule 39 (rest_if -> nothing .)
+    LT              reduce using rule 39 (rest_if -> nothing .)
+    GT              reduce using rule 39 (rest_if -> nothing .)
+    (               reduce using rule 39 (rest_if -> nothing .)
+    TERM            reduce using rule 39 (rest_if -> nothing .)
+    STRING          reduce using rule 39 (rest_if -> nothing .)
+    NUMBER          reduce using rule 39 (rest_if -> nothing .)
+    FALSE           reduce using rule 39 (rest_if -> nothing .)
+    TRUE            reduce using rule 39 (rest_if -> nothing .)
+    ID              reduce using rule 39 (rest_if -> nothing .)
+    AWAIT           reduce using rule 39 (rest_if -> nothing .)
+    ASYNC           reduce using rule 39 (rest_if -> nothing .)
+    IF              reduce using rule 39 (rest_if -> nothing .)
+    $end            reduce using rule 39 (rest_if -> nothing .)
+    {               reduce using rule 39 (rest_if -> nothing .)
+    )               reduce using rule 39 (rest_if -> nothing .)
+    ,               reduce using rule 39 (rest_if -> nothing .)
+
+
+state 63
+
+    (2) block_expr -> { block_inner . }
+    }               shift and go to state 70
+
+
+state 64
+
+    (3) block_inner -> expr . TERM block_inner
+    (4) block_inner -> expr . TERM
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    TERM            shift and go to state 71
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+    LT              shift and go to state 23
+    GT              shift and go to state 24
+    (               shift and go to state 49
+
+
+state 65
+
+    (32) arglist -> arg_item , arglist .
+    )               reduce using rule 32 (arglist -> arg_item , arglist .)
+
+
+state 66
+
+    (29) paramlist -> ID , paramlist .
+    )               reduce using rule 29 (paramlist -> ID , paramlist .)
+
+
+state 67
+
+    (28) expr -> ID ( paramlist ) block_expr .
+    SET             reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    EQ              reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    OR              reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    AND             reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    DIV             reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    MUL             reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    SUB             reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    ADD             reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    LT              reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    GT              reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    (               reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    TERM            reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    STRING          reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    NUMBER          reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    FALSE           reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    TRUE            reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    ID              reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    AWAIT           reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    ASYNC           reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    IF              reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    $end            reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    {               reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    )               reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+    ,               reduce using rule 28 (expr -> ID ( paramlist ) block_expr .)
+
+
+state 68
+
+    (37) rest_if -> ELSE block_expr .
+    SET             reduce using rule 37 (rest_if -> ELSE block_expr .)
+    EQ              reduce using rule 37 (rest_if -> ELSE block_expr .)
+    OR              reduce using rule 37 (rest_if -> ELSE block_expr .)
+    AND             reduce using rule 37 (rest_if -> ELSE block_expr .)
+    DIV             reduce using rule 37 (rest_if -> ELSE block_expr .)
+    MUL             reduce using rule 37 (rest_if -> ELSE block_expr .)
+    SUB             reduce using rule 37 (rest_if -> ELSE block_expr .)
+    ADD             reduce using rule 37 (rest_if -> ELSE block_expr .)
+    LT              reduce using rule 37 (rest_if -> ELSE block_expr .)
+    GT              reduce using rule 37 (rest_if -> ELSE block_expr .)
+    (               reduce using rule 37 (rest_if -> ELSE block_expr .)
+    TERM            reduce using rule 37 (rest_if -> ELSE block_expr .)
+    STRING          reduce using rule 37 (rest_if -> ELSE block_expr .)
+    NUMBER          reduce using rule 37 (rest_if -> ELSE block_expr .)
+    FALSE           reduce using rule 37 (rest_if -> ELSE block_expr .)
+    TRUE            reduce using rule 37 (rest_if -> ELSE block_expr .)
+    ID              reduce using rule 37 (rest_if -> ELSE block_expr .)
+    AWAIT           reduce using rule 37 (rest_if -> ELSE block_expr .)
+    ASYNC           reduce using rule 37 (rest_if -> ELSE block_expr .)
+    IF              reduce using rule 37 (rest_if -> ELSE block_expr .)
+    $end            reduce using rule 37 (rest_if -> ELSE block_expr .)
+    {               reduce using rule 37 (rest_if -> ELSE block_expr .)
+    )               reduce using rule 37 (rest_if -> ELSE block_expr .)
+    ,               reduce using rule 37 (rest_if -> ELSE block_expr .)
+
+
+state 69
+
+    (38) rest_if -> ELIF expr . block_expr rest_if
+    (13) expr -> expr . SET expr
+    (14) expr -> expr . EQ expr
+    (15) expr -> expr . OR expr
+    (16) expr -> expr . AND expr
+    (17) expr -> expr . DIV expr
+    (18) expr -> expr . MUL expr
+    (19) expr -> expr . SUB expr
+    (20) expr -> expr . ADD expr
+    (21) expr -> expr . LT expr
+    (22) expr -> expr . GT expr
+    (27) expr -> expr . ( arglist )
+    (2) block_expr -> . { block_inner }
+    SET             shift and go to state 15
+    EQ              shift and go to state 16
+    OR              shift and go to state 17
+    AND             shift and go to state 18
+    DIV             shift and go to state 19
+    MUL             shift and go to state 20
+    SUB             shift and go to state 21
+    ADD             shift and go to state 22
+    LT              shift and go to state 23
+    GT              shift and go to state 24
+    (               shift and go to state 49
+    {               shift and go to state 51
+
+    block_expr                     shift and go to state 72
+
+state 70
+
+    (2) block_expr -> { block_inner } .
+    ELSE            reduce using rule 2 (block_expr -> { block_inner } .)
+    ELIF            reduce using rule 2 (block_expr -> { block_inner } .)
+    SET             reduce using rule 2 (block_expr -> { block_inner } .)
+    EQ              reduce using rule 2 (block_expr -> { block_inner } .)
+    OR              reduce using rule 2 (block_expr -> { block_inner } .)
+    AND             reduce using rule 2 (block_expr -> { block_inner } .)
+    DIV             reduce using rule 2 (block_expr -> { block_inner } .)
+    MUL             reduce using rule 2 (block_expr -> { block_inner } .)
+    SUB             reduce using rule 2 (block_expr -> { block_inner } .)
+    ADD             reduce using rule 2 (block_expr -> { block_inner } .)
+    LT              reduce using rule 2 (block_expr -> { block_inner } .)
+    GT              reduce using rule 2 (block_expr -> { block_inner } .)
+    (               reduce using rule 2 (block_expr -> { block_inner } .)
+    TERM            reduce using rule 2 (block_expr -> { block_inner } .)
+    STRING          reduce using rule 2 (block_expr -> { block_inner } .)
+    NUMBER          reduce using rule 2 (block_expr -> { block_inner } .)
+    FALSE           reduce using rule 2 (block_expr -> { block_inner } .)
+    TRUE            reduce using rule 2 (block_expr -> { block_inner } .)
+    ID              reduce using rule 2 (block_expr -> { block_inner } .)
+    AWAIT           reduce using rule 2 (block_expr -> { block_inner } .)
+    ASYNC           reduce using rule 2 (block_expr -> { block_inner } .)
+    IF              reduce using rule 2 (block_expr -> { block_inner } .)
+    $end            reduce using rule 2 (block_expr -> { block_inner } .)
+    {               reduce using rule 2 (block_expr -> { block_inner } .)
+    )               reduce using rule 2 (block_expr -> { block_inner } .)
+    ,               reduce using rule 2 (block_expr -> { block_inner } .)
+
+
+state 71
+
+    (3) block_inner -> expr TERM . block_inner
+    (4) block_inner -> expr TERM .
+    (3) block_inner -> . expr TERM block_inner
+    (4) block_inner -> . expr TERM
+    (8) expr -> . STRING
+    (9) expr -> . NUMBER
+    (10) expr -> . FALSE
+    (11) expr -> . TRUE
+    (12) expr -> . ID
+    (13) expr -> . expr SET expr
+    (14) expr -> . expr EQ expr
+    (15) expr -> . expr OR expr
+    (16) expr -> . expr AND expr
+    (17) expr -> . expr DIV expr
+    (18) expr -> . expr MUL expr
+    (19) expr -> . expr SUB expr
+    (20) expr -> . expr ADD expr
+    (21) expr -> . expr LT expr
+    (22) expr -> . expr GT expr
+    (23) expr -> . AWAIT expr
+    (24) expr -> . ASYNC expr
+    (25) expr -> . IF expr block_expr rest_if
+    (26) expr -> . ( expr )
+    (27) expr -> . expr ( arglist )
+    (28) expr -> . ID ( paramlist ) block_expr
+    }               reduce using rule 4 (block_inner -> expr TERM .)
+    STRING          shift and go to state 5
+    NUMBER          shift and go to state 6
+    FALSE           shift and go to state 7
+    TRUE            shift and go to state 8
+    ID              shift and go to state 9
+    AWAIT           shift and go to state 10
+    ASYNC           shift and go to state 11
+    IF              shift and go to state 12
+    (               shift and go to state 13
+
+    expr                           shift and go to state 64
+    block_inner                    shift and go to state 73
+
+state 72
+
+    (38) rest_if -> ELIF expr block_expr . rest_if
+    (37) rest_if -> . ELSE block_expr
+    (38) rest_if -> . ELIF expr block_expr rest_if
+    (39) rest_if -> . nothing
+    (1) nothing -> .
+    ELSE            shift and go to state 60
+    ELIF            shift and go to state 61
+    SET             reduce using rule 1 (nothing -> .)
+    EQ              reduce using rule 1 (nothing -> .)
+    OR              reduce using rule 1 (nothing -> .)
+    AND             reduce using rule 1 (nothing -> .)
+    DIV             reduce using rule 1 (nothing -> .)
+    MUL             reduce using rule 1 (nothing -> .)
+    SUB             reduce using rule 1 (nothing -> .)
+    ADD             reduce using rule 1 (nothing -> .)
+    LT              reduce using rule 1 (nothing -> .)
+    GT              reduce using rule 1 (nothing -> .)
+    (               reduce using rule 1 (nothing -> .)
+    TERM            reduce using rule 1 (nothing -> .)
+    STRING          reduce using rule 1 (nothing -> .)
+    NUMBER          reduce using rule 1 (nothing -> .)
+    FALSE           reduce using rule 1 (nothing -> .)
+    TRUE            reduce using rule 1 (nothing -> .)
+    ID              reduce using rule 1 (nothing -> .)
+    AWAIT           reduce using rule 1 (nothing -> .)
+    ASYNC           reduce using rule 1 (nothing -> .)
+    IF              reduce using rule 1 (nothing -> .)
+    $end            reduce using rule 1 (nothing -> .)
+    {               reduce using rule 1 (nothing -> .)
+    )               reduce using rule 1 (nothing -> .)
+    ,               reduce using rule 1 (nothing -> .)
+
+    rest_if                        shift and go to state 74
+    nothing                        shift and go to state 62
+
+state 73
+
+    (3) block_inner -> expr TERM block_inner .
+    }               reduce using rule 3 (block_inner -> expr TERM block_inner .)
+
+
+state 74
+
+    (38) rest_if -> ELIF expr block_expr rest_if .
+    SET             reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    EQ              reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    OR              reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    AND             reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    DIV             reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    MUL             reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    SUB             reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    ADD             reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    LT              reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    GT              reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    (               reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    TERM            reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    STRING          reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    NUMBER          reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    FALSE           reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    TRUE            reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    ID              reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    AWAIT           reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    ASYNC           reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    IF              reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    $end            reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    {               reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    )               reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+    ,               reduce using rule 38 (rest_if -> ELIF expr block_expr rest_if .)
+
+
+Conflicts:
+
+shift/reduce conflict for ( in state 9 resolved as shift
+shift/reduce conflict for ) in state 41 resolved as shift
