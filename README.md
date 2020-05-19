@@ -15,8 +15,6 @@ Teal gives you:
 - built-in **tracing/profiling**, so it's easy to know what's happening in your
   workflows.
 
-[Play with Teal in your browser!]
-
 Documentation coming soon! For now, browse the [the examples](test/examples) or
 the check out the [Teal Playground](https://www.condense9.com/playground).
 
