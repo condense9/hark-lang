@@ -71,10 +71,16 @@ here.
 Teal is **not** a general-purpose programming language, because that would be
 needlessly reinventing the wheel.
 
-Teal is a very simple programming language with variables, functions, and
-`async`/`await` concurrency primitives. That's it. Two runtimes have been
-implemented so far -- local and AWS Lambda, but there's no reason Teal couldn't
-run on top of (for example) Kubernetes. [Issue #8](https://github.com/condense9/teal-lang/issues/8)
+Teal is a very simple compiled language with only a few constructs:
+
+1. named variables (data, functions)
+2. `async`/`await` concurrency primitives 
+3. Python (>=3.8) interop
+4. A few basic types
+
+Two runtimes have been implemented so far -- local and AWS Lambda, but there's
+no reason Teal couldn't run on top of (for example) Kubernetes. [Issue
+#8](https://github.com/condense9/teal-lang/issues/8)
 
 **Concurrency**: Teal gives you "bare-metal concurrency" (i.e. without external
 coordination) on top of AWS Lambda.
@@ -106,9 +112,12 @@ fixed soon, probably using
 definition language.
 
 Currently you can only call Teal or Python functions -- arbitrary microservices
-can't be called. Before Teal 1.0, this will be possible. You will be able to
-call a long-running third party service (e.g. an AWS ML service) as a normal
-Teal function and `await` on the result.
+can't be called. Before Teal v1.0 is released, this will be possible. You will
+be able to call a long-running third party service (e.g. an AWS ML service) as a
+normal Teal function and `await` on the result.
+
+Teal really should be able to natively manipulate JSON objects. This may happen
+before v1.0.
 
 ---
 
