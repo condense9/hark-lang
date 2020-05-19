@@ -1,31 +1,31 @@
 # The Teal Programming Language
 
-![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master)[![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang)
+![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang)
 
 Teal is a programming language for microservice orchestration.
 
 It's for building applications with long-running tasks, like data (ETL)
 pipelines, on top of the Python libraries you know and love.
 
-Teal gives you
-- *really fast development* with a runtime for **testing locally** and no
-  infrastructure changes when pipeline structure changes
-- cheap deployments, because **everything is Serverless** and there's no
-  orchestrator to run idle
+Teal gives you:
+- *really fast development* with **easy local testing**, and no coupling between
+  application and infrastructure.
+- cheap deployments, because **everything is serverless** and there is no
+  orchestrator to run idle.
 - built-in **tracing/profiling**, so it's easy to know what's happening in your
-  workflows
+  workflows.
 
-[Play with Teal in your browser!](https://www.condense9.com/playground)
+[Play with Teal in your browser!]
 
 Documentation coming soon! For now, browse the [the examples](test/examples) or
-the playground.
+the check out the [Teal Playground](https://www.condense9.com/playground).
 
 The future of data engineering is composite microservices.
 
 
 ## Getting started
 
-**Teal is alpha quality - unstable, but usable.**
+**Teal is alpha quality - don't use it for mission critical things.**
 
 ```shell
 $ pip install teal-lang
@@ -44,23 +44,23 @@ makes sense, or you'd like help getting started.
 
 ### Teal May Not Be For You!
 
+Teal *is* for you if:
+- you want to build ETL pipelines *really quickly*.
+- you have a repository of data processing scripts, and want to connect them
+  together in the cloud.
+- you insist on being able to test as much as possible locally.
+- You don't have time (or inclination) to deploy and manage a full-blown
+  platform (Spark, Airflow, etc).
+- You're wary of Step Functions (and similar) because of vendor lock-in and cost.
+
 Core principles guiding Teal design:
 - Do the heavy-lifting in Python.
 - Keep business logic out of infrastructure (no more hard-to-test logic defined
   in IaC, please).
 - Workflows must be fully tested locally before deployment.
 
-Teal is for you if:
-- you want to build ETL pipelines *really quickly*.
-- you have a repository of data processing scripts, and want to connect them
-  together in the cloud.
-- you insist on being able to test as much as possible locally.
-- You don't have time (or inclination) to deploy a full-blown platform (Spark,
-  Airflow, etc).
-- You're wary of Step Functions (/ similar) because of vendor lock-in and cost.
 
-
-## What??
+## Why Teal?
 
 Teal is **not** Kubernetes, because it's not trying to let you easily scale
 Dockerised services.
