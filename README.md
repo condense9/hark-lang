@@ -1,8 +1,8 @@
-## The Teal Programming Language
+# The Teal Programming Language
 
 ![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master)[![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang)
 
-Teal is a programming language for microservice orchestration. [What??](#what)
+Teal is a programming language for microservice orchestration.
 
 It's for building applications with long-running tasks, like data (ETL)
 pipelines, on top of the Python libraries you know and love.
@@ -23,7 +23,7 @@ the playground.
 The future of data engineering is composite microservices.
 
 
-### Getting started
+## Getting started
 
 **Teal is alpha quality - unstable, but usable.**
 
@@ -42,7 +42,25 @@ Serverless Framework.
 makes sense, or you'd like help getting started.
 
 
-### What??
+### Teal May Not Be For You!
+
+Core principles guiding Teal design:
+- Do the heavy-lifting in Python.
+- Keep business logic out of infrastructure (no more hard-to-test logic defined
+  in IaC, please).
+- Workflows must be fully tested locally before deployment.
+
+Teal is for you if:
+- you want to build ETL pipelines *really quickly*.
+- you have a repository of data processing scripts, and want to connect them
+  together in the cloud.
+- you insist on being able to test as much as possible locally.
+- You don't have time (or inclination) to deploy a full-blown platform (Spark,
+  Airflow, etc).
+- You're wary of Step Functions (/ similar) because of vendor lock-in and cost.
+
+
+## What??
 
 Teal is **not** Kubernetes, because it's not trying to let you easily scale
 Dockerised services.
@@ -56,7 +74,7 @@ needlessly reinventing the wheel.
 Teal is a very simple programming language with variables, functions, and
 `async`/`await` concurrency primitives. That's it. Two runtimes have been
 implemented so far -- local and AWS Lambda, but there's no reason Teal couldn't
-run on top of (for example) Kubernetes. [cf. #8](https://github.com/condense9/teal-lang/issues/8)
+run on top of (for example) Kubernetes. [Issue #8](https://github.com/condense9/teal-lang/issues/8)
 
 **Concurrency**: Teal gives you "bare-metal concurrency" (i.e. without external
 coordination) on top of AWS Lambda.
@@ -73,30 +91,14 @@ uses Python threading for concurrency.
 where the time is going.
 
 
-### Teal May Not Be For You!
+## Current Limitations and Roadmap
 
-Teal is for you if:
-- you want to build ETL pipelines *really quickly*.
-- you have a repository of data processing scripts, and want to connect them
-  together in the cloud.
-- you insist on being able to test as much as possible locally.
-- You don't have time (or inclination) to deploy a full-blown platform (Spark,
-  Airflow, etc).
-- You're wary of Step Functions (/ similar) because of vendor lock-in and cost.
-
-Core principles guiding Teal design:
-- Do the heavy-lifting in Python.
-- Keep business logic out of infrastructure (no more hard-to-test logic defined
-  in IaC, please).
-- Workflows must be fully tested locally before deployment.
-
-
-### Current Limitations, and Roadmap
-
-Only one Teal program file is supported (module/package system coming soon).
+Only one Teal program file is supported, but a module/package system is
+[planned](https://github.com/condense9/teal-lang/issues/9).
 
 There's no error handling - if your function fails, you'll have to restart the
-whole process manually. An exception handling system is planned.
+whole process manually. An exception handling system is
+[planned](https://github.com/condense9/teal-lang/issues/1).
 
 Function inputs and outputs aren't typed. This is a limitation, and will be
 fixed soon, probably using
@@ -110,12 +112,25 @@ Teal function and `await` on the result.
 
 ---
 
-### Condense9 Ltd.
 
-Teal is developed by [Condense9 Ltd.](https://www.condense9.com/), which is
+## Contributing
+
+Contributions of any form are welcome! The usual fork/PR approach is fine.
+
+
+## Who?
+
+Teal is maintained by [Condense9 Ltd.](https://www.condense9.com/), which is
 really [one guy](https://www.linkedin.com/in/rmhsilva/) who loves maths and
-programming languages. Teal started because He couldn't find any data
-engineering tools that were productive and *felt* like software engineering.
-We've spent decades growing a wealth of computer science knowledge, and building
-data pipelines in $IaC or manually crafting workflow DAGs just isn't software.
+programming languages.
 
+Teal started because he couldn't find any data engineering tools that were
+productive and *felt* like software engineering. As an industry, we've spent
+decades growing a wealth of computer science knowledge, and building data
+pipelines in $IaC, or manually crafting workflow DAGs with $AutomationTool, just
+isn't software.
+
+
+## License
+
+Apache License (Version 2.0). See [LICENSE](LICENSE) for details.
