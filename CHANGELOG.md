@@ -7,8 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+
+## [0.2.0] (2020-05-18)
+
+Subtantial release - several changes not captured here.
+
 ### Added 
 
+- Completely new syntax
 - Add ability to import from the python builtin module 
 - Env variable to enable/disable importing from builtin
 - Env variable to configure Lambda timeout 
@@ -18,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add "expires_on" attribute for DynamoDB Session items, so that they can be
   deleted automatically (using DynamoDB TTL)
 - A CHANGELOG.md
+- Various other changes
 
 ### Fixed
 
@@ -36,6 +43,6 @@ Initial release.
 - A few examples
 
 
-[unreleased]: https://github.com/condense9/teal-lang/compare/v0.1.0...HEAD
-<!-- [0.Y.0]: https://github.com/condense9/teal-lang/compare/v0.X.0...v0.Y.0 -->
+[unreleased]: https://github.com/condense9/teal-lang/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/condense9/teal-lang/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/condense9/teal-lang/releases/tag/v0.1.0
