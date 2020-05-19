@@ -7,6 +7,7 @@ import(random_sleep, :python pysrc.main)
 fn ponder() {
   random_sleep()
   print("thinking really hard!")
+  // The last expression evaluated in a function is its return value:
   21
 }
 
