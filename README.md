@@ -95,22 +95,35 @@ where the time is going.
 
 ## Current Limitations and Roadmap
 
+Teal is alpha quality, which means that it's not thoroughly tested, and lots of
+breaking changes are planned. This is a non-exhaustive list.
+
+### Libraries
+
 Only one Teal program file is supported, but a module/package system is
 [planned](https://github.com/condense9/teal-lang/issues/9).
+
+### Error Handling
 
 There's no error handling - if your function fails, you'll have to restart the
 whole process manually. An exception handling system is
 [planned](https://github.com/condense9/teal-lang/issues/1).
+
+### Typing
 
 Function inputs and outputs aren't typed. This is a limitation, and will be
 fixed soon, probably using
 [ProtoBufs](https://developers.google.com/protocol-buffers/) as the interface
 definition language.
 
+### Calling Arbitrary Services
+
 Currently you can only call Teal or Python functions -- arbitrary microservices
 can't be called. Before Teal v1.0 is released, this will be possible. You will
 be able to call a long-running third party service (e.g. an AWS ML service) as a
 normal Teal function and `await` on the result.
+
+### Dictionary (associative map) primitives
 
 Teal really should be able to natively manipulate JSON objects. This may happen
 before v1.0.
@@ -120,7 +133,7 @@ before v1.0.
 
 ## Contributing
 
-Contributions of any form are welcome! The usual fork/PR approach is fine.
+Contributions of any form are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 
 ## Who?
