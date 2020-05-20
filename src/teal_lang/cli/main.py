@@ -1,30 +1,28 @@
-"""Teal Compiler.
+"""Teal.
 
 Usage:
-  teal [options] ast <file> [--output=OUTPUT]
+  teal [options] <file> [<fn_args>...]
   teal [options] asm <file>
   teal [options] deploy <file> <url>
-  teal [options] <file> [<fn_args>...]
 
 Commands:
-  ast   Create a PNG representation of the Abstract Syntax Tree of a function
-  asm   Compile a file and print the bytecode listing
+  asm      Compile a file and print the bytecode listing
+  default  Run a Teal function locally
 
-Options:
+General options:
   -h, --help      Show this screen.
   -v, --verbose   Be verbose.
   -V, --vverbose  Be very verbose.
   --version       Show version.
 
-  -f FUNCTION, --fn=FUNCTION  Function for run/AST [default: main]
-  -o OUTPUT, --output=OUTPUT  Destination file
-
-  -s MODE, --storage=MODE      (memory|dynamodb)   [default: memory]
-  -c MODE, --concurrency=MODE  (processes|threads) [default: threads]
+Run options:
+  -f FUNCTION, --fn=FUNCTION       Function to run      [default: main]
+  -s MODE,     --storage=MODE      (memory|dynamodb)    [default: memory]
+  -c MODE,     --concurrency=MODE  (processes|threads)  [default: threads]
 
 Arguments:
-  FILE     Teal file to read
-  FN_ARGS  Arguments to pass to the executable [default: None].
+  FILE     Teal file
+  FN_ARGS  Arguments (strings) to pass to the function [default: None].
   URL      Base URL to deploy to
 """
 
