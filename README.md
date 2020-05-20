@@ -18,8 +18,6 @@ Teal gives you:
 Documentation coming soon! For now, browse the [the examples](test/examples) or
 the check out the [Teal Playground](https://www.condense9.com/playground).
 
-The future of data engineering is composite microservices.
-
 
 ## Getting started
 
