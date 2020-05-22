@@ -74,8 +74,8 @@ Teal is a very simple compiled language with only a few constructs:
 3. Python (>=3.8) interop
 4. A few basic types
 
-Two runtimes have been implemented so far -- local and AWS Lambda, but there's
-no reason Teal couldn't run on top of (for example) Kubernetes. [Issue
+Two interpreters have been implemented so far -- local and AWS Lambda, but
+there's no reason Teal couldn't run on top of (for example) Kubernetes. [Issue
 #8](https://github.com/condense9/teal-lang/issues/8)
 
 **Concurrency**: Teal gives you "bare-metal concurrency" (i.e. without external
@@ -86,8 +86,8 @@ then when you do `await y`, the current Lambda function terminates, and
 automatically continues when `y` is finished being computed. There's no idle
 server time.
 
-**Testing**: The local runtime lets you test your program before deployment, and
-uses Python threading for concurrency.
+**Testing**: The local interpreter lets you test your program before deployment,
+and uses Python threading for concurrency.
 
 **Tracing and profiling**: Teal has a built-in tracer tool, so it's easy to see
 where the time is going.
