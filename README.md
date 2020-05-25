@@ -17,7 +17,6 @@ These things are important to Teal:
 Teal functions run natively on AWS Lambda and can be suspended to wait until
 other functions finish. Execution data is stored in DynamoDB.
 
-![Concurrency](doc/functions.png)
 
 Documentation coming soon! For now, browse the [the examples](test/examples) or
 the check out the [Teal Playground](https://www.condense9.com/playground).
