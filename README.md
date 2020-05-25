@@ -2,18 +2,22 @@
 
 ![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang) [![Gitter](https://badges.gitter.im/Teal-Lang/community.svg)](https://gitter.im/Teal-Lang/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-Teal is a programming language for microservice orchestration.
+Teal is a programming language for serverless cloud applications, designed for
+passing data around between functions. Concurrency supported. Execution tracing
+built-in.
 
-It's for building applications with long-running tasks, like data (ETL)
-pipelines, on top of the Python libraries you know and love.
-
-Teal gives you:
+These things are important to Teal:
 - *really fast development* with **easy local testing**, and no coupling between
   application and infrastructure.
 - cheap deployments, because **everything is serverless** and there is no
   orchestrator to run idle.
 - built-in **tracing/profiling**, so it's easy to know what's happening in your
   workflows.
+  
+Teal functions run natively on AWS Lambda and can be suspended to wait until
+other functions finish. Execution data is stored in DynamoDB.
+
+![Concurrency](doc/functions.png)
 
 Documentation coming soon! For now, browse the [the examples](test/examples) or
 the check out the [Teal Playground](https://www.condense9.com/playground).
