@@ -3,15 +3,15 @@
 ![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang) [![Gitter](https://badges.gitter.im/Teal-Lang/community.svg)](https://gitter.im/Teal-Lang/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 Teal is a programming language for serverless cloud applications, designed for
-passing data around between functions. Concurrency supported. Execution tracing
-built-in.
+passing data around between Python functions. Concurrency supported. Execution
+tracing built-in.
 
 These things are important to Teal:
-- *really fast development* with **easy local testing**, and no coupling between
+- really fast development with easy local testing, and no coupling between
   application and infrastructure.
-- cheap deployments, because **everything is serverless** and there is no
+- cheap deployments, because everything is serverless and there is no
   orchestrator to run idle.
-- built-in **tracing/profiling**, so it's easy to know what's happening in your
+- built-in tracing/profiling, so it's easy to know what's happening in your
   workflows.
   
 Teal functions run natively on AWS Lambda and can be suspended to wait until
@@ -21,6 +21,28 @@ other functions finish. Execution data is stored in DynamoDB.
 
 Documentation coming soon! For now, browse the [the examples](test/examples) or
 the check out the [Teal Playground](https://www.condense9.com/playground).
+
+
+## FAQ
+
+**Why is this not a library/DSL in Python?**
+
+When Teal threads wait on a Future, they stop completely. The Lambda function
+saves the machine state and then terminates. When the Future resolves, the
+resolving thread restarts any waiting threads by invoking new Lambdas to pick up
+execution.
+
+To achieve the same thing in Python, the framework would need to dump the entire
+Python VM state to disk, and then reload it at a later point -- I don't know
+Python internals well enough to do this, and it felt like a huge task.
+
+**How is Teal like Go?**
+
+Goroutines are very lightweight, while Teal `async` functions are pretty heavy --
+they involve creating a new Lambda (or process, when running locally).
+
+Teal's concurrency model is similar to Go's, but channels are not fully
+implemented so data can only be sent to/from a thread at call/return points.
 
 
 ## Getting started
@@ -45,7 +67,7 @@ makes sense, or you'd like help getting started.
 ### Teal May Not Be For You!
 
 Teal *is* for you if:
-- you want to build ETL pipelines *really quickly*.
+- you want to build ETL pipelines.
 - you have a repository of data processing scripts, and want to connect them
   together in the cloud.
 - you insist on being able to test as much as possible locally.
