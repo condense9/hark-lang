@@ -6,7 +6,12 @@ EXAMPLES_SUBDIR = Path(__file__).parent / "examples"
 
 def teal_cli(*args):
     """Run Teal cli command line"""
-    p = Popen(["teal", *args], stdout=PIPE, stderr=PIPE, stdin=PIPE)
+    p = Popen(
+        ["python", "-m", "teal_lang.cli.main", *args],
+        stdout=PIPE,
+        stderr=PIPE,
+        stdin=PIPE,
+    )
     stdout, stderr = p.communicate()
     return stdout.decode(), stderr.decode(), p.returncode
 
