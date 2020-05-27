@@ -44,6 +44,18 @@ they involve creating a new Lambda (or process, when running locally).
 Teal's concurrency model is similar to Go's, but channels are not fully
 implemented so data can only be sent to/from a thread at call/return points.
 
+**Is this an infrastructure-as-code tool?**
+
+No, Teal doesn't create or manage infrastructure. There are already great tools
+to do that ([Terraform](https://www.terraform.io/),
+[Pulumi](https://www.pulumi.com/), [Serverless
+Framework](https://www.serverless.com/), etc). Teal requires infrastructure to
+run on AWS, and you can set that up however you prefer.
+
+Instead, Teal reduces the amount of infrastructure you need. Instead of a
+distinct Lambda function for every piece of application logic, you only need the
+core Teal interpreter Lambda functions.
+
 
 ## Getting started
 
@@ -171,9 +183,9 @@ environment variables it gives you - these are required by the Teal runtime.
 
 ## Who?
 
-Teal is maintained by [Condense9 Ltd.](https://www.condense9.com/), which is
-really [one guy](https://www.linkedin.com/in/rmhsilva/) who loves maths and
-programming languages.
+Teal is maintained by [Condense9 Ltd.](https://www.condense9.com/). Get in touch
+with [ric@condense9.com](ric@condense9.com) for bespoke data engineering and
+other cloud software services.
 
 Teal started because he couldn't find any data engineering tools that were
 productive and *felt* like software engineering. As an industry, we've spent
