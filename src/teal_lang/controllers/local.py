@@ -24,7 +24,6 @@ LOG = logging.getLogger(__name__)
 class DataController:
     def __init__(self):
         # NOTE - could make probes optional, but why?!
-        self.evaluator_cls = Evaluator
         self._machine_future = {}
         self._machine_state = {}
         self._machine_probe = {}
@@ -111,24 +110,3 @@ class DataController:
         if type(value) != str:
             raise ValueError(f"{value} ({type(value)}) is not str")
         self.stdout.append(value)
-
-
-# This is probably unnecessary, and could be part of the data controller, but
-# kept separate for now...
-class Evaluator:
-    """Local implementation of machine instructions"""
-
-    def __init__(self, parent):
-        self.vmid = parent.vmid
-        self.state = parent.state
-        self.data_controller = parent.data_controller
-
-    @singledispatchmethod
-    def evali(self, i: Instruction):
-        """Evaluate instruction"""
-        assert isinstance(i, Instruction)
-        raise NotImplementedError(i)
-
-    @evali.register
-    def _(self, i: mi.Future):
-        raise NotImplementedError

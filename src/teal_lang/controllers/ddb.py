@@ -53,7 +53,6 @@ class DataController:
     def __init__(self, session, lock):
         super().__init__()
         self.session = session
-        self.evaluator_cls = Evaluator
         if session.executable:
             self.executable = Executable.deserialise(session.executable)
         self.lock = lock
@@ -157,20 +156,3 @@ class DataController:
 
         with self.lock:
             self.session.stdout.append(value)
-
-
-class Evaluator:
-    def __init__(self, parent):
-        self.vmid = parent.vmid
-        self.state = parent.state
-        self.data_controller = parent.data_controller
-
-    @singledispatchmethod
-    def evali(self, i: Instruction):
-        """Evaluate instruction"""
-        assert isinstance(i, Instruction)
-        raise NotImplementedError(i)
-
-    @evali.register
-    def _(self, i: mi.Future):
-        raise NotImplementedError

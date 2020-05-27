@@ -220,8 +220,6 @@ class Multiply(I):
 
 ##± Input-Output ±##############################################################
 
-# (these are implementation-defined)
-
 
 class Print(I):
     """Print the top value on the stack as a string, followed by a newline"""

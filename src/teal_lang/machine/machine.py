@@ -106,7 +106,6 @@ class TlMachine:
         self.state = self.data_controller.get_state(self.vmid)
         self.probe = self.data_controller.get_probe(self.vmid)
         self.exe = self.data_controller.executable
-        self.evaluator = self.data_controller.evaluator_cls(self)
         self._foreign = {
             name: import_python_function(val.identifier, val.module)
             for name, val in self.exe.bindings.items()
@@ -153,8 +152,7 @@ class TlMachine:
     @singledispatchmethod
     def evali(self, i: Instruction):
         """Evaluate instruction"""
-        assert isinstance(i, Instruction)
-        self.evaluator.evali(i)
+        raise NotImplementedError(i)
 
     @evali.register
     def _(self, i: Bind):
