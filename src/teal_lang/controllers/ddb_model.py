@@ -63,7 +63,6 @@ class MachineMap(MapAttribute):
     state = StateAttribute()
     probe_logs = ListAttribute(default=list)
     probe_events = ListAttribute(of=ProbeEvent, default=list)
-    stdout = ListAttribute(default=list)
     future = FutureAttribute()
     exception = UnicodeAttribute(default=None)
 
@@ -107,6 +106,7 @@ class Session(Model):
     machines = ListAttribute(of=MachineMap, default=list)
     top_level_vmid = NumberAttribute(null=True)
     executable = MapAttribute(null=True)
+    stdout = ListAttribute(default=list)
 
 
 BASE_SESSION_ID = "base"

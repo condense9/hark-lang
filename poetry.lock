@@ -52,9 +52,8 @@ python = "<3.4.0 || >=3.5.0"
 version = ">=1.20,<1.26"
 
 [[package]]
-category = "dev"
+category = "main"
 description = "Cross-platform colored terminal text."
-marker = "sys_platform == \"win32\""
 name = "colorama"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
@@ -332,7 +331,7 @@ python-versions = "*"
 version = "0.1.9"
 
 [metadata]
-content-hash = "37711607758cd0e200dc66e92eba9468443a1bc38227c2ba4a3dbd0e29554d21"
+content-hash = "ffd5f11ae924821381eef948ef8465c2bdb0c892cb2b451b37ba415747939a58"
 python-versions = "^3.8"
 
 [metadata.files]

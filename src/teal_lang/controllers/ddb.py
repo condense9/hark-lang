@@ -148,7 +148,15 @@ class DataController:
 
     @property
     def stdout(self):
-        return [m.stdout for m in self.session.machines]
+        return list(self.session.stdout)
+
+    def write_stdout(self, value: str):
+        # don't use isinstance - it must be an actual str
+        if type(value) != str:
+            raise ValueError(f"{value} ({type(value)}) is not str")
+
+        with self.lock:
+            self.session.stdout.append(value)
 
 
 class Evaluator:
@@ -162,15 +170,6 @@ class Evaluator:
         """Evaluate instruction"""
         assert isinstance(i, Instruction)
         raise NotImplementedError(i)
-
-    @evali.register
-    def _(self, i: mi.Print):
-        # Leave the value in the stack - print returns itself
-        val = self.state.ds_peek(0)
-        t = time.time()
-        line = f"{t:5.5f} | {val}"
-        with self.data_controller.lock:
-            self.data_controller.session.machines[self.vmid].stdout.append(line)
 
     @evali.register
     def _(self, i: mi.Future):

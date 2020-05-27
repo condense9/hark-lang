@@ -29,7 +29,7 @@ class DataController:
         self._machine_state = {}
         self._machine_probe = {}
         self._machine_idx = 0
-        self.machine_output = {}
+        self.stdout = []
         self.executable = None
         self._top_level_vmid = None
         self.result = None
@@ -51,7 +51,6 @@ class DataController:
         self._machine_future[vmid] = future
         self._machine_state[vmid] = state
         self._machine_probe[vmid] = probe
-        self.machine_output[vmid] = []
         if is_top_level:
             if self._top_level_vmid:
                 raise Exception("Already got a top level!")
@@ -107,9 +106,11 @@ class DataController:
     def probes(self):
         return [self.get_probe(m) for m in self.machines]
 
-    @property
-    def stdout(self):
-        return list(self.machine_output.values())
+    def write_stdout(self, value: str):
+        # don't use isinstance - it must be an actual str
+        if type(value) != str:
+            raise ValueError(f"{value} ({type(value)}) is not str")
+        self.stdout.append(value)
 
 
 # This is probably unnecessary, and could be part of the data controller, but
@@ -127,14 +128,6 @@ class Evaluator:
         """Evaluate instruction"""
         assert isinstance(i, Instruction)
         raise NotImplementedError(i)
-
-    @evali.register
-    def _(self, i: mi.Print):
-        # Leave the value in the stack - print returns itself
-        val = self.state.ds_peek(0)
-        t = time.time() % 1000.0
-        line = f"{t:.2f} | {val}"
-        self.data_controller.machine_output[self.vmid].append(line)
 
     @evali.register
     def _(self, i: mi.Future):

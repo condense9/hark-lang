@@ -1,4 +1,5 @@
 import logging
+import sys
 import time
 import traceback
 from typing import List
@@ -64,10 +65,5 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
         for p in controller.probes:
             LOG.info(f"probe {p}:\n" + "\n".join(p.logs))
 
-        for i, outputs in enumerate(controller.stdout):
-            print(f"--[Machine {i} Output]--")
-            for o in outputs:
-                print(o)
-
-    print("--RETURNED--")
-    print(controller.result)
+        for item in controller.stdout:
+            sys.stdout.write(item)

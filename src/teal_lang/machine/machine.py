@@ -389,6 +389,12 @@ class TlMachine:
         t = self.state.ds_peek(0)
         time.sleep(t)
 
+    @evali.register
+    def _(self, i: Print):
+        # Leave the value in the stack - print() 'returns' the value printed
+        val = self.state.ds_peek(0)
+        self.data_controller.write_stdout(str(val) + "\n")
+
     def __repr__(self):
         return f"<Machine {id(self)}>"
 

@@ -33,9 +33,9 @@ class Executable:
         """Get a pretty table of bindings"""
         res = ""
         k = "NAME"
-        res += f"{k: <14} VALUE\n"
+        res += f" {k: <14} VALUE\n"
         for k, v in self.bindings.items():
-            res += f"{k:.<14} {v}\n"
+            res += f" {k:.<14} {v}\n"
         return res
 
     def serialise(self) -> dict:
