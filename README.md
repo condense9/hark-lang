@@ -161,6 +161,13 @@ before v1.0.
 
 Contributions of any form are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md)
 
+Minimum requirements to develop:
+- Docker (to run local DynamoDB instance)
+- Poetry (deps)
+
+Use `scripts/run_dynamodb_local.sh` to start the database and web UI. Export the
+environment variables it gives you - these are required by the Teal runtime.
+
 
 ## Who?
 
