@@ -6,16 +6,20 @@ Teal is a programming language for serverless cloud applications, designed for
 passing data around between Python functions. Concurrency supported. Execution
 tracing built-in.
 
-These things are important to Teal:
-- really fast development with easy local testing, and no coupling between
-  application and infrastructure.
-- cheap deployments, because everything is serverless and there is no
-  orchestrator to run idle.
-- built-in tracing/profiling, so it's easy to know what's happening in your
-  workflows.
-  
-Teal functions run natively on AWS Lambda and can be suspended to wait until
-other functions finish. Execution data is stored in DynamoDB.
+Key features:
+- Very little infrastructure, for applications of any complexity. The Teal
+  runtime shares 4 Lambda functions and stores execution state in a DynamoDB
+  table.
+- Minimal wasted server time. When your code is waiting for another thread to
+  finish, the Lambda is completely stopped.
+- Simple mental models. Teal programs can be traced, profiled, and the code can
+  be reviewed just like any other language. Want to see where your Python
+  function is being used? Just grep your codebase.
+- Local testing is first-class. Teal programs can be run locally, so you can
+  test your entire workflow before deployment.
+
+Teal runs locally or on AWS Lambda. Teal threads can be suspended while another
+thread finishes. Execution data is stored in memory or in a DynamoDB table.
 
 ![Concurrency](doc/functions.png)
 
