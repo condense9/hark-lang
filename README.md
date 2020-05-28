@@ -187,11 +187,11 @@ Teal is maintained by [Condense9 Ltd.](https://www.condense9.com/). Get in touch
 with [ric@condense9.com](ric@condense9.com) for bespoke data engineering and
 other cloud software services.
 
-Teal started because he couldn't find any data engineering tools that were
+Teal started because we couldn't find any data engineering tools that were
 productive and *felt* like software engineering. As an industry, we've spent
-decades growing a wealth of computer science knowledge, and building data
-pipelines in $IaC, or manually crafting workflow DAGs with $AutomationTool, just
-isn't software.
+decades growing a wealth of computer science knowledge, but building data
+pipelines in $IaC, or manually crafting workflow DAGs with $AutomationTool,
+*just isn't software*.
 
 
 ## License
