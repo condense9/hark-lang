@@ -5,7 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [Unreleased]
+## [unreleased]
+
+
+## [0.2.1] (2020-05-29)
+
+### Fixed
+
+- CLI bugs
+
+### Added
+
+- CLI colours and cleaner interface
+- CONTRIBUTING.md document
+- Better README info, and functions diagram
+
+### Changed
+
+- Simpler standard output model (just text). This may change again before the
+  next release...
+- Remove "Evaluator" class in the Machine. Much simpler now.
 
 
 ## [0.2.0] (2020-05-18)
@@ -43,6 +62,7 @@ Initial release.
 - A few examples
 
 
-[unreleased]: https://github.com/condense9/teal-lang/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/condense9/teal-lang/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/condense9/teal-lang/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/condense9/teal-lang/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/condense9/teal-lang/releases/tag/v0.1.0

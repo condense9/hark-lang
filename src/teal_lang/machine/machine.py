@@ -391,6 +391,8 @@ class TlMachine:
     def _(self, i: Print):
         # Leave the value in the stack - print() 'returns' the value printed
         val = self.state.ds_peek(0)
+        # This should take a vmid - data stored is a tuple (vmid, str)
+        # Could also store a timestamp...
         self.data_controller.write_stdout(str(val) + "\n")
 
     def __repr__(self):
