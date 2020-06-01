@@ -3,13 +3,17 @@
 Usage:
   teal [options] asm FILE
   teal [options] ast [-o OUTPUT] FILE
+  teal [options] pkg [-o OUTPUT] [--dev | --teal VERSION]
   teal [options] deploy FILE URL
   teal [options] FILE [ARG...]
+  teal --version
+  teal --help
 
 Commands:
   asm      Compile a file and print the bytecode listing.
   ast      Create a data flow graph (PNG)
   default  Run a Teal function locally.
+  pkg      Get the Teal Lambda zip file.
 
 General options:
   -h, --help      Show this screen.
@@ -22,6 +26,9 @@ General options:
   -c MODE, --concurrency=MODE  processes | threads  [default: threads]
 
   -o OUTPUT  Name of the output file
+
+  --dev           Build deployment package from local Teal
+  --teal VERSION  Version of Teal to retrieve
 
 Arguments:
   FILE  Main Teal file
@@ -107,6 +114,11 @@ def _deploy(args):
     raise NotImplementedError
 
 
+def _pkg(args):
+    """Get Teal lambda ZIP"""
+    raise NotImplementedError
+
+
 def main():
     colorama.init()
     args = docopt(__doc__, version=__version__)
@@ -118,6 +130,8 @@ def main():
 
     if args["ast"]:
         _ast(args)
+    if args["pkg"]:
+        _pkg(args)
     if args["asm"]:
         _asm(args)
     elif args["deploy"]:
