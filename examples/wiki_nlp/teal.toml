@@ -1,0 +1,19 @@
+[service]
+
+## required, name of the service:
+name = "wiki_nlp"
+
+## optional, deployment region (defaults to AWS_DEFAULT_REGION):
+# region = "eu-west-2"
+
+## optional, pin Teal version (defaults to current installed):
+# teal_version = "0.2.1"
+
+## optional, location of Python source:
+# python_src = "src"
+
+## optional, location of Python dependencies:
+# python_deps = "requirements.txt"
+
+## optional, cloud provider name:
+# provider = "aws"
