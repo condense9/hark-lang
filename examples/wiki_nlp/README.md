@@ -85,6 +85,10 @@ Upload the test data to S3:
 
 `s3 cp TODO`
 
+Trigger the function:
+
+`tealc run on_upload test_data.xml`
+
 And monitor:
 
 `tealc status` ?? (Teal Cloud)
@@ -97,8 +101,6 @@ And monitor:
 `serverless deploy --prod`
 
 `teal deploy`
-
-
 
 
 ## Further Improvements
