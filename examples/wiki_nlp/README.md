@@ -14,10 +14,9 @@ TODO describe workflow.
     - [Using This Example](#using-this-example)
         - [1. Install Teal](#1-install-teal)
         - [2. Test it locally](#2-test-it-locally)
-        - [3. Build source deployment package](#3-build-source-deployment-package)
-        - [4. Deploy the infrastructure](#4-deploy-the-infrastructure)
-        - [5. Test it](#5-test-it)
-        - [6. To production (optional)](#6-to-production-optional)
+        - [3. Deploy the infrastructure](#3-deploy-the-infrastructure)
+        - [4. Test it](#4-test-it)
+        - [5. To production (optional)](#5-to-production-optional)
     - [Next Steps](#next-steps)
 
 <!-- markdown-toc end -->
