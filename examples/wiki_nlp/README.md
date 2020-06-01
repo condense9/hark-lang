@@ -6,14 +6,22 @@ TODO - is this below the AWS free tier?
 
 TODO describe workflow.
 
-Contents:
-- [#1-install-teal]
-- [#2-test-it-locally]
-- [#3-get-teal-deployment-package]
-- [#4-build-source-deployment-package]
-- [#5-deploy-the-infrastructure]
-- [#6-test-it]
-- [#7-to-production-optional]
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [Wikipedia NLP](#wikipedia-nlp)
+    - [Getting Started](#getting-started)
+        - [1. Install Teal](#1-install-teal)
+        - [2. Test it locally](#2-test-it-locally)
+        - [3. Get Teal deployment package](#3-get-teal-deployment-package)
+        - [4. Build source deployment package](#4-build-source-deployment-package)
+        - [5. Deploy the infrastructure](#5-deploy-the-infrastructure)
+        - [6. Test it](#6-test-it)
+        - [7. To production (optional)](#7-to-production-optional)
+    - [Further Improvements](#further-improvements)
+
+<!-- markdown-toc end -->
+
 
 
 ## Getting Started
@@ -100,9 +108,9 @@ Trigger the function:
 
 And monitor:
 
-`tealc status` ?? (Teal Cloud)
-`tealc list`
-`tealc logs [-f] SESSION_ID`
+- `tealc status` ?? (Teal Cloud)
+- `tealc list`
+- `tealc logs [-f] SESSION_ID`
 
 
 ### 7. To production (optional)
