@@ -6,6 +6,15 @@ TODO - is this below the AWS free tier?
 
 TODO describe workflow.
 
+Contents:
+- [#1-install-teal]
+- [#2-test-it-locally]
+- [#3-get-teal-deployment-package]
+- [#4-build-source-deployment-package]
+- [#5-deploy-the-infrastructure]
+- [#6-test-it]
+- [#7-to-production-optional]
+
 
 ## Getting Started
 
