@@ -116,7 +116,7 @@ def _deploy(args):
     from ..config import load
 
     cfg = load()
-    aws.deploy(args)
+    aws.deploy(cfg)
 
 
 def _pkg(args):
