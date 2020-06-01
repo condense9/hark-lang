@@ -70,12 +70,15 @@ Check the results: TODO
 `teal deploy`
 
 This deploys the cloud service, according to the configuration in the "service"
-part of [`teal.toml`](teal.toml). Feel free to re-run this command -- it will
-only update the necessary parts.
+part of [`teal.toml`](teal.toml). 
 
 This command does several things:
-- package the `src` directory into a lambda layer
-- 
+- packages the `src` directory into a lambda layer
+- creates the AWS infrastructure required to run this application
+- deploys the Lambda data
+- deploys the Teal code
+
+Feel free to re-run this command -- **it will only update the necessary parts**.
 
 
 ### 4. Test it
