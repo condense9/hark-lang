@@ -45,14 +45,14 @@ Arguments:
 import logging
 import sys
 from pathlib import Path
+import subprocess
 
 import colorama
 from colorama import Back, Fore, Style
 
-from docopt import docopt
+from .. import __version__
 
-from .. import __version__, load
-from ..machine import executable
+from docopt import docopt
 
 LOG = logging.getLogger(__name__)
 
@@ -102,6 +102,8 @@ def em(string):
 
 
 def _asm(args):
+    from .. import load
+
     exe = load.compile_file(Path(args["FILE"]))
     print(em("\nBYTECODE:"))
     print(exe.listing())
@@ -116,7 +118,20 @@ def _deploy(args):
 
 def _pkg(args):
     """Get Teal lambda ZIP"""
-    raise NotImplementedError
+    if not args["--dev"]:
+        raise NotImplementedError("Only --dev supported for now")
+
+    if args["-o"]:
+        dest_zip = args["-o"]
+    else:
+        dest_zip = "teal_lambda.zip"
+
+    root = Path(__file__).parents[3]
+    script = root / "scripts" / "make_lambda_dist.sh"
+
+    print("Building Teal Lambda pacakge...")
+    output = subprocess.check_output([str(script), str(dest_zip)])
+    print(output.decode())
 
 
 def main():
@@ -130,9 +145,9 @@ def main():
 
     if args["ast"]:
         _ast(args)
-    if args["pkg"]:
+    elif args["pkg"]:
         _pkg(args)
-    if args["asm"]:
+    elif args["asm"]:
         _asm(args)
     elif args["deploy"]:
         _deploy(args)

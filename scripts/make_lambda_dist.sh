@@ -3,11 +3,9 @@
 # Create a lambda deployment package for Tl
 
 set -e
-set -x
 
 ## Name of the resulting ZIP file
 DIST=${1:-dist.zip}
-
 
 # Get dir containing this script. It will work as long as the last component of
 # the path used to find the script is not a symlink (directory links are OK).
@@ -18,7 +16,7 @@ TMP=$(mktemp -d)
 
 poetry export -f requirements.txt > "${TMP}/requirements.txt"
 
-pushd "${TMP}"
+pushd "${TMP}" >/dev/null
 
 mkdir libs
 pip install -q --target libs -r requirements.txt
@@ -29,7 +27,9 @@ cp -r "${DIR}/../src/teal_lang" libs
 
 cd libs && zip -q -r "../${DIST}" . -x "*__pycache__*"
 
-popd
+popd >/dev/null
 
 cp "${TMP}/${DIST}" .
 rm -rf "${TMP}"
+
+printf "\nSuccess: %s\n" "${DIST}"

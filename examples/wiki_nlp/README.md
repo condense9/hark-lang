@@ -23,15 +23,15 @@ TODO describe workflow.
 <!-- markdown-toc end -->
 
 
+## Prerequisites
 
-## Getting Started
-
-How to deploy this on your infrastructure.
-
-Requirements:
+To try this example you need:
 - An AWS account and AWS CLI configured
 - Serverless framework (https://serverless.com/)
 - Python 3.8
+
+
+## Test and Deploy
 
 
 ### 1. Install Teal
@@ -120,7 +120,7 @@ And monitor:
 `teal deploy`
 
 
-## Further Improvements
+## Next Steps
 
 The pipeline could be triggered by an S3 upload.
 
