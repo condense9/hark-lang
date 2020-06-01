@@ -310,6 +310,14 @@ test = ["pytest", "regex"]
 
 [[package]]
 category = "main"
+description = "Python Library for Tom's Obvious, Minimal Language"
+name = "toml"
+optional = false
+python-versions = "*"
+version = "0.10.1"
+
+[[package]]
+category = "main"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 marker = "python_version != \"3.4\""
 name = "urllib3"
@@ -331,7 +339,7 @@ python-versions = "*"
 version = "0.1.9"
 
 [metadata]
-content-hash = "ffd5f11ae924821381eef948ef8465c2bdb0c892cb2b451b37ba415747939a58"
+content-hash = "107aa5d166da467368fb2e03b59696ac38a52f31e17f56ddeb18ab269dcc6626"
 python-versions = "^3.8"
 
 [metadata.files]
@@ -458,6 +466,10 @@ six = [
 ]
 sly = [
     {file = "sly-0.4.tar.gz", hash = "sha256:e5f2266a231322cc17519fbc3a3ba1c6335fed5a9a55abe0e598a35aea0ac32a"},
+]
+toml = [
+    {file = "toml-0.10.1-py2.py3-none-any.whl", hash = "sha256:bda89d5935c2eac546d648028b9901107a595863cb36bae0c73ac804a9b4ce88"},
+    {file = "toml-0.10.1.tar.gz", hash = "sha256:926b612be1e5ce0634a2ca03470f95169cf16f939018233a670519cb4ac58b0f"},
 ]
 urllib3 = [
     {file = "urllib3-1.25.9-py2.py3-none-any.whl", hash = "sha256:88206b0eb87e6d677d424843ac5209e3fb9d0190d0ee169599165ec25e9d9115"},

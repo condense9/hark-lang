@@ -3,8 +3,7 @@
 Usage:
   teal [options] asm FILE
   teal [options] ast [-o OUTPUT] FILE
-  teal [options] pkg [-o OUTPUT] [--dev | --teal VERSION]
-  teal [options] deploy FILE URL
+  teal [options] deploy [--stage STAGE]
   teal [options] FILE [ARG...]
   teal --version
   teal --help
@@ -12,8 +11,8 @@ Usage:
 Commands:
   asm      Compile a file and print the bytecode listing.
   ast      Create a data flow graph (PNG)
+  deploy   Deploy to the cloud.
   default  Run a Teal function locally.
-  pkg      Get the Teal Lambda zip file.
 
 General options:
   -h, --help      Show this screen.
@@ -27,8 +26,7 @@ General options:
 
   -o OUTPUT  Name of the output file
 
-  --dev           Build deployment package from local Teal
-  --teal VERSION  Version of Teal to retrieve
+  --stage STAGE  Stage to deploy  (dev | prod)  [default: dev]
 
 Arguments:
   FILE  Main Teal file
@@ -113,7 +111,12 @@ def _asm(args):
 
 
 def _deploy(args):
-    raise NotImplementedError
+    """Deploy the Teal service"""
+    from ..cloud import aws
+    from ..config import load
+
+    cfg = load()
+    aws.deploy(args)
 
 
 def _pkg(args):
@@ -129,9 +132,12 @@ def _pkg(args):
     root = Path(__file__).parents[3]
     script = root / "scripts" / "make_lambda_dist.sh"
 
-    print("Building Teal Lambda pacakge...")
-    output = subprocess.check_output([str(script), str(dest_zip)])
-    print(output.decode())
+    if dest_zip.exists():
+        print(f"{dest_zip} already exists.")
+    else:
+        print("Building Teal Lambda pacakge...")
+        output = subprocess.check_output([str(script), str(dest_zip)])
+        print(output.decode())
 
 
 def main():
@@ -145,8 +151,6 @@ def main():
 
     if args["ast"]:
         _ast(args)
-    elif args["pkg"]:
-        _pkg(args)
     elif args["asm"]:
         _asm(args)
     elif args["deploy"]:

@@ -10,15 +10,15 @@ TODO describe workflow.
 **Table of Contents**
 
 - [Wikipedia NLP](#wikipedia-nlp)
-    - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Using This Example](#using-this-example)
         - [1. Install Teal](#1-install-teal)
         - [2. Test it locally](#2-test-it-locally)
-        - [3. Get Teal deployment package](#3-get-teal-deployment-package)
-        - [4. Build source deployment package](#4-build-source-deployment-package)
-        - [5. Deploy the infrastructure](#5-deploy-the-infrastructure)
-        - [6. Test it](#6-test-it)
-        - [7. To production (optional)](#7-to-production-optional)
-    - [Further Improvements](#further-improvements)
+        - [3. Build source deployment package](#3-build-source-deployment-package)
+        - [4. Deploy the infrastructure](#4-deploy-the-infrastructure)
+        - [5. Test it](#5-test-it)
+        - [6. To production (optional)](#6-to-production-optional)
+    - [Next Steps](#next-steps)
 
 <!-- markdown-toc end -->
 
@@ -31,7 +31,7 @@ To try this example you need:
 - Python 3.8
 
 
-## Test and Deploy
+## Using This Example
 
 
 ### 1. Install Teal
@@ -64,39 +64,22 @@ And run the Teal program:
 Check the results: TODO
 
 
-### 3. Get Teal deployment package
+### 3. Deploy the infrastructure
 
 (From inside the virtual environment.)
 
-`teal pkg --dev`
+`teal deploy`
 
-This builds and saves the latest Teal deployment package as `teal_lambda.zip`.
+This deploys the cloud service, according to the configuration in the "service"
+part of [`teal.toml`](teal.toml). Feel free to re-run this command -- it will
+only update the necessary parts.
 
-In future you might be able to do `teal pkg --version X` to get a specific
-version of Teal, or ommit the `--version` flag to just download the latest
-version. Not implemented yet.
-
-
-
-### 4. Build source deployment package
-
-`./make_src_layer.sh`
-
-This packages `src` and its dependencies (in `requirements.txt`) into a Lambda
-layer package.
+This command does several things:
+- package the `src` directory into a lambda layer
+- 
 
 
-### 5. Deploy the infrastructure
-
-`serverless deploy`
-
-
-`serverless outputs`
-
-This 
-
-
-### 6. Test it
+### 4. Test it
 
 Upload the test data to S3:
 
@@ -113,7 +96,7 @@ And monitor:
 - `tealc logs [-f] SESSION_ID`
 
 
-### 7. To production (optional)
+### 5. To production (optional)
 
 `serverless deploy --prod`
 
