@@ -5,8 +5,10 @@ from pathlib import Path
 import toml
 import logging
 
+LOG = logging.getLogger(__name__)
 
-@dataclass(frozen=True)
+
+@dataclass
 class ServiceConfig:
     name: str
     region: str
@@ -14,6 +16,8 @@ class ServiceConfig:
     python_src: Path
     python_deps: Path
     provider: str
+    deployment_id_file: Path
+    deployment_id: str
 
 
 @dataclass(frozen=True)
@@ -22,35 +26,39 @@ class Config:
 
 
 DEFAULTS = dict(
-    # --
     teal_version=None,
     python_src="src",
     python_deps="requirements.txt",
     provider="aws",
     region=None,
+    deployment_id_file=".teal_deployment_id",
+    deployment_id=None,
 )
 
-LOCAL_CONFIG_FILENAME = Path("teal.toml")
-
-LOG = logging.getLogger(__name__)
+DEFAULT_CONFIG_FILENAME = Path("teal.toml")
 
 
 class ConfigError(Exception):
     """Error loading configuration"""
 
 
-def load() -> Config:
+def load(config_file: Path = None) -> Config:
     """Load the configuration"""
-    data = toml.load(LOCAL_CONFIG_FILENAME)
+    if not config_file:
+        config_file = DEFAULT_CONFIG_FILENAME
+
+    data = toml.load(config_file)
 
     try:
         service = data["service"]
     except KeyError:
-        raise ConfigError(f"No [service] section in {LOCAL_CONFIG_FILENAME}")
+        raise ConfigError(f"No [service] section in {config_file}")
 
     for key, value in DEFAULTS.items():
         if key not in service:
             service[key] = value
-            LOG.info(f"Using default for `{key}`")
+            LOG.info(f"Using default for `{key}`: {value}")
+
+    # TODO get deployment_id from CLI arg?
 
     return Config(service=ServiceConfig(**service))

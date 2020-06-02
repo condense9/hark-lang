@@ -78,7 +78,7 @@ This command does several things:
 - deploys the Lambda data
 - deploys the Teal code
 
-Feel free to re-run this command -- **it will only update the necessary parts**.
+Feel free to re-run this command -- it will only update the necessary parts.
 
 
 ### 4. Test it

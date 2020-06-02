@@ -1,7 +1,10 @@
 [service]
 
 ## required, name of the service:
-name = "wiki_nlp"
+name = "wikinlp"
+
+## optional, path to a file containing the deployment ID
+# deployment_id_file = ".teal_deployment_id"
 
 ## optional, deployment region (defaults to AWS_DEFAULT_REGION):
 # region = "eu-west-2"

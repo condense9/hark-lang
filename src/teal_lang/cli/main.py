@@ -4,14 +4,16 @@ Usage:
   teal [options] asm FILE
   teal [options] ast [-o OUTPUT] FILE
   teal [options] deploy [--stage STAGE]
+  teal [options] destroy [--stage STAGE]
   teal [options] FILE [ARG...]
   teal --version
   teal --help
 
 Commands:
   asm      Compile a file and print the bytecode listing.
-  ast      Create a data flow graph (PNG)
+  ast      Create a data flow graph (PNG).
   deploy   Deploy to the cloud.
+  destroy  Remove cloud deployment.
   default  Run a Teal function locally.
 
 General options:
@@ -111,12 +113,19 @@ def _asm(args):
 
 
 def _deploy(args):
-    """Deploy the Teal service"""
     from ..cloud import aws
     from ..config import load
 
     cfg = load()
     aws.deploy(cfg)
+
+
+def _destroy(args):
+    from ..cloud import aws
+    from ..config import load
+
+    cfg = load()
+    aws.destroy(cfg)
 
 
 def _pkg(args):
@@ -155,6 +164,8 @@ def main():
         _asm(args)
     elif args["deploy"]:
         _deploy(args)
+    elif args["destroy"]:
+        _destroy(args)
     elif args["FILE"]:
         _run(args)
     else:
