@@ -4,8 +4,11 @@
 
 set -e
 
-## Name of the resulting ZIP file
-DIST=${1:-dist.zip}
+## Path to the resulting ZIP file
+DEST=${1:-dist.zip}
+
+
+FILENAME=$(basename "${DEST}")
 
 # Get dir containing this script. It will work as long as the last component of
 # the path used to find the script is not a symlink (directory links are OK).
@@ -25,11 +28,11 @@ rm -rf libs/boto*
 # Install Teal manually
 cp -r "${DIR}/../src/teal_lang" libs
 
-cd libs && zip -q -r "../${DIST}" . -x "*__pycache__*"
+cd libs && zip -q -r "../${FILENAME}" . -x "*__pycache__*"
 
 popd >/dev/null
 
-cp "${TMP}/${DIST}" .
+cp "${TMP}/${FILENAME}" "${DEST}"
 rm -rf "${TMP}"
 
-printf "\nSuccess: %s\n" "${DIST}"
+printf "\nSuccess: %s\n" "${FILENAME}"

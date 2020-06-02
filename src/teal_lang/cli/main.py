@@ -118,6 +118,7 @@ def _deploy(args):
 
     cfg = load()
     aws.deploy(cfg)
+    print("Done.")
 
 
 def _destroy(args):
@@ -126,6 +127,7 @@ def _destroy(args):
 
     cfg = load()
     aws.destroy(cfg)
+    print("Done.")
 
 
 def _pkg(args):

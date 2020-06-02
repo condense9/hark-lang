@@ -3,23 +3,28 @@
 # Create a lambda layer ZIP package
 
 set -e
-set -x
 
 ## Source code directory
 SRC=${1:-src}
 
-## Name of the ZIP file
-LAYER=${2:-srclayer.zip}
+## Path to the resulting ZIP file
+DEST=${2:-srclayer.zip}
 
+
+FILENAME=$(basename "${DEST}")
 
 TMP=$(mktemp -d)
 
 mkdir -p "${TMP}/python"
 cp -r "${SRC}" "${TMP}/python/"
 
-pushd "${TMP}"
-zip -q -r "${LAYER}" python -x "*__pycache__*"
-popd
+pip install -q --target "${TMP}/python" -r requirements.txt
 
-cp "${TMP}/${LAYER}" .
+pushd "${TMP}" >/dev/null
+zip -q -r "${FILENAME}" python -x "*__pycache__*"
+popd >/dev/null
+
+cp "${TMP}/${FILENAME}" "${DEST}"
 rm -rf "${TMP}"
+
+printf "\nSuccess: %s\n" "${FILENAME}"

@@ -13,26 +13,31 @@ class ServiceConfig:
     name: str
     region: str
     teal_version: str
-    python_src: Path
-    python_deps: Path
+    python_src: str
+    python_deps: str
     provider: str
-    deployment_id_file: Path
+    deployment_id_file: str
     deployment_id: str
+    data_dir: str
+    lambda_timeout: int
 
 
 @dataclass(frozen=True)
 class Config:
+    root: str
     service: ServiceConfig
 
 
-DEFAULTS = dict(
+SERVICE_DEFAULTS = dict(
     teal_version=None,
     python_src="src",
     python_deps="requirements.txt",
     provider="aws",
     region=None,
+    data_dir=".teal_data",
     deployment_id_file=".teal_deployment_id",
     deployment_id=None,
+    lambda_timeout=240,
 )
 
 DEFAULT_CONFIG_FILENAME = Path("teal.toml")
@@ -54,11 +59,12 @@ def load(config_file: Path = None) -> Config:
     except KeyError:
         raise ConfigError(f"No [service] section in {config_file}")
 
-    for key, value in DEFAULTS.items():
+    for key, value in SERVICE_DEFAULTS.items():
         if key not in service:
             service[key] = value
             LOG.info(f"Using default for `{key}`: {value}")
 
     # TODO get deployment_id from CLI arg?
 
-    return Config(service=ServiceConfig(**service))
+    root = config_file.parent.resolve()
+    return Config(root=root, service=ServiceConfig(**service))
