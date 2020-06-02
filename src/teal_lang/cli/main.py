@@ -117,7 +117,18 @@ def _deploy(args):
     from ..config import load
 
     cfg = load()
-    aws.deploy(cfg)
+    api = aws.deploy(cfg)
+
+    logs, response = api.version.invoke(cfg)
+
+    print("Version:", response)
+
+    with open(cfg.teal_service_file) as f:
+        content = f.read()
+
+    exe_payload = {"content": content}
+    logs, response = api.set_exe.invoke(cfg, bytes(json.dumps(exe_payload)))
+
     print("Done.")
 
 

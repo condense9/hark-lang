@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import os.path
+from dataclasses import dataclass
 import random
 import subprocess
 import tempfile
@@ -26,109 +27,12 @@ LOG = logging.getLogger(__name__)
 THIS_DIR = Path(__file__).parent
 
 
-def lambda_zip_path(zip_dir: Path, function_name):
-    return zip_dir / function_name + ".zip"
-
-
-def create_lambda_zip(lambda_dir: str, lib_dir: str = None) -> str:
-    zip_name = lambda_zip_path(basename(lambda_dir))
-    with ZipFile(zip_name, "w") as z:
-        if not os.path.exists(lambda_dir):
-            raise Exception(f"No lambda directory: {lambda_dir}")
-        for root, dirs, files in os.walk(lambda_dir):
-            for f in files:
-                # Remove the directory prefix:
-                name = join(root, f)
-                arcname = name[len(lambda_dir) :]
-                z.write(name, arcname=arcname)
-        if lib_dir:
-            # NOTE - will overwrite lib_dir_name/ in the archive
-            for root, dirs, files in os.walk(lib_dir):
-                for f in files:
-                    name = join(root, f)
-                    lib_dir_name = basename(lib_dir)
-                    arcname = name[len(lib_dir) - len(lib_dir_name) :]
-                    z.write(name, arcname=arcname)
-    return zip_name
-
-
-def create_lambda(lambda_dir, lib_dir=None):
-    create_lambda_zip(lambda_dir, lib_dir)
-    function_name = basename(lambda_dir)
-    delete_lambda(function_name)
-    lambda_from_zip(function_name, lambda_zip_path(function_name))
-
-
-def lambda_from_zip(
-    function_name, zipfile, handler="main.handler", env=None, timeout=3
-):
-    with open(zipfile, "rb") as f:
-        zipped_code = f.read()
-    if not env:
-        env = {}
-    lambda_client = get_lambda_client()
-    lambda_client.create_function(
-        FunctionName=function_name,
-        Runtime="python3.8",
-        Role="role",
-        Handler=handler,
-        Code=dict(ZipFile=zipped_code),
-        Timeout=timeout,
-        Environment=dict(Variables=env),
-    )
-
-
-def delete_lambda(function_name: str):
-    """Delete a Lambda function if it exists"""
-    lambda_client = get_lambda_client()
-    try:
-        lambda_client.delete_function(FunctionName=function_name)
-    except lambda_client.exceptions.ResourceNotFoundException:
-        pass
-
-
-def lambda_exists(function_name: str) -> bool:
-    """Check if a function exists"""
-    client = get_lambda_client()
-    try:
-        client.get_function(FunctionName=function_name)
-        return True
-    except client.exceptions.ResourceNotFoundException:
-        return False
+class DeploymentFailed(Exception):
+    """Failed to deploy"""
 
 
 class InvokeError(Exception):
     "Failed to invoke function"
-
-
-FunctionLogs = str
-FunctionResponse = str
-
-
-def invoke(
-    function_name: str, payload: bytes = None
-) -> Tuple[FunctionLogs, FunctionResponse]:
-    """Invoke a Lambda function"""
-    lambda_client = get_lambda_client()
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.invoke
-    response = lambda_client.invoke(
-        FunctionName=function_name,
-        InvocationType="RequestResponse",
-        Payload=payload,
-        LogType="Tail",
-    )
-
-    if not 200 <= response["StatusCode"] < 300:
-        raise InvokeError(response)
-
-    logs = response["LogResult"]
-    payload = response["Payload"].read().decode("utf-8")
-
-    return logs, payload
-
-
-class DeploymentFailed(Exception):
-    """Failed to deploy"""
 
 
 def get_client(config, service):
@@ -512,6 +416,39 @@ class TealFunction:
             Layers=layers,
         )
 
+    @classmethod
+    def delete_if_exists(cls, config):
+        client = get_client(config, "lambda")
+        name = cls.resource_name(config)
+        try:
+            client.delete_function(FunctionName=name)
+        except lambda_client.exceptions.ResourceNotFoundException:
+            pass
+
+    @classmethod
+    def invoke(cls, config, payload: bytes = None) -> Tuple[str, str]:
+        client = get_client(config, "lambda")
+        name = cls.resource_name(config)
+
+        if not payload:
+            payload = bytes("", "utf-8")
+
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.invoke
+        response = client.invoke(
+            FunctionName=name,
+            InvocationType="RequestResponse",
+            Payload=payload,
+            LogType="Tail",
+        )
+
+        if not 200 <= response["StatusCode"] < 300:
+            raise InvokeError(response)
+
+        logs = response["LogResult"]
+        payload = response["Payload"].read().decode("utf-8")
+
+        return logs, payload
+
 
 class FnSetexe(TealFunction):
     name = "set_exe"
@@ -530,7 +467,7 @@ class FnResume(TealFunction):
     needs_src = True
 
 
-class FnGetoutput(TealFunction):
+class FnGetOutput(TealFunction):
     name = "getoutput"
     handler = "teal_lang.executors.awslambda.getoutput_apigw"
 
@@ -576,6 +513,7 @@ def get_deployment_id(config: teal_config.Config) -> str:
     return os.environ.get("TEAL_DEPLOYMENT_ID", None)
 
 
+# FIXME: these two should both be in config.py
 def setup_deployment_id(config):
     if not config.service.deployment_id:
         config.service.deployment_id = get_deployment_id(config)
@@ -599,13 +537,22 @@ CORE_RESOURCES = [
     FnSetexe,
     FnNew,
     FnResume,
-    FnGetoutput,
+    FnGetOutput,
     FnGetEvents,
     FnVersion,
 ]
 
 
-def deploy(config):
+@dataclass
+class Interface:
+    set_exe: type
+    new: type
+    get_output: type
+    get_events: type
+    version: type
+
+
+def deploy(config) -> Interface:
     """Deploy (or update) infrastructure for this config"""
     setup_region(config)
     setup_deployment_id(config)
@@ -618,6 +565,8 @@ def deploy(config):
     for res in CORE_RESOURCES:
         res.create_or_update(config)
         LOG.info(f"Resource: {res.__name__} {res.resource_name(config)}")
+
+    return Interface(FnSetexe, FnNew, FnGetOutput, FnGetEvents, FnVersion)
 
 
 def destroy(config):

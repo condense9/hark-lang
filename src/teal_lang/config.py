@@ -20,6 +20,7 @@ class ServiceConfig:
     deployment_id: str
     data_dir: str
     lambda_timeout: int
+    teal_service_file: str
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,7 @@ SERVICE_DEFAULTS = dict(
     deployment_id_file=".teal_deployment_id",
     deployment_id=None,
     lambda_timeout=240,
+    teal_service_file="service.tl",
 )
 
 DEFAULT_CONFIG_FILENAME = Path("teal.toml")
