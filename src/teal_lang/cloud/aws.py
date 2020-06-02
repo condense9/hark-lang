@@ -1,14 +1,18 @@
 """Manage Teal deployments in AWS"""
 
+import base64
+import functools
+from hashlib import sha256
+import time
 import json
 import logging
 import os
 import os.path
-from dataclasses import dataclass
 import random
 import subprocess
 import tempfile
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Tuple
 from zipfile import ZipFile
@@ -35,6 +39,7 @@ class InvokeError(Exception):
     "Failed to invoke function"
 
 
+@functools.lru_cache
 def get_client(config, service):
     """Get a boto3 client for SERVICE, setting endpoint and region"""
     args = {}
@@ -46,7 +51,7 @@ def get_client(config, service):
     return boto3.client(
         service,
         region_name=config.service.region,
-        config=botocore.config.Config(retries={"max_attempts": 0}),
+        # config=botocore.config.Config(retries={"max_attempts": 0}),
         **args,
     )
 
@@ -91,7 +96,7 @@ class DataBucket:
 
     @staticmethod
     def delete_if_exists(config):
-        raise NotImplementedError
+        pass  # FIXME
 
 
 def get_data_dir(config) -> Path:
@@ -125,15 +130,30 @@ class S3File:
         return cls.key
 
     @classmethod
+    def local_file(cls, config) -> Path:
+        data_dir = get_data_dir(config)
+        return data_dir / cls.key
+
+    @classmethod
+    def local_sha(cls, config) -> str:
+        """Get the (base64 encoded) SHA256 hash of the local file"""
+        local_file = cls.local_file(config)
+        with open(local_file, "rb") as f:
+            return base64.b64encode(sha256(f.read()).digest()).decode()
+
+    @classmethod
     def create_or_update(cls, config):
         """Create the file and upload it"""
-        data_dir = get_data_dir(config)
-        dest_file = data_dir / cls.key
+        dest_file = cls.local_file(config)
         cls.get_file(config, dest_file)
 
         client = get_client(config, "s3")
         bucket = DataBucket.resource_name(config)
         upload_if_necessary(client, bucket, cls.key, str(dest_file))
+
+    @classmethod
+    def delete_if_exists(cls, config):
+        pass  # FIXME
 
 
 class TealPackage(S3File):
@@ -210,6 +230,10 @@ class DataTable:
         waiter = client.get_waiter("table_exists")
         waiter.wait(TableName=name)
 
+    @staticmethod
+    def delete_if_exists(config):
+        pass  # FIXME
+
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam.html#client
 class ExecutionRole:
@@ -239,7 +263,20 @@ class ExecutionRole:
 
         client = get_client(config, "iam")
         name = ExecutionRole.resource_name(config)
-        client.delete_role_policy(RoleName=name, PolicyName="default")
+
+        try:
+            client.delete_role_policy(RoleName=name, PolicyName="default")
+        except client.exceptions.NoSuchEntityException:
+            pass
+
+        try:
+            client.detach_role_policy(
+                RoleName=name,
+                PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            )
+        except client.exceptions.NoSuchEntityException:
+            pass
+
         client.delete_role(RoleName=name)
 
     @staticmethod
@@ -324,6 +361,7 @@ class SourceLayer:
 
     @staticmethod
     def get_arn(config):
+        """Get ARN and SHA256 of the highest-version layer"""
         client = get_client(config, "lambda")
         name = SourceLayer.resource_name(config)
         res = client.list_layer_versions(LayerName=name, MaxItems=1)
@@ -333,10 +371,24 @@ class SourceLayer:
             return None
 
     @staticmethod
+    def get_latest_sha256(config):
+        """Get ARN and SHA256 of the highest-version layer"""
+        client = get_client(config, "lambda")
+        arn = SourceLayer.get_arn(config)
+        res = client.get_layer_version_by_arn(Arn=arn)
+        return res["Content"]["CodeSha256"]
+
+    @staticmethod
     def create_or_update(config):
+        current_sha = SourceLayer.get_latest_sha256(config)
+        local_sha = SourceLayerPackage.local_sha(config)
+
+        if current_sha == local_sha:
+            return
+
+        LOG.info(f"Layer hash changed, updating ({current_sha}, {local_sha})")
         client = get_client(config, "lambda")
         name = SourceLayer.resource_name(config)
-        # TODO - don't publish if it hasn't changed
         client.publish_layer_version(
             LayerName=name,
             Content=dict(
@@ -345,6 +397,12 @@ class SourceLayer:
                 S3Key=SourceLayerPackage.key,
             ),
         )
+        current_sha = SourceLayer.get_latest_sha256(config)
+        assert current_sha == local_sha
+
+    @staticmethod
+    def delete_if_exists(config):
+        pass  # FIXME
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#client
@@ -368,31 +426,47 @@ class TealFunction:
     @classmethod
     def create_or_update(cls, config):
         if cls.exists(config):
-            cls.update(config)
+            needs_publish = cls.update(config)
         else:
             cls.create(config)
+            needs_publish = True
 
-        client = get_client(config, "lambda")
-        name = cls.resource_name(config)
-        client.publish_version(FunctionName=name)
+        if needs_publish:
+            client = get_client(config, "lambda")
+            name = cls.resource_name(config)
+            client.publish_version(FunctionName=name)
 
-        waiter = client.get_waiter("function_active")
-        waiter.wait(FunctionName=name)
+            waiter = client.get_waiter("function_active")
+            waiter.wait(FunctionName=name)
 
     @classmethod
-    def update(cls, config):
+    def update(cls, config) -> bool:
         client = get_client(config, "lambda")
         name = cls.resource_name(config)
-        client.update_function_code(
-            FunctionName=name,
-            S3Bucket=DataBucket.resource_name(config),
-            S3Key=TealPackage.key,
-            Publish=False,
-        )
-        if cls.needs_src:
+        needs_publish = False
+
+        current_config = client.get_function_configuration(FunctionName=name)
+        current_sha = current_config["CodeSha256"]
+
+        if current_sha != TealPackage.local_sha(config):
+            LOG.info(f"Code hash for {name} changed, updating function")
+            client.update_function_code(
+                FunctionName=name,
+                S3Bucket=DataBucket.resource_name(config),
+                S3Key=TealPackage.key,
+                Publish=False,
+            )
+            needs_publish = True
+
+        latest_layer = SourceLayer.get_arn(config)
+        if cls.needs_src and current_config["Layers"][0]["Arn"] != latest_layer:
+            LOG.info(f"Layer ARN for {name} changed, updating function")
             client.update_function_configuration(
                 FunctionName=name, Layers=[SourceLayer.get_arn(config)]
             )
+            needs_publish = True
+
+        return needs_publish
 
     @classmethod
     def create(cls, config):
@@ -414,6 +488,14 @@ class TealFunction:
             ),
             Timeout=config.service.lambda_timeout,  # TODO make per-function?
             Layers=layers,
+            Environment=dict(
+                Variables={
+                    "TL_REGION": config.service.region,
+                    "DYNAMODB_TABLE": DataTable.resource_name(config),
+                    "USE_LIVE_AWS": "foo",  # setting this to "yes" breaks AWS...?
+                    "RESUME_FN_NAME": FnResume.resource_name(config),
+                }
+            ),
         )
 
     @classmethod
@@ -422,13 +504,15 @@ class TealFunction:
         name = cls.resource_name(config)
         try:
             client.delete_function(FunctionName=name)
-        except lambda_client.exceptions.ResourceNotFoundException:
+        except client.exceptions.ResourceNotFoundException:
             pass
 
     @classmethod
-    def invoke(cls, config, payload: bytes = None) -> Tuple[str, str]:
+    def invoke(cls, config, data: dict) -> Tuple[str, str]:
         client = get_client(config, "lambda")
         name = cls.resource_name(config)
+
+        payload = bytes(json.dumps(data), "utf-8")
 
         if not payload:
             payload = bytes("", "utf-8")
@@ -469,62 +553,20 @@ class FnResume(TealFunction):
 
 class FnGetOutput(TealFunction):
     name = "getoutput"
-    handler = "teal_lang.executors.awslambda.getoutput_apigw"
+    handler = "teal_lang.executors.awslambda.getoutput"
 
 
 class FnGetEvents(TealFunction):
     name = "getevents"
-    handler = "teal_lang.executors.awslambda.getevents_apigw"
+    handler = "teal_lang.executors.awslambda.getevents"
 
 
 class FnVersion(TealFunction):
     name = "version"
-    handler = "teal_lang.executors.awslambda.version_apigw"
+    handler = "teal_lang.executors.awslambda.version"
 
 
 # ... TODO
-
-
-def create_deployment_id(config):
-    """Make a random deployment ID"""
-    # only taking 16 chars to make it more readable
-    did = uuid.uuid4().hex[:16]
-    LOG.info(f"Using new deployment ID {did}")
-
-    did_file = Path(config.service.deployment_id_file)
-    LOG.info(f"Writing deployment ID to {did_file}")
-
-    with open(str(did_file), "w") as f:
-        f.write(did)
-
-    config.service.deployment_id = did
-
-
-def get_deployment_id(config: teal_config.Config) -> str:
-    """Try to find a deployment ID"""
-    if config.service.deployment_id:
-        return config.service.deployment_id
-
-    did_file = Path(config.service.deployment_id_file)
-    if did_file.exists():
-        with open(str(did_file), "r") as f:
-            return f.read().strip()
-
-    return os.environ.get("TEAL_DEPLOYMENT_ID", None)
-
-
-# FIXME: these two should both be in config.py
-def setup_deployment_id(config):
-    if not config.service.deployment_id:
-        config.service.deployment_id = get_deployment_id(config)
-
-
-def setup_region(config: teal_config.Config):
-    """Ensure that config.service.region is set"""
-    if not config.service.region:
-        session = boto3.session.Session()
-        config.service.region = session.region_name
-    LOG.info(f"Using region {config.service.region}")
 
 
 CORE_RESOURCES = [
@@ -554,12 +596,6 @@ class Interface:
 
 def deploy(config) -> Interface:
     """Deploy (or update) infrastructure for this config"""
-    setup_region(config)
-    setup_deployment_id(config)
-
-    if not config.service.deployment_id:
-        create_deployment_id(config)
-
     LOG.info(f"Deploying: {config.service.deployment_id}")
 
     for res in CORE_RESOURCES:
@@ -571,14 +607,9 @@ def deploy(config) -> Interface:
 
 def destroy(config):
     """Destroy infrastructure created for this config"""
-    setup_region(config)
-    setup_deployment_id(config)
-
-    if not config.service.deployment_id:
-        raise DeploymentFailed("No Deployment ID - can't destroy anything")
-
     LOG.info(f"Destroying: {config.service.deployment_id}")
 
     # destroy in reverse order so dependencies go first
     for res in reversed(CORE_RESOURCES):
-        res.delete_if_exists()
+        res.delete_if_exists(config)
+        LOG.info(f"Destroyed: {res.__name__} {res.resource_name(config)}")

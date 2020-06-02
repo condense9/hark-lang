@@ -47,6 +47,7 @@ import sys
 from pathlib import Path
 import subprocess
 
+import json
 import colorama
 from colorama import Back, Fore, Style
 
@@ -116,18 +117,18 @@ def _deploy(args):
     from ..cloud import aws
     from ..config import load
 
-    cfg = load()
+    cfg = load(create_deployment_id=True)
     api = aws.deploy(cfg)
 
-    logs, response = api.version.invoke(cfg)
+    logs, response = api.version.invoke(cfg, {})
 
-    print("Version:", response)
+    print("Version:", json.loads(response))
 
-    with open(cfg.teal_service_file) as f:
+    with open(cfg.service.teal_file) as f:
         content = f.read()
 
     exe_payload = {"content": content}
-    logs, response = api.set_exe.invoke(cfg, bytes(json.dumps(exe_payload)))
+    logs, response = api.set_exe.invoke(cfg, exe_payload)
 
     print("Done.")
 

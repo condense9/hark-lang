@@ -13,7 +13,7 @@ name = "wikinlp"
 # teal_version = "0.2.1"
 
 ## optional, file containing Teal code to be deployed
-# teal_service_file = "service.tl"
+# teal_file = "service.tl"
 
 ## optional, location of Python source:
 # python_src = "src"
