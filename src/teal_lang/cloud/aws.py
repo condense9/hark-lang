@@ -221,6 +221,11 @@ class SourceLayerPackage(S3File):
         """Create the source code layer Zip, saving it in dest"""
         root = Path(__file__).parents[3]
 
+        if not config.service.python_src.exists():
+            raise DeploymentFailed(
+                f"Python source directory ({config.service.python_src}) not found"
+            )
+
         LOG.info(f"Building Source Layer package in {dest}...")
         workdir = get_data_dir(config) / "source_build" / "python"
         os.makedirs(str(workdir), exist_ok=True)
@@ -441,7 +446,8 @@ class SourceLayer:
     def get_latest_sha256(config) -> Union[None, str]:
         """Get ARN and SHA256 of the highest-version layer"""
         client = get_client(config, "lambda")
-        if arn := SourceLayer.get_arn(config):
+        arn = SourceLayer.get_arn(config)
+        if arn:
             res = client.get_layer_version_by_arn(Arn=arn)
             return res["Content"]["CodeSha256"]
 
