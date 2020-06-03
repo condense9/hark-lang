@@ -122,7 +122,7 @@ def _deploy(args):
 
     logs, response = api.version.invoke(cfg, {})
 
-    print("Version:", json.loads(response))
+    print("Teal:", json.loads(response)["body"])
 
     with open(cfg.service.teal_file) as f:
         content = f.read()

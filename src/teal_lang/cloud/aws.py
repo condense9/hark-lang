@@ -138,6 +138,7 @@ def upload_if_necessary(client, bucket, key, filename):
     try:
         res = client.head_object(Bucket=bucket, Key=key)
         if new_hashsum == res["Metadata"][hash_key]:
+            LOG.info(f"Not uploading {filename} - same hash")
             return
     except botocore.exceptions.ClientError as e:
         if e.response["Error"]["Message"] == "Not Found":
@@ -416,6 +417,10 @@ class ExecutionRole:
             RoleName=name,
             PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
         )
+        # There isn't a waiter to check that it's propagated :(
+        # See also https://github.com/Miserlou/Zappa/commit/fa1b224fc43c7c8739dd179f9a038d31e13911e9
+        # Hack for now:
+        time.sleep(10)
 
 
 class SourceLayer:
@@ -637,15 +642,15 @@ CORE_RESOURCES = [
     DataBucket,
     TealPackage,
     SourceLayerPackage,
-    # DataTable,
-    # ExecutionRole,
-    # SourceLayer,
-    # FnSetexe,
-    # FnNew,
-    # FnResume,
-    # FnGetOutput,
-    # FnGetEvents,
-    # FnVersion,
+    DataTable,
+    ExecutionRole,
+    SourceLayer,
+    FnSetexe,
+    FnNew,
+    FnResume,
+    FnGetOutput,
+    FnGetEvents,
+    FnVersion,
 ]
 
 
@@ -663,7 +668,7 @@ def deploy(config) -> Interface:
     LOG.info(f"Deploying: {config.service.deployment_id}")
 
     for res in CORE_RESOURCES:
-        LOG.info(f"Creating {res.__name__}: {res.resource_name(config)}...")
+        LOG.info(f"{res.__name__}: {res.resource_name(config)}...")
         res.create_or_update(config)
 
     return Interface(FnSetexe, FnNew, FnGetOutput, FnGetEvents, FnVersion)
@@ -675,5 +680,5 @@ def destroy(config):
 
     # destroy in reverse order so dependencies go first
     for res in reversed(CORE_RESOURCES):
-        LOG.info(f"Destroying {res.__name__}: {res.resource_name(config)}...")
+        LOG.info(f"{res.__name__}: {res.resource_name(config)}...")
         res.delete_if_exists(config)
