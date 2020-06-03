@@ -5,8 +5,14 @@
 set -e
 
 ## Path to the resulting ZIP file
-DEST=${1:-dist.zip}
+DEST=${1:-teal_lambda.zip}
 
+WORKDIR=${2:-.teal_data}
+
+###
+
+WORKDIR="${WORKDIR}/teal_build"
+mkdir -p "${WORKDIR}"
 
 FILENAME=$(basename "${DEST}")
 
@@ -15,24 +21,21 @@ FILENAME=$(basename "${DEST}")
 # https://stackoverflow.com/questions/59895/get-the-source-directory-of-a-bash-script-from-within-the-script-itself
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-TMP=$(mktemp -d)
+poetry export -f requirements.txt > "${WORKDIR}/requirements.txt"
 
-poetry export -f requirements.txt > "${TMP}/requirements.txt"
+pushd "${WORKDIR}" >/dev/null
 
-pushd "${TMP}" >/dev/null
-
-mkdir libs
-pip install -q --target libs -r requirements.txt
+mkdir -p libs
+pip install -q --target libs -r requirements.txt 2>/dev/null
 rm -rf libs/boto*
 
 # Install Teal manually
 cp -r "${DIR}/../src/teal_lang" libs
 
-cd libs && zip -q -r "../${FILENAME}" . -x "*__pycache__*"
+cd libs && zip -u -q -r "../${FILENAME}" . -x "*__pycache__*"
 
 popd >/dev/null
 
-cp "${TMP}/${FILENAME}" "${DEST}"
-rm -rf "${TMP}"
+cp "${WORKDIR}/${FILENAME}" "${DEST}"
 
 printf "\nSuccess: %s\n" "${FILENAME}"

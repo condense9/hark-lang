@@ -15,8 +15,8 @@ class ServiceConfig:
     name: str
     region: str
     teal_version: str
-    python_src: str
-    python_deps: str
+    python_src: Path
+    python_requirements: Path
     provider: str
     deployment_id_file: str
     deployment_id: str
@@ -34,7 +34,7 @@ class Config:
 SERVICE_DEFAULTS = dict(
     teal_version=None,
     python_src="src",
-    python_deps="requirements.txt",
+    python_requirements="requirements.txt",
     provider="aws",
     data_dir=".teal_data",
     deployment_id_file=".teal_deployment_id",
@@ -109,6 +109,9 @@ def load(config_file: Path = None, *, create_deployment_id=False) -> Config:
         service["region"] = session.region_name
 
     service["deployment_id"] = _get_deployment_id(service, create_deployment_id)
+
+    for key in ["python_src", "python_requirements"]:
+        service[key] = Path(service[key])
 
     root = config_file.parent.resolve()
     return Config(root=root, service=ServiceConfig(**service))

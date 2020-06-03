@@ -69,6 +69,14 @@ version = "0.6.0.post1"
 
 [[package]]
 category = "main"
+description = "A program to create deterministic zip files."
+name = "deterministic-zip"
+optional = false
+python-versions = "*"
+version = "0.1"
+
+[[package]]
+category = "main"
 description = "Pythonic argument parser, that will make you smile"
 name = "docopt"
 optional = false
@@ -339,7 +347,7 @@ python-versions = "*"
 version = "0.1.9"
 
 [metadata]
-content-hash = "107aa5d166da467368fb2e03b59696ac38a52f31e17f56ddeb18ab269dcc6626"
+content-hash = "547f81730c602fd6432fa782c6f755615aca832123d5020e76612d93edf79a23"
 python-versions = "^3.8"
 
 [metadata.files]
@@ -366,6 +374,10 @@ colorama = [
 contextlib2 = [
     {file = "contextlib2-0.6.0.post1-py2.py3-none-any.whl", hash = "sha256:3355078a159fbb44ee60ea80abd0d87b80b78c248643b49aa6d94673b413609b"},
     {file = "contextlib2-0.6.0.post1.tar.gz", hash = "sha256:01f490098c18b19d2bd5bb5dc445b2054d2fa97f09a4280ba2c5f3c394c8162e"},
+]
+deterministic-zip = [
+    {file = "deterministic_zip-0.1-py3-none-any.whl", hash = "sha256:a16dc9fdfd130849e09adb5bc9c3e9ec8f3de109d405de04cb670cf73bb7c84a"},
+    {file = "deterministic_zip-0.1.tar.gz", hash = "sha256:d0095bafb65a7272ea9742c35d9fd3305dc5f1011b0f37addcf3fb95e7606100"},
 ]
 docopt = [
     {file = "docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491"},

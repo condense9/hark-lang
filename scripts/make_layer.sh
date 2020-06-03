@@ -10,21 +10,24 @@ SRC=${1:-src}
 ## Path to the resulting ZIP file
 DEST=${2:-srclayer.zip}
 
+WORKDIR=${3:-.teal_data}
+
+###
+
+WORKDIR="${WORKDIR}/layer_build"
+mkdir -p "${WORKDIR}"
 
 FILENAME=$(basename "${DEST}")
 
-TMP=$(mktemp -d)
+mkdir -p "${WORKDIR}/python"
+cp -r "${SRC}" "${WORKDIR}/python/"
 
-mkdir -p "${TMP}/python"
-cp -r "${SRC}" "${TMP}/python/"
+pip install -q --target "${WORKDIR}/python" -r requirements.txt
 
-pip install -q --target "${TMP}/python" -r requirements.txt
-
-pushd "${TMP}" >/dev/null
-zip -q -r "${FILENAME}" python -x "*__pycache__*"
+pushd "${WORKDIR}" >/dev/null
+zip -FS -q -r "${FILENAME}" python -x "*__pycache__*"
 popd >/dev/null
 
-cp "${TMP}/${FILENAME}" "${DEST}"
-rm -rf "${TMP}"
+cp "${WORKDIR}/${FILENAME}" "${DEST}"
 
 printf "\nSuccess: %s\n" "${FILENAME}"

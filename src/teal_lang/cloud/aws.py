@@ -1,18 +1,20 @@
 """Manage Teal deployments in AWS"""
 
 import base64
+import zipfile
 import functools
-from hashlib import sha256
-import time
 import json
 import logging
 import os
 import os.path
 import random
+import shutil
 import subprocess
 import tempfile
+import time
 import uuid
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import Tuple
 from zipfile import ZipFile
@@ -20,6 +22,8 @@ from zipfile import ZipFile
 import boto3
 import botocore
 from botocore.client import ClientError
+
+import deterministic_zip as dz
 
 from .. import config as teal_config
 
@@ -56,6 +60,12 @@ def get_client(config, service):
     )
 
 
+def hash_file(filename: Path) -> str:
+    """Get the (base64 encoded) SHA256 hash of a file"""
+    with open(filename, "rb") as f:
+        return base64.b64encode(sha256(f.read()).digest()).decode()
+
+
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#client
 class DataBucket:
     @staticmethod
@@ -83,6 +93,7 @@ class DataBucket:
             client.create_bucket(
                 Bucket=name, ACL="private", CreateBucketConfiguration=location
             )
+            LOG.info(f"created bucket {name}")
         except ClientError as exc:
             raise DeploymentFailed from exc
 
@@ -96,7 +107,13 @@ class DataBucket:
 
     @staticmethod
     def delete_if_exists(config):
-        pass  # FIXME
+        name = DataBucket.resource_name(config)
+        client = get_client(config, "s3")
+        try:
+            client.delete_bucket(Bucket=name)
+            LOG.info(f"deleted bucket {name}")
+        except client.exceptions.NoSuchBucket:
+            pass
 
 
 def get_data_dir(config) -> Path:
@@ -114,9 +131,28 @@ def get_data_dir(config) -> Path:
 
 def upload_if_necessary(client, bucket, key, filename):
     """Upload a file if it doesn't already exist"""
-    # TODO check MD5 first
+    new_hashsum = hash_file(filename)
+    hash_key = "sha256"
+
+    # only upload if the object doesn't exist or the hash is different
     try:
-        response = client.upload_file(filename, bucket, key)
+        res = client.head_object(Bucket=bucket, Key=key)
+        if new_hashsum == res["Metadata"][hash_key]:
+            return
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Message"] == "Not Found":
+            pass
+    except KeyError:
+        # also catch KeyError just in case
+        pass
+
+    try:
+        with open(filename, "rb") as f:
+            response = client.put_object(
+                Body=f, Bucket=bucket, Key=key, Metadata={hash_key: new_hashsum}
+            )
+            LOG.info(f"Uploaded {filename}")
+
     except ClientError as exc:
         raise DeploymentFailed from exc
 
@@ -136,10 +172,8 @@ class S3File:
 
     @classmethod
     def local_sha(cls, config) -> str:
-        """Get the (base64 encoded) SHA256 hash of the local file"""
         local_file = cls.local_file(config)
-        with open(local_file, "rb") as f:
-            return base64.b64encode(sha256(f.read()).digest()).decode()
+        return hash_file(local_file)
 
     @classmethod
     def create_or_update(cls, config):
@@ -153,7 +187,13 @@ class S3File:
 
     @classmethod
     def delete_if_exists(cls, config):
-        pass  # FIXME
+        client = get_client(config, "s3")
+        bucket = DataBucket.resource_name(config)
+        try:
+            client.delete_object(Bucket=bucket, Key=cls.key)
+            LOG.info(f"{cls.key} deleted from {bucket}")
+        except (client.exceptions.NoSuchKey, client.exceptions.NoSuchBucket):
+            pass
 
 
 class TealPackage(S3File):
@@ -163,11 +203,16 @@ class TealPackage(S3File):
     def get_file(config, dest: Path):
         """Create the Teal code Zip, saving it in dest"""
         root = Path(__file__).parents[3]
-        script = root / "scripts" / "make_lambda_dist.sh"
 
-        if not dest.exists():
-            LOG.info(f"Building Teal Lambda package in {dest}...")
-            subprocess.check_output([str(script), str(dest)])
+        LOG.info(f"Copying Teal Lambda package to {dest}")
+        shutil.copyfile(root / "teal_lambda.zip", dest)
+
+
+def zip_dir(dirname: Path, dest: Path, deterministic=True):
+    """Zip a directory"""
+    # https://github.com/bboe/deterministic_zip/blob/master/deterministic_zip/__init__.py
+    with zipfile.ZipFile(dest, "w") as zip_file:
+        dz.add_directory(zip_file, dirname, os.path.basename(dirname))
 
 
 class SourceLayerPackage(S3File):
@@ -177,10 +222,20 @@ class SourceLayerPackage(S3File):
     def get_file(config, dest: Path):
         """Create the source code layer Zip, saving it in dest"""
         root = Path(__file__).parents[3]
-        script = root / "scripts" / "make_layer.sh"
 
         LOG.info(f"Building Source Layer package in {dest}...")
-        subprocess.check_output([str(script), config.service.python_src, str(dest)])
+        workdir = get_data_dir(config) / "source_build" / "python"
+        os.makedirs(str(workdir), exist_ok=True)
+        shutil.copytree(
+            config.service.python_src,
+            workdir / config.service.python_src.name,
+            dirs_exist_ok=True,
+        )
+        reqs_file = config.service.python_requirements
+        subprocess.check_output(
+            f'pip install -q --target "{workdir}" -r {reqs_file}'.split(" ")
+        )
+        zip_dir(workdir, dest)
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#client
@@ -214,7 +269,7 @@ class DataTable:
         if DataTable.exists(config):
             return
 
-        res = client.create_table(
+        client.create_table(
             TableName=name,
             AttributeDefinitions=[
                 # --
@@ -229,10 +284,19 @@ class DataTable:
 
         waiter = client.get_waiter("table_exists")
         waiter.wait(TableName=name)
+        LOG.info(f"Table {name} created")
 
     @staticmethod
     def delete_if_exists(config):
-        pass  # FIXME
+        client = get_client(config, "dynamodb")
+        name = DataTable.resource_name(config)
+        try:
+            client.delete_table(TableName=name)
+            waiter = client.get_waiter("table_not_exists")
+            waiter.wait(TableName=name)
+            LOG.info(f"Table {name} deleted")
+        except client.exceptions.ResourceNotFoundException:
+            pass
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam.html#client
@@ -573,15 +637,15 @@ CORE_RESOURCES = [
     DataBucket,
     TealPackage,
     SourceLayerPackage,
-    DataTable,
-    ExecutionRole,
-    SourceLayer,
-    FnSetexe,
-    FnNew,
-    FnResume,
-    FnGetOutput,
-    FnGetEvents,
-    FnVersion,
+    # DataTable,
+    # ExecutionRole,
+    # SourceLayer,
+    # FnSetexe,
+    # FnNew,
+    # FnResume,
+    # FnGetOutput,
+    # FnGetEvents,
+    # FnVersion,
 ]
 
 
@@ -599,8 +663,8 @@ def deploy(config) -> Interface:
     LOG.info(f"Deploying: {config.service.deployment_id}")
 
     for res in CORE_RESOURCES:
+        LOG.info(f"Creating {res.__name__}: {res.resource_name(config)}...")
         res.create_or_update(config)
-        LOG.info(f"Resource: {res.__name__} {res.resource_name(config)}")
 
     return Interface(FnSetexe, FnNew, FnGetOutput, FnGetEvents, FnVersion)
 
@@ -611,5 +675,5 @@ def destroy(config):
 
     # destroy in reverse order so dependencies go first
     for res in reversed(CORE_RESOURCES):
+        LOG.info(f"Destroying {res.__name__}: {res.resource_name(config)}...")
         res.delete_if_exists(config)
-        LOG.info(f"Destroyed: {res.__name__} {res.resource_name(config)}")

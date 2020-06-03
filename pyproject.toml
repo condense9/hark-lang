@@ -23,6 +23,8 @@ classifiers = [
 packages = [
     { include = "teal_lang", from = "src" },
 ]
+
+include = ["teal_lambda.zip"]
 exclude = ["teal_lang/examples/**.*"]
 
 [tool.poetry.urls]
@@ -43,6 +45,7 @@ pydot = "^1.4.1"
 sly = "^0.4"
 colorama = "^0.4.3"
 toml = "^0.10.1"
+deterministic_zip = "^0.1"
 
 [tool.poetry.dev-dependencies]
 boto3 = "*"
