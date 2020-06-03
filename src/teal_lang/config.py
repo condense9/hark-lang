@@ -2,6 +2,7 @@
 
 import logging
 import os
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -42,7 +43,7 @@ SERVICE_DEFAULTS = dict(
 )
 
 DEFAULT_CONFIG_FILENAME = Path("teal.toml")
-DEPLOYMENT_ID_FILE = ".teal_deployment_id"
+DEPLOYMENT_ID_FILE = "teal_deployment_id"
 
 
 class ConfigError(Exception):

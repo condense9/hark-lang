@@ -340,6 +340,7 @@ class ExecutionRole:
             pass
 
         client.delete_role(RoleName=name)
+        LOG.info(f"deleted execution role {name}")
 
     @staticmethod
     def create_or_update(config):
@@ -468,7 +469,15 @@ class SourceLayer:
 
     @staticmethod
     def delete_if_exists(config):
-        pass  # FIXME
+        client = get_client(config, "lambda")
+        name = SourceLayer.resource_name(config)
+        while True:
+            versions = client.list_layer_versions(LayerName=name)
+            if not versions["LayerVersions"]:
+                break
+            for v in versions["LayerVersions"]:
+                client.delete_layer_version(LayerName=name, VersionNumber=v["Version"])
+        LOG.info(f"deleted layer {name}")
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#client
@@ -570,6 +579,7 @@ class TealFunction:
         name = cls.resource_name(config)
         try:
             client.delete_function(FunctionName=name)
+            LOG.info(f"deleted function {name}")
         except client.exceptions.ResourceNotFoundException:
             pass
 
