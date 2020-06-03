@@ -26,7 +26,10 @@ poetry export -f requirements.txt > "${WORKDIR}/requirements.txt"
 pushd "${WORKDIR}" >/dev/null
 
 mkdir -p libs
-pip install -q --target libs -r requirements.txt 2>/dev/null
+
+# SKIP_DEPS=yes to skip installing dependencies if you know they haven't changed
+[[ -z "${SKIP_DEPS}" ]] && \
+    pip install -q --target libs -r requirements.txt 2>/dev/null
 rm -rf libs/boto*
 
 # Install Teal manually

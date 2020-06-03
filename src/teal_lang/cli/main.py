@@ -3,8 +3,9 @@
 Usage:
   teal [options] asm FILE
   teal [options] ast [-o OUTPUT] FILE
-  teal [options] deploy [--stage STAGE]
-  teal [options] destroy [--stage STAGE]
+  teal [options] deploy [--config CONFIG]
+  teal [options] destroy [--config CONFIG]
+  teal [options] invoke [--config CONFIG]
   teal [options] FILE [ARG...]
   teal --version
   teal --help
@@ -14,6 +15,7 @@ Commands:
   ast      Create a data flow graph (PNG).
   deploy   Deploy to the cloud.
   destroy  Remove cloud deployment.
+  invoke   Invoke a teal function in the cloud.
   default  Run a Teal function locally.
 
 General options:
@@ -28,7 +30,7 @@ General options:
 
   -o OUTPUT  Name of the output file
 
-  --stage STAGE  Stage to deploy  (dev | prod)  [default: dev]
+  --config CONFIG  Config file to use  [default: teal.toml]
 
 Arguments:
   FILE  Main Teal file
@@ -47,6 +49,7 @@ import sys
 from pathlib import Path
 import subprocess
 
+import pprint
 import json
 import colorama
 from colorama import Back, Fore, Style
@@ -117,13 +120,16 @@ def _deploy(args):
     from ..cloud import aws
     from ..config import load
 
-    cfg = load(create_deployment_id=True)
-    api = aws.deploy(cfg)
+    cfg = load(config_file=Path(args["--config"]), create_deployment_id=True)
+
+    # Deploy the infrastructure (idempotent)
+    aws.deploy(cfg)
+    api = aws.get_api()
 
     logs, response = api.version.invoke(cfg, {})
-
     print("Teal:", json.loads(response)["body"])
 
+    # Deploy the teal code
     with open(cfg.service.teal_file) as f:
         content = f.read()
 
@@ -137,30 +143,35 @@ def _destroy(args):
     from ..cloud import aws
     from ..config import load
 
-    cfg = load()
+    cfg = load(config_file=Path(args["--config"]))
     aws.destroy(cfg)
     print("Done.")
 
 
-def _pkg(args):
-    """Get Teal lambda ZIP"""
-    if not args["--dev"]:
-        raise NotImplementedError("Only --dev supported for now")
+def _invoke(args):
+    from ..cloud import aws
+    from ..config import load
 
-    if args["-o"]:
-        dest_zip = args["-o"]
-    else:
-        dest_zip = "teal_lambda.zip"
+    api = aws.get_api()
+    cfg = load(config_file=Path(args["--config"]))
 
-    root = Path(__file__).parents[3]
-    script = root / "scripts" / "make_lambda_dist.sh"
+    # See teal_lang/executors/awslambda.py
+    logs, response = api.new.invoke(cfg, dict(function=args["--fn"], args=args["ARG"]))
+    if args["--verbose"]:
+        print(logs)
 
-    if dest_zip.exists():
-        print(f"{dest_zip} already exists.")
-    else:
-        print("Building Teal Lambda pacakge...")
-        output = subprocess.check_output([str(script), str(dest_zip)])
-        print(output.decode())
+    response = json.loads(response)
+
+    if response.get("statusCode", None) == 400:
+        print("Teal error! (statusCode == 400)\n")
+        err = json.loads(response["body"])
+        print("\n".join(err["traceback"]))
+
+    if response.get("statusCode", None) == 200:
+        data = json.loads(response["body"])
+        if args["--verbose"]:
+            pprint.pprint(data)
+        print(data["result"])
 
 
 def main():
@@ -180,6 +191,8 @@ def main():
         _deploy(args)
     elif args["destroy"]:
         _destroy(args)
+    elif args["invoke"]:
+        _invoke(args)
     elif args["FILE"]:
         _run(args)
     else:

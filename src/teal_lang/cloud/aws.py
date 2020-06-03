@@ -10,9 +10,7 @@ import os.path
 import random
 import shutil
 import subprocess
-import tempfile
 import time
-import uuid
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -138,7 +136,6 @@ def upload_if_necessary(client, bucket, key, filename):
     try:
         res = client.head_object(Bucket=bucket, Key=key)
         if new_hashsum == res["Metadata"][hash_key]:
-            LOG.info(f"Not uploading {filename} - same hash")
             return
     except botocore.exceptions.ClientError as e:
         if e.response["Error"]["Message"] == "Not Found":
@@ -597,7 +594,7 @@ class TealFunction:
         if not 200 <= response["StatusCode"] < 300:
             raise InvokeError(response)
 
-        logs = response["LogResult"]
+        logs = base64.b64decode(response["LogResult"]).decode()
         payload = response["Payload"].read().decode("utf-8")
 
         return logs, payload
@@ -654,6 +651,37 @@ CORE_RESOURCES = [
 ]
 
 
+def deploy(config):
+    """Deploy (or update) infrastructure for this config"""
+    LOG.info(f"Deploying: {config.service.deployment_id}")
+    start = time.time()
+
+    # TODO parallelise some deployment for funs.
+    for res in CORE_RESOURCES:
+        res.create_or_update(config)
+
+    end = time.time()
+    print(f"Deployed ({int(end-start)}s elapsed).")
+
+
+def destroy(config):
+    """Destroy infrastructure created for this config"""
+    LOG.info(f"Destroying: {config.service.deployment_id}")
+
+    # destroy in reverse order so dependencies go first
+    for res in reversed(CORE_RESOURCES):
+        res.delete_if_exists(config)
+
+
+def show(config):
+    """Show infrastructure state"""
+    for res in CORE_RESOURCES:
+        # TODO only show if deployed
+        print(f"- {res.__name__}: {res.resource_name(config)}")
+
+
+# This is a bit pointless for now - could be a generic cloud interface in the
+# future.
 @dataclass
 class Interface:
     set_exe: type
@@ -663,22 +691,6 @@ class Interface:
     version: type
 
 
-def deploy(config) -> Interface:
-    """Deploy (or update) infrastructure for this config"""
-    LOG.info(f"Deploying: {config.service.deployment_id}")
-
-    for res in CORE_RESOURCES:
-        LOG.info(f"{res.__name__}: {res.resource_name(config)}...")
-        res.create_or_update(config)
-
+def get_api() -> Interface:
+    # TODO check it's deployed?
     return Interface(FnSetexe, FnNew, FnGetOutput, FnGetEvents, FnVersion)
-
-
-def destroy(config):
-    """Destroy infrastructure created for this config"""
-    LOG.info(f"Destroying: {config.service.deployment_id}")
-
-    # destroy in reverse order so dependencies go first
-    for res in reversed(CORE_RESOURCES):
-        LOG.info(f"{res.__name__}: {res.resource_name(config)}...")
-        res.delete_if_exists(config)

@@ -2,7 +2,9 @@ import functools
 import json
 import logging
 import os
+import sys
 import time
+import traceback
 
 import boto3
 import botocore
@@ -12,6 +14,7 @@ from .. import load
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..machine import TlMachine
+from ..machine.executable import Executable
 
 RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", "resume")
 
@@ -73,10 +76,16 @@ def success(code=200, **body_data):
     )
 
 
-def fail(msg, code=400, **body_data):
+def fail(msg, code=400, exception=None, **body_data):
     """Return an error message"""
     # 400 = client error
     # 500 = server error
+    if exception:
+        etype, value, tb = sys.exc_info()
+        body_data["etype"] = str(etype)
+        body_data["evalue"] = str(value)
+        body_data["traceback"] = traceback.format_exception(etype, value, tb)
+
     return dict(
         statusCode=code,
         isBase64Encoded=False,
@@ -127,7 +136,12 @@ def new(event, context):
 
     session = db.new_session()
 
-    if code:
+    if not code:
+        exe = Executable.deserialise(session.executable)
+
+    # NOTE: First, teal code is loaded from the base executable. This allows the
+    # user to override that with custom code. This might not be a good idea...
+    else:
         try:
             exe = load.compile_text(code)
         except Exception as exc:
@@ -147,7 +161,7 @@ def new(event, context):
         fn_ptr = exe.bindings[function]
         vmid = controller.new_machine(args, fn_ptr, is_top_level=True)
     except Exception as exc:
-        return fail(f"Error initialising:\n{exc}")
+        return fail("Error initialising", exception=exc)
 
     try:
         TlMachine(vmid, invoker).run()
