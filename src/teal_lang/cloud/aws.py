@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
 from zipfile import ZipFile
 
 import boto3
@@ -427,7 +427,7 @@ class SourceLayer:
         return f"teal-{config.service.deployment_id}-{config.service.name}-src"
 
     @staticmethod
-    def get_arn(config):
+    def get_arn(config) -> Union[None, str]:
         """Get ARN and SHA256 of the highest-version layer"""
         client = get_client(config, "lambda")
         name = SourceLayer.resource_name(config)
@@ -438,12 +438,12 @@ class SourceLayer:
             return None
 
     @staticmethod
-    def get_latest_sha256(config):
+    def get_latest_sha256(config) -> Union[None, str]:
         """Get ARN and SHA256 of the highest-version layer"""
         client = get_client(config, "lambda")
-        arn = SourceLayer.get_arn(config)
-        res = client.get_layer_version_by_arn(Arn=arn)
-        return res["Content"]["CodeSha256"]
+        if arn := SourceLayer.get_arn(config):
+            res = client.get_layer_version_by_arn(Arn=arn)
+            return res["Content"]["CodeSha256"]
 
     @staticmethod
     def create_or_update(config):
@@ -572,6 +572,7 @@ class TealFunction:
                 }
             ),
         )
+        LOG.info(f"Created function {name}")
 
     @classmethod
     def delete_if_exists(cls, config):
