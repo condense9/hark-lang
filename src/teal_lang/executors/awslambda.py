@@ -105,6 +105,18 @@ def fail(msg, code=400, exception=None, **body_data):
     )
 
 
+def try_run(session, vmid, invoker):
+    """Try to run a machine, saving a session exception if it fails"""
+    machine = TlMachine(vmid, invoker)
+    try:
+        machine.run()
+    except Exception as exc:
+        session.refresh()
+        session.machines[vmid].exception = traceback.format_exc()
+        session.save()
+        raise
+
+
 def resume(event, context):
     """Handle the AWS lambda event for an existing session"""
     session_id = event["session_id"]
@@ -115,14 +127,7 @@ def resume(event, context):
     controller = ddb_controller.DataController(session, lock)
     invoker = Invoker(controller)
 
-    machine = TlMachine(vmid, invoker)
-    try:
-        machine.run()
-    except Exception as exc:
-        session.refresh()
-        session.machines[vmid].exception = str(exc)
-        session.save()
-        raise
+    try_run(session, vmid, invoker)
 
     return success(
         session_id=session_id,
@@ -135,7 +140,7 @@ def resume(event, context):
 def new(event, context):
     """Create a new session - event is a simple payload"""
     function = event.get("function", "main")
-    args = event.get("args", [])
+    args = [mt.TlString(a) for a in event.get("args", [])]
     check_period = event.get("check_period", 1)
     wait_for_finish = event.get("wait_for_finish", True)
     code = event.get("code", None)
@@ -143,8 +148,6 @@ def new(event, context):
     timeout = timeout if timeout else int(os.getenv("FIXED_TEAL_TIMEOUT", 5))
 
     session = db.new_session()
-
-    args = [mt.TlString(a) for a in args]
 
     if not code:
         exe = Executable.deserialise(session.executable)
@@ -173,13 +176,7 @@ def new(event, context):
     except Exception as exc:
         return fail("Error initialising", exception=exc)
 
-    try:
-        TlMachine(vmid, invoker).run()
-    except Exception as exc:
-        session.refresh()
-        session.machines[vmid].exception = str(exc)
-        session.save()
-        return fail("Runtime error", session_id=session.session_id)
+    try_run(session, vmid, invoker)
 
     if wait_for_finish:
         start_time = time.time()
@@ -250,16 +247,13 @@ def getoutput(event, context):
     except db.Session.DoesNotExist:
         return fail("Couldn't find that session")
 
-    output = [m.stdout for m in session.machines]
+    output = session.stdout
     exceptions = [m.exception for m in session.machines]
 
     return success(output=output, exceptions=exceptions)
 
 
-EventsList = List[List[dict]]
-
-
-def getevents(event, context) -> EventsList:
+def getevents(event, context) -> dict:
     """Get probe events for a session"""
     session_id = event.get("session_id", None)
 
@@ -279,8 +273,21 @@ def getevents(event, context) -> EventsList:
 ## CLI helpers (TODO - these probably shouldn't be here):
 
 
-def print_events_by_machine(elist: EventsList):
+def print_outputs(success_result: dict):
+    exceptions = success_result["exceptions"]
+    output = success_result["output"]
+
+    print(em("Stdout:"))
+    print("".join(output))
+    for idx, item in enumerate(exceptions):
+        if item:
+            print(em(f"Exception in Thread {idx}!"))
+            print(item)
+
+
+def print_events_by_machine(success_result: dict):
     """Print the results of `getevents`, grouped by machine"""
+    elist = success_result["events"]
     lowest_time = min(float(event["time"]) for machines in elist for event in machines)
 
     for i, machine in enumerate(elist):
@@ -293,8 +300,9 @@ def print_events_by_machine(elist: EventsList):
             print(f"{time}  {name} {data}")
 
 
-def print_events_unified(elist: EventsList):
+def print_events_unified(success_result: dict):
     """Print the results of `getevents`, in one table"""
+    elist = success_result["events"]
     lowest_time = min(float(event["time"]) for machines in elist for event in machines)
 
     all_events = []

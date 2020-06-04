@@ -1,3 +1,2 @@
-def main():
-    print("hi")
-    pass
+import time
+import random

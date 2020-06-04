@@ -7,6 +7,7 @@ Usage:
   teal [options] destroy [--config CONFIG]
   teal [options] invoke [--config CONFIG] [ARG...]
   teal [options] events [--unified | --json] SESSION_ID
+  teal [options] logs SESSION_ID
   teal [options] FILE [ARG...]
   teal --version
   teal --help
@@ -18,10 +19,12 @@ Commands:
   destroy  Remove cloud deployment.
   invoke   Invoke a teal function in the cloud.
   events   Get events for a session.
+  events   Get logs for a session.
   default  Run a Teal function locally.
 
 General options:
   -h, --help      Show this screen.
+  -q, --quiet     Be quiet.
   -v, --verbose   Be verbose.
   -V, --vverbose  Be very verbose.
   --version       Show version.
@@ -54,6 +57,7 @@ import sys
 from pathlib import Path
 import subprocess
 
+import time
 import pprint
 import json
 import colorama
@@ -117,6 +121,20 @@ def _asm(args):
     print()
 
 
+def timed(fn):
+    """Time execution of fn and print it"""
+
+    def _wrapped(args, **kwargs):
+        start = time.time()
+        fn(args, **kwargs)
+        end = time.time()
+        if not args["--quiet"]:
+            print(f"Done ({int(end-start)}s elapsed).")
+
+    return _wrapped
+
+
+@timed
 def _deploy(args):
     from ..cloud import aws
     from ..config import load
@@ -128,7 +146,7 @@ def _deploy(args):
     api = aws.get_api()
 
     logs, response = api.version.invoke(cfg, {})
-    print("Teal:", json.loads(response)["body"])
+    print("Teal:", response["body"])
 
     # Deploy the teal code
     with open(cfg.service.teal_file) as f:
@@ -138,16 +156,27 @@ def _deploy(args):
     exe_payload = {"content": content}
     logs, response = api.set_exe.invoke(cfg, exe_payload)
 
-    print("Done.")
 
-
+@timed
 def _destroy(args):
     from ..cloud import aws
     from ..config import load
 
     cfg = load(config_file=Path(args["--config"]))
     aws.destroy(cfg)
-    print("Done.")
+
+
+class InvokeError(Exception):
+    """Something broke while running"""
+
+    def __init__(self, err=None):
+        self.err = err
+
+    def __str__(self):
+        if isinstance(self.err, dict) and "traceback" in self.err:
+            return str(self.err) + "\n" + "".join(self.err["traceback"])
+        else:
+            return str(self.err)
 
 
 def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
@@ -162,11 +191,14 @@ def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
     if verbose:
         print(logs)
 
+    if "errorMessage" in response:
+        raise InvokeError(response)
+
     code = response.get("statusCode", None)
     if code == 400:
-        print("Teal error! (statusCode == 400)\n")
+        print("Error! (statusCode: 400)\n")
         err = json.loads(response["body"])
-        print("".join(err["traceback"]))
+        raise InvokeError(err)
 
     if code != 200:
         raise ValueError(f"Unexpected response code: {code}")
@@ -174,9 +206,11 @@ def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
     body = json.loads(response["body"]) if as_json else body
     if verbose:
         pprint.pprint(body)
+
     return body
 
 
+@timed
 def _invoke(args):
     data = _call_cloud_api(
         "new",
@@ -187,6 +221,7 @@ def _invoke(args):
     print(data["result"])
 
 
+@timed
 def _events(args):
     from ..executors import awslambda
 
@@ -197,11 +232,24 @@ def _events(args):
         verbose=args["--verbose"],
     )
     if args["--unified"]:
-        awslambda.print_events_unified(data["events"])
+        awslambda.print_events_unified(data)
     elif args["--json"]:
         print(json.dumps(data, indent=2))
     else:
-        awslambda.print_events_by_machine(data["events"])
+        awslambda.print_events_by_machine(data)
+
+
+@timed
+def _logs(args):
+    from ..executors import awslambda
+
+    data = _call_cloud_api(
+        "get_output",
+        {"session_id": args["SESSION_ID"]},
+        Path(args["--config"]),
+        verbose=args["--verbose"],
+    )
+    awslambda.print_outputs(data)
 
 
 def main():
@@ -225,6 +273,8 @@ def main():
         _invoke(args)
     elif args["events"]:
         _events(args)
+    elif args["logs"]:
+        _logs(args)
     elif args["FILE"] and args["FILE"].endswith(".tl"):
         _run(args)
     else:

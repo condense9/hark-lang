@@ -229,7 +229,7 @@ class SourceLayerPackage(S3File):
         LOG.info(f"Building Source Layer package in {dest}...")
         workdir = get_data_dir(config) / "source_build" / "python"
         # def make_source_zip(workdir, src_dir, requirements_file, dest)
-        os.makedirs(str(workdir), exist_ok=True)
+        os.makedirs(workdir, exist_ok=True)
         shutil.copytree(
             config.service.python_src,
             workdir / config.service.python_src.name,
@@ -237,7 +237,7 @@ class SourceLayerPackage(S3File):
         )
         reqs_file = config.service.python_requirements
         subprocess.check_output(
-            f'pip install -q --target "{workdir}" -r {reqs_file}'.split(" ")
+            ["pip", "install", "-q", "--target", workdir, "-r", reqs_file]
         )
         zip_dir(workdir, dest)
 
@@ -672,14 +672,10 @@ CORE_RESOURCES = [
 def deploy(config):
     """Deploy (or update) infrastructure for this config"""
     LOG.info(f"Deploying: {config.service.deployment_id}")
-    start = time.time()
 
     # TODO parallelise some deployment for funs.
     for res in CORE_RESOURCES:
         res.create_or_update(config)
-
-    end = time.time()
-    print(f"Deployed ({int(end-start)}s elapsed).")
 
 
 def destroy(config):
