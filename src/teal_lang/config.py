@@ -16,10 +16,8 @@ LOG = logging.getLogger(__name__)
 class ServiceConfig:
     name: str
     region: str
-    teal_version: str
     python_src: Path
     python_requirements: Path
-    provider: str
     deployment_id: str
     data_dir: str
     lambda_timeout: int
@@ -33,10 +31,8 @@ class Config:
 
 
 SERVICE_DEFAULTS = dict(
-    teal_version=None,
     python_src="src",
     python_requirements="requirements.txt",
-    provider="aws",
     data_dir=".teal_data",
     lambda_timeout=240,
     teal_file="service.tl",
@@ -70,9 +66,6 @@ def _create_deployment_id(service):
 
 def _get_deployment_id(service: dict, create_deployment_id: bool) -> str:
     """Try to find a deployment ID"""
-    if it := service.get("deployment_id", None):
-        return it
-
     did_file = Path(service["data_dir"]) / DEPLOYMENT_ID_FILE
     if did_file.exists():
         with open(str(did_file), "r") as f:

@@ -155,6 +155,7 @@ def _deploy(args):
     # See teal_lang/executors/awslambda.py
     exe_payload = {"content": content}
     logs, response = api.set_exe.invoke(cfg, exe_payload)
+    LOG.info(f"Uploaded {cfg.service.teal_file}")
 
 
 @timed

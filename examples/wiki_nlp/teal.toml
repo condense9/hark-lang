@@ -3,14 +3,8 @@
 ## required, name of the service:
 name = "wikinlp"
 
-## optional, path to a file containing the deployment ID
-# deployment_id_file = ".teal_deployment_id"
-
 ## optional, deployment region (defaults to AWS_DEFAULT_REGION):
 # region = "eu-west-2"
-
-## optional, pin Teal version (defaults to current installed):
-# teal_version = "0.2.1"
 
 ## optional, file containing Teal code to be deployed
 # teal_file = "service.tl"
@@ -19,7 +13,4 @@ name = "wikinlp"
 # python_src = "src"
 
 ## optional, location of Python dependencies:
-# python_deps = "requirements.txt"
-
-## optional, cloud provider name:
-# provider = "aws"
+# python_requirements = "requirements.txt"

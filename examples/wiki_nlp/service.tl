@@ -2,7 +2,7 @@
 
 fn ser_a (x) {
   print("a starting to sleep")
-  random_sleep(50, 500)
+  sleep(1)
   print("a finished sleeping")
   x + 1
 }
@@ -13,7 +13,7 @@ fn conc_b(x) {
 
 fn ser_c(x) {
   print ("c starting to sleep")
-  random_sleep(50, 500)
+  sleep(2)
   print("c finished sleeping")
   x + -1
 }

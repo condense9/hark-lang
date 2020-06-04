@@ -277,7 +277,6 @@ def print_outputs(success_result: dict):
     exceptions = success_result["exceptions"]
     output = success_result["output"]
 
-    print(em("Stdout:"))
     print("".join(output))
     for idx, item in enumerate(exceptions):
         if item:
