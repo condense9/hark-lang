@@ -228,6 +228,7 @@ class SourceLayerPackage(S3File):
 
         LOG.info(f"Building Source Layer package in {dest}...")
         workdir = get_data_dir(config) / "source_build" / "python"
+        # def make_source_zip(workdir, src_dir, requirements_file, dest)
         os.makedirs(str(workdir), exist_ok=True)
         shutil.copytree(
             config.service.python_src,
@@ -459,7 +460,7 @@ class SourceLayer:
         if current_sha == local_sha:
             return
 
-        LOG.info(f"Layer hash changed, updating ({current_sha}, {local_sha})")
+        LOG.info(f"Layer changed, updating")
         client = get_client(config, "lambda")
         name = SourceLayer.resource_name(config)
         client.publish_layer_version(
@@ -530,7 +531,7 @@ class TealFunction:
         current_sha = current_config["CodeSha256"]
 
         if current_sha != TealPackage.local_sha(config):
-            LOG.info(f"Code hash for {name} changed, updating function")
+            LOG.info(f"Code for {name} changed, updating function")
             client.update_function_code(
                 FunctionName=name,
                 S3Bucket=DataBucket.resource_name(config),
@@ -614,7 +615,7 @@ class TealFunction:
         logs = base64.b64decode(response["LogResult"]).decode()
         payload = response["Payload"].read().decode("utf-8")
 
-        return logs, payload
+        return logs, json.loads(payload)
 
 
 class FnSetexe(TealFunction):

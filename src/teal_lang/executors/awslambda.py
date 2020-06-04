@@ -5,15 +5,19 @@ import os
 import sys
 import time
 import traceback
+from typing import List
 
 import boto3
 import botocore
 
-from .. import __version__
-from .. import load
+from operator import itemgetter
+
+from .. import __version__, load
+from ..cli.styling import dim, em
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..machine import TlMachine
+from ..machine import types as mt
 from ..machine.executable import Executable
 
 RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", "resume")
@@ -60,6 +64,10 @@ class Invoker:
 
 
 # These are Lambda handlers, and maybe should be somewhere else:
+
+
+def version(event, context):
+    return success(version=__version__)
 
 
 def success(code=200, **body_data):
@@ -135,6 +143,8 @@ def new(event, context):
     timeout = timeout if timeout else int(os.getenv("FIXED_TEAL_TIMEOUT", 5))
 
     session = db.new_session()
+
+    args = [mt.TlString(a) for a in args]
 
     if not code:
         exe = Executable.deserialise(session.executable)
@@ -246,7 +256,10 @@ def getoutput(event, context):
     return success(output=output, exceptions=exceptions)
 
 
-def getevents(event, context):
+EventsList = List[List[dict]]
+
+
+def getevents(event, context) -> EventsList:
     """Get probe events for a session"""
     session_id = event.get("session_id", None)
 
@@ -263,8 +276,43 @@ def getevents(event, context):
     return success(events=events)
 
 
-def version(event, context):
-    return success(version=__version__)
+## CLI helpers (TODO - these probably shouldn't be here):
+
+
+def print_events_by_machine(elist: EventsList):
+    """Print the results of `getevents`, grouped by machine"""
+    lowest_time = min(float(event["time"]) for machines in elist for event in machines)
+
+    for i, machine in enumerate(elist):
+        print(em(f"Thread {i}:"))
+        for event in machine:
+            offset_time = float(event["time"]) - lowest_time
+            time = dim("{:.3f}".format(offset_time))
+            name = event["event"]
+            data = event["data"] if len(event["data"]) else ""
+            print(f"{time}  {name} {data}")
+
+
+def print_events_unified(elist: EventsList):
+    """Print the results of `getevents`, in one table"""
+    lowest_time = min(float(event["time"]) for machines in elist for event in machines)
+
+    all_events = []
+    for i, machine in enumerate(elist):
+        for event in machine:
+            offset_time = float(event["time"]) - lowest_time
+            event["machine"] = i
+            event["offset_time"] = offset_time
+            event["insert_idx"] = len(all_events)
+            all_events.append(event)
+
+    print(em("{:>8}  {}  {}".format("Time", "Thread", "Event")))
+    for event in sorted(all_events, key=itemgetter("offset_time", "insert_idx")):
+        time = dim("{:8.3f}".format(event["offset_time"]))
+        name = event["event"]
+        machine = event["machine"]
+        data = event["data"] if len(event["data"]) else ""
+        print(f"{time:^}  {machine:^7}  {name} {data}")
 
 
 ## API gateway wrappers

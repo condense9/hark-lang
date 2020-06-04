@@ -5,7 +5,8 @@ Usage:
   teal [options] ast [-o OUTPUT] FILE
   teal [options] deploy [--config CONFIG]
   teal [options] destroy [--config CONFIG]
-  teal [options] invoke [--config CONFIG]
+  teal [options] invoke [--config CONFIG] [ARG...]
+  teal [options] events [--unified | --json] SESSION_ID
   teal [options] FILE [ARG...]
   teal --version
   teal --help
@@ -16,6 +17,7 @@ Commands:
   deploy   Deploy to the cloud.
   destroy  Remove cloud deployment.
   invoke   Invoke a teal function in the cloud.
+  events   Get events for a session.
   default  Run a Teal function locally.
 
 General options:
@@ -31,6 +33,9 @@ General options:
   -o OUTPUT  Name of the output file
 
   --config CONFIG  Config file to use  [default: teal.toml]
+
+  --unified  Merge events into one table
+  --json     Print as json
 
 Arguments:
   FILE  Main Teal file
@@ -52,9 +57,9 @@ import subprocess
 import pprint
 import json
 import colorama
-from colorama import Back, Fore, Style
 
 from .. import __version__
+from .styling import em, dim
 
 from docopt import docopt
 
@@ -101,10 +106,6 @@ def _ast(args):
     raise NotImplementedError
 
 
-def em(string):
-    return Style.BRIGHT + string + Style.RESET_ALL
-
-
 def _asm(args):
     from .. import load
 
@@ -133,6 +134,7 @@ def _deploy(args):
     with open(cfg.service.teal_file) as f:
         content = f.read()
 
+    # See teal_lang/executors/awslambda.py
     exe_payload = {"content": content}
     logs, response = api.set_exe.invoke(cfg, exe_payload)
 
@@ -148,30 +150,58 @@ def _destroy(args):
     print("Done.")
 
 
-def _invoke(args):
+def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
     from ..cloud import aws
     from ..config import load
 
     api = aws.get_api()
-    cfg = load(config_file=Path(args["--config"]))
+    cfg = load(config_file=config_file)
 
     # See teal_lang/executors/awslambda.py
-    logs, response = api.new.invoke(cfg, dict(function=args["--fn"], args=args["ARG"]))
-    if args["--verbose"]:
+    logs, response = getattr(api, function).invoke(cfg, args)
+    if verbose:
         print(logs)
 
-    response = json.loads(response)
-
-    if response.get("statusCode", None) == 400:
+    code = response.get("statusCode", None)
+    if code == 400:
         print("Teal error! (statusCode == 400)\n")
         err = json.loads(response["body"])
-        print("\n".join(err["traceback"]))
+        print("".join(err["traceback"]))
 
-    if response.get("statusCode", None) == 200:
-        data = json.loads(response["body"])
-        if args["--verbose"]:
-            pprint.pprint(data)
-        print(data["result"])
+    if code != 200:
+        raise ValueError(f"Unexpected response code: {code}")
+
+    body = json.loads(response["body"]) if as_json else body
+    if verbose:
+        pprint.pprint(body)
+    return body
+
+
+def _invoke(args):
+    data = _call_cloud_api(
+        "new",
+        {"function": args["--fn"], "args": args["ARG"]},
+        Path(args["--config"]),
+        verbose=args["--verbose"],
+    )
+    print(data["result"])
+
+
+def _events(args):
+    from ..executors import awslambda
+
+    data = _call_cloud_api(
+        "get_events",
+        {"session_id": args["SESSION_ID"]},
+        Path(args["--config"]),
+        verbose=args["--verbose"],
+    )
+    if args["--unified"]:
+        awslambda.print_events_unified(data["events"])
+    elif args["--json"]:
+        print(json.dumps(data, indent=2))
+    else:
+        awslambda.print_events_by_machine(data["events"])
 
 
 def main():
@@ -193,7 +223,9 @@ def main():
         _destroy(args)
     elif args["invoke"]:
         _invoke(args)
-    elif args["FILE"]:
+    elif args["events"]:
+        _events(args)
+    elif args["FILE"] and args["FILE"].endswith(".tl"):
         _run(args)
     else:
         raise NotImplementedError

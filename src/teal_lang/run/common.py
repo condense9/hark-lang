@@ -5,6 +5,7 @@ import traceback
 from typing import List
 
 from .. import load
+from ..machine import types as mt
 
 LOG = logging.getLogger(__name__)
 
@@ -47,6 +48,8 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
     """
     exe = load.compile_file(filename)
     controller.set_executable(exe)
+
+    args = [mt.TlString(a) for a in args]
 
     LOG.info("Running `%s` in %s", function, filename)
     LOG.info(f"Args: {args}")
