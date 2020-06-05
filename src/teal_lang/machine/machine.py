@@ -97,6 +97,7 @@ class TlMachine:
         "*": Multiply,
         ">": GreaterThan,
         "<": LessThan,
+        "parse_float": ParseFloat,
     }
 
     def __init__(self, vmid, invoker):
@@ -181,7 +182,8 @@ class TlMachine:
         elif ptr in TlMachine.builtins:
             val = mt.TlInstruction(ptr)
         else:
-            raise Exception(f"Nothing bound to {ptr}")
+            # TODO: runtime_error(self, i, ...)
+            raise NameError(f"'{ptr}' is not defined")
 
         self.state.ds_push(val)
 
@@ -381,6 +383,11 @@ class TlMachine:
         a = self.state.ds_pop()
         b = self.state.ds_pop()
         self.state.ds_push(tl_bool(a < b))
+
+    @evali.register
+    def _(self, i: ParseFloat):
+        x = self.state.ds_pop()
+        self.state.ds_push(mt.TlFloat(float(x)))
 
     @evali.register
     def _(self, i: Sleep):

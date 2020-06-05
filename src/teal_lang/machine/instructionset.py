@@ -207,6 +207,13 @@ class Nullp(I):
     """Check whether the top item on the stack is Null"""
 
 
+##± Types and Type Conversion ±#################################################
+
+
+class ParseFloat(I):
+    """Parse a string into a float"""
+
+
 ##± Arithmetic ±################################################################
 
 

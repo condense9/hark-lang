@@ -8,7 +8,7 @@ fn show_format(name) {
 
 
 fn show_trig(val) {
-  cos(val)
+  cos(parse_float(val))
 }
 
 
