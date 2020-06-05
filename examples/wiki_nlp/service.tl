@@ -1,38 +1,40 @@
+// import(extract_pages, :python src.extract_pages)
+// import(process_page, :python src.process_page)
+// import(aggregate, :python src.aggregate)
 
 
-fn ser_a (x) {
-  print("a starting to sleep")
-  sleep(1)
-  print("a finished sleeping")
-  x + 1
+fn _map(list, func, acc) {
+  if nullp(list) {
+    acc
+  }
+  else {
+    _map(rest(list), func, append(acc, func(first(list))))
+  }
 }
 
-fn conc_b(x) {
-  ser_a(x) * 1000
-}
+// TO OPTIMISE, transform into:
+//
+// fn _map(list, func, acc) {
+//   :label start
+//   if nullp(list) {
+//     acc
+//   }
+//   else {
+//     list = rest(list)
+//     func = func
+//     acc = append(acc, func(first(list)))
+//     :goto start
+//   }
+// }
 
-fn ser_c(x) {
-  print ("c starting to sleep")
-  sleep(2)
-  print("c finished sleeping")
-  x + -1
-}
 
-fn conc_d(x){
-  ser_c(x) * 10
-}
-
-fn final(p, q) {
-  await p + await q * -1
-}
-
-fn concurrent(x) {
-  // (1000 * (x + 1)) - (10 * (x - 1)) = 5960 if x is 5
-  final(async conc_b(x), async conc_d(x))
+fn map(list, func) {
+  _map(list, func, null)
 }
 
 
-fn main() {
-  x = 5
-  concurrent(x)
+fn main(archive_key) {
+  page_names = extract_pages(archive_key)
+  results = map(page_names, process_page)
+  aggregate(results)
 }
