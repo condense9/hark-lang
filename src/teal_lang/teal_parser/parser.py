@@ -57,7 +57,7 @@ class TealLexer(Lexer):
         return t
 
     # Identifiers and keywords
-    ID = "[a-z][a-zA-Z0-9_?.]*"
+    ID = "[a-z_][a-zA-Z0-9_?.]*"
     ID["fn"] = FN
     ID["lambda"] = LAMBDA
     ID["if"] = IF
