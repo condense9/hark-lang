@@ -114,17 +114,21 @@ class CompileToplevel:
         discarded = flatten(self.compile_expr(exp) + [mi.Pop()] for exp in n.exprs[:-1])
         return discarded + self.compile_expr(n.exprs[-1])
 
+    def _compile_call(self, n: nodes.N_Call, is_async: bool):
+        # NOTE: parser only allows direct, named function calls atm, not
+        # arbitrary expressions, so no need to check the type of n.fn
+        arg_code = flatten(self.compile_expr(arg) for arg in n.args)
+        return arg_code + self.compile_expr(n.fn) + [mi.Call(mt.TlInt(len(n.args)))]
+
     @compile_expr.register
     def _(self, n: nodes.N_Call):
-        arg_code = flatten(self.compile_expr(arg) for arg in n.args)
-        call_inst = mi.ACall if isinstance(n.fn, nodes.N_Async) else mi.Call
-        return arg_code + self.compile_expr(n.fn) + [call_inst(mt.TlInt(len(n.args)))]
+        return self._compile_call(n, False)
 
     @compile_expr.register
     def _(self, n: nodes.N_Async):
-        if not isinstance(n.expr, nodes.N_Id):
+        if not isinstance(n.expr, nodes.N_Call):
             raise ValueError(f"Can't use async with {n.expr}")
-        return self.compile_expr(n.expr)
+        return self._compile_call(n.expr, True)
 
     @compile_expr.register
     def _(self, n: nodes.N_Argument):
