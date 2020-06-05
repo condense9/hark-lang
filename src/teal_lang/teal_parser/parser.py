@@ -125,7 +125,7 @@ def post_lex(toks):
 
 
 class TealParser(Parser):
-    debugfile = "parser.out"
+    # debugfile = "parser.out"
     tokens = TealLexer.tokens
     precedence = (
         ("nonassoc", LT, GT),
