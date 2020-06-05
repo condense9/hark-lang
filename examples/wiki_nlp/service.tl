@@ -12,22 +12,6 @@ fn _map(list, func, acc) {
   }
 }
 
-// TO OPTIMISE, transform into:
-//
-// fn _map(list, func, acc) {
-//   :label start
-//   if nullp(list) {
-//     acc
-//   }
-//   else {
-//     list = rest(list)
-//     func = func
-//     acc = append(acc, func(first(list)))
-//     :goto start
-//   }
-// }
-
-
 fn map(list, func) {
   _map(list, func, null)
 }
