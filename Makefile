@@ -11,7 +11,7 @@ default: help  ## show this help
 
 .PHONY: test
 test:  ## Run all unit tests (including the slow ones!)
-	pytest --runslow
+	pytest --runslow --testddb
 
 
 .PHONY: lint
