@@ -191,6 +191,10 @@ class Conc(I):
     """Concatenate the top two elements on the stack"""
 
 
+class Append(I):
+    """Append element to a list"""
+
+
 class First(I):
     """CAR (first element) of a list"""
 

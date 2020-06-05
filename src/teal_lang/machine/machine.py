@@ -87,6 +87,7 @@ class TlMachine:
         "nullp": Nullp,
         "list": List,
         "conc": Conc,
+        "append": Append,
         "first": First,
         "rest": Rest,
         # "future": Future,
@@ -341,6 +342,16 @@ class TlMachine:
             self.state.ds_push(mt.TlList(a + b))
         else:
             self.state.ds_push(mt.TlList([a] + b))
+
+    @evali.register
+    def _(self, i: Append):
+        b = self.state.ds_pop()
+        a = self.state.ds_pop()
+
+        if not isinstance(a, mt.TlList):
+            raise Exception(f"{a} ({type(a)}) is not a list")
+
+        self.state.ds_push(mt.TlList(a + [b]))
 
     @evali.register
     def _(self, i: First):

@@ -1,6 +1,6 @@
 import itertools
 import logging
-from functools import singledispatch, singledispatchmethod
+from functools import singledispatch, singledispatchmethod, wraps
 from typing import Dict, Tuple
 
 from ..machine import instructionset as mi
@@ -19,11 +19,63 @@ class CompileError(Exception):
     pass
 
 
+def optimise_block(n: nodes.N_Definition, block):
+    if not isinstance(block, nodes.N_Progn):
+        raise ValueError
+
+    last = block.exprs[-1]
+
+    if isinstance(last, nodes.N_Call) and last.fn.name == n.name:
+        # recursive call, optimise it! Replace the N_Call with direct
+        # evaluation of the arguments and a jump back to the start
+        new_last_items = list(reversed(last.args)) + [nodes.N_Goto("!start")]
+        return nodes.N_MultipleValues(block.exprs[:-1] + new_last_items)
+
+    elif isinstance(last, nodes.N_If):
+        new_cond = nodes.N_If(
+            last.cond, optimise_block(n, last.then), optimise_block(n, last.els)
+        )
+        return nodes.N_Progn(block.exprs[:-1] + [new_cond])
+
+    else:
+        # Nothing to optimise
+        return block
+
+
+def optimise_tailcall(n: nodes.N_Definition):
+    """Optimise tail calls in a definition"""
+    n.body = optimise_block(n, n.body)
+    return n
+
+
+def replace_gotos(code: list):
+    """Replace Labels and Gotos with Jumps"""
+    labels = {}
+    original_positions = []
+    for idx, instr in enumerate(code):
+        if isinstance(instr, nodes.N_Label):
+            offset = idx - len(labels)
+            labels[instr.name] = offset
+            original_positions.append(idx)
+
+    for idx in original_positions:
+        code.pop(idx)
+
+    for idx, instr in enumerate(code):
+        if isinstance(instr, nodes.N_Goto):
+            offset = labels[instr.name] - idx
+            code[idx] = mi.Jump(mt.TlInt(offset))
+
+    return code
+
+
 class CompileToplevel:
     def __init__(self, exprs):
         """Compile a toplevel list of expressions"""
         self.functions = {}
         self.bindings = {}
+        self.labels = {}
+        self.instruction_idx = 0
         for e in exprs:
             self.compile_toplevel(e)
 
@@ -31,7 +83,11 @@ class CompileToplevel:
         """Make a new executable function object with a unique name, and save it"""
         count = len(self.functions)
         identifier = f"#{count}:{name}"
-        fn_code = self.compile_function(n)
+        # a label to point at the beginning on the function, prefixed with "!"
+        # to imply that it is automatically created:
+        start_label = nodes.N_Label(f"!start")
+        code = self.compile_function(optimise_tailcall(n))
+        fn_code = replace_gotos([start_label] + code)
         self.functions[identifier] = fn_code
         return identifier
 
@@ -93,6 +149,15 @@ class CompileToplevel:
         raise NotImplementedError(node)
 
     @compile_expr.register
+    def _(self, n: nodes.N_Goto):
+        # Will be replaced later
+        return [n]
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Label):
+        raise NotImplementedError
+
+    @compile_expr.register
     def _(self, n: nodes.N_Lambda):
         # Create a local binding to the function
         identifier = self.make_function(n)
@@ -113,6 +178,11 @@ class CompileToplevel:
         # only keep the last result
         discarded = flatten(self.compile_expr(exp) + [mi.Pop()] for exp in n.exprs[:-1])
         return discarded + self.compile_expr(n.exprs[-1])
+
+    @compile_expr.register
+    def _(self, n: nodes.N_MultipleValues):
+        # like progn, but keep everything
+        return flatten(self.compile_expr(exp) for exp in n.exprs)
 
     def _compile_call(self, n: nodes.N_Call, is_async: bool):
         # NOTE: parser only allows direct, named function calls atm, not
