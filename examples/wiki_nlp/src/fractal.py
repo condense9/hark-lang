@@ -2,10 +2,12 @@
 
 import itertools
 import math
+import random
 import sys
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
+from . import store
 
 
 @dataclass
@@ -218,14 +220,40 @@ def test_fracal():
     im.save(sys.stdout.buffer, "PNG")
 
 
-def save_fractal(fractal, dest):
+def save_fractal_to_file(fractal_name: str, size, dest):
+    """Create a fractal and save it.
+
+    Arguments:
+        fractal_name (str): Name of a Fractals class member
+        dest (str): Filename to save
+        size (int): Modify the Fractal's size parameter
+    """
+    fractal = getattr(Fractals, fractal_name)
+    if size:
+        fractal.size = size
     im = draw_fractal(fractal)
     im.save(dest)
+    return dest
+
+
+def random_fractals(num) -> list:
+    """Create a list of random fractals to generate"""
+    fractal_names = [x for x in dir(Fractals) if not x.startswith("_")]
+    to_draw = [
+        (random.choice(fractal_names), random.randint(5, 10)) for _ in range(num)
+    ]
+    save_fractal_args = [
+        (name, size, f"{idx:03}_{name}.png") for idx, (name, size) in enumerate(to_draw)
+    ]
+    return save_fractal_args
 
 
 def main():
     # test_fracal()
-    save_fractal(Fractals.triangle, "foo2.png")
+    # save_fractal("koch", "foo2.png")
+    args = random_fractals(1)
+    output = save_fractal_to_file(*args[0])
+    store.upload_to_bucket(output)
 
 
 if __name__ == "__main__":
