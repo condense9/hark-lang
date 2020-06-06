@@ -47,6 +47,7 @@ class Turtle:
     """A minimal turtle-like drawing interface"""
 
     Radians = float
+    Degrees = float
 
     draw: ImageDraw
     pos_x: int = 0
@@ -63,15 +64,15 @@ class Turtle:
         end = (self.pos_x, self.pos_y)
         self.draw.line([start, end], fill=self.colour, width=self.width)
 
-    def right(self, angle: Radians, deg: float = None):
-        if deg:
-            angle = math.radians(deg)
-        self.angle = (self.angle + angle) % math.pi
+    def right(self, angle: Radians):
+        """Turn left by ANGLE radians"""
+        self.angle = (self.angle + angle) % (2 * math.pi)
 
-    def left(self, angle: Radians, deg: float = None):
-        if deg:
-            angle = math.radians(deg)
-        self.angle = (self.angle - angle) % math.pi
+    def left(self, angle: Radians):
+        """Turn left by ANGLE radians"""
+        self.angle = self.angle - angle
+        if self.angle < 0:
+            self.angle += 2 * math.pi
 
 
 def create_l_system(iters, axiom, rules):
@@ -116,11 +117,16 @@ def test_pillow(width=200, height=200):
 
 
 def test_turtle(width=200, height=200):
+    """Draw a bit"""
     im = Image.new("RGB", (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(im)
     t = Turtle(draw)
-    t.right(45)
+    t.right(math.radians(45))
     t.forward(100)
+    t.left(math.radians(45))
+    t.forward(100)
+    t.left(math.radians(90))
+    t.forward(50)
     im.save(sys.stdout.buffer, "PNG")
 
 
