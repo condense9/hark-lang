@@ -172,7 +172,7 @@ def draw_l_system(t: Turtle, instructions: str, angle: Turtle.Degrees, distance:
             t.left(angle)
 
 
-def draw_fractal(fractal, linewidth=2, margin=20):
+def draw_fractal(fractal, linewidth=2, margin=20) -> Image:
     descr = create_l_system(fractal.iterations, fractal.axiom, fractal.rules)
 
     # Walk the fractal once without drawing it, so we can get dimensions
@@ -208,17 +208,24 @@ def draw_fractal(fractal, linewidth=2, margin=20):
     # Scale back down
     im = im.resize((final_width, final_height), resample=Image.BILINEAR)
     im = im.convert("RGB")
-    im.save(sys.stdout.buffer, "PNG")
+    return im
 
 
 def test_fracal():
-    draw_fractal(Fractals.koch)
+    im = draw_fractal(Fractals.koch)
     # draw_fractal(Fractals.triangle)
+
+    im.save(sys.stdout.buffer, "PNG")
+
+
+def save_fractal(fractal, dest):
+    im = draw_fractal(fractal)
+    im.save(dest)
 
 
 def main():
-    # test_turtle()
-    test_fracal()
+    # test_fracal()
+    save_fractal(Fractals.triangle, "foo2.png")
 
 
 if __name__ == "__main__":
