@@ -506,6 +506,16 @@ class TealFunction:
             return False
 
     @classmethod
+    def src_layers_list(cls, config):
+        """Create the list of layers to provide user src code"""
+        # NOTE: if the "extra" layers come last, you may get error: "Layer
+        # conversion failed: Some files need to be overridden by layers but
+        # don't have write permissions;". Fixed by putting extra layers first.
+        # Don't fully understand it though. See also:
+        # https://forums.aws.amazon.com/thread.jspa?messageID=908553
+        return list(config.service.extra_layers) + [SourceLayer.get_arn(config)]
+
+    @classmethod
     def create_or_update(cls, config):
         if cls.exists(config):
             needs_publish = cls.update(config)
@@ -526,11 +536,13 @@ class TealFunction:
         client = get_client(config, "lambda")
         name = cls.resource_name(config)
         needs_publish = False
-
         current_config = client.get_function_configuration(FunctionName=name)
-        current_sha = current_config["CodeSha256"]
 
-        if current_sha != TealPackage.local_sha(config):
+        # Check if Teal code needs to be updated
+        current_sha = current_config["CodeSha256"]
+        required_sha = TealPackage.local_sha(config)
+
+        if current_sha != required_sha:
             LOG.info(f"Code for {name} changed, updating function")
             client.update_function_code(
                 FunctionName=name,
@@ -540,11 +552,14 @@ class TealFunction:
             )
             needs_publish = True
 
-        latest_layer = SourceLayer.get_arn(config)
-        if cls.needs_src and current_config["Layers"][0]["Arn"] != latest_layer:
-            LOG.info(f"Layer ARN for {name} changed, updating function")
+        # Check if layers need to be updated
+        current_layers = [layer["Arn"] for layer in current_config["Layers"]]
+        required_layers = cls.src_layers_list(config)
+
+        if cls.needs_src and current_layers != required_layers:
+            LOG.info(f"Layers for {name} changed, updating function")
             client.update_function_configuration(
-                FunctionName=name, Layers=[SourceLayer.get_arn(config)]
+                FunctionName=name, Layers=required_layers
             )
             needs_publish = True
 
@@ -555,7 +570,6 @@ class TealFunction:
         client = get_client(config, "lambda")
         role_arn = ExecutionRole.get_arn(config)
         name = cls.resource_name(config)
-        layers = [SourceLayer.get_arn(config)] if cls.needs_src else []
 
         client.create_function(
             FunctionName=name,
@@ -569,7 +583,8 @@ class TealFunction:
                 S3Key=TealPackage.key,
             ),
             Timeout=config.service.lambda_timeout,  # TODO make per-function?
-            Layers=layers,
+            Layers=src_layers_list() if cls.needs_src else [],
+            # TODO make env per-function
             Environment=dict(
                 Variables={
                     "TL_REGION": config.service.region,

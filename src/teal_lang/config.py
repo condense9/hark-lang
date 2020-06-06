@@ -22,6 +22,7 @@ class ServiceConfig:
     data_dir: str
     lambda_timeout: int
     teal_file: str
+    extra_layers: tuple
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ SERVICE_DEFAULTS = dict(
     data_dir=".teal_data",
     lambda_timeout=240,
     teal_file="service.tl",
+    extra_layers=None
 )
 
 DEFAULT_CONFIG_FILENAME = Path("teal.toml")
@@ -103,6 +105,9 @@ def load(config_file: Path = None, *, create_deployment_id=False) -> Config:
 
     # TODO get deployment_id from CLI arg?
     service["deployment_id"] = _get_deployment_id(service, create_deployment_id)
+
+    # lists are not hashable, and Config must be hashable
+    service["extra_layers"] = tuple(service["extra_layers"])
 
     for key in ["python_src", "python_requirements"]:
         service[key] = Path(service[key])

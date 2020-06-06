@@ -170,14 +170,12 @@ def _destroy(args):
 class InvokeError(Exception):
     """Something broke while running"""
 
-    def __init__(self, err=None):
+    def __init__(self, err, traceback):
         self.err = err
+        self.traceback = traceback
 
     def __str__(self):
-        if isinstance(self.err, dict) and "traceback" in self.err:
-            return str(self.err) + "\n" + "".join(self.err["traceback"])
-        else:
-            return str(self.err)
+        return "\n\n" + str(self.err) + "\n" + "".join(self.traceback)
 
 
 def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
@@ -193,13 +191,13 @@ def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
         print(logs)
 
     if "errorMessage" in response:
-        raise InvokeError(response)
+        raise InvokeError(response["errorMessage"], response["stackTrace"])
 
     code = response.get("statusCode", None)
     if code == 400:
         print("Error! (statusCode: 400)\n")
         err = json.loads(response["body"])
-        raise InvokeError(err)
+        raise InvokeError(err, err["traceback"])
 
     if code != 200:
         raise ValueError(f"Unexpected response code: {code}")
