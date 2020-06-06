@@ -190,7 +190,8 @@ class CompileToplevel:
         # NOTE: parser only allows direct, named function calls atm, not
         # arbitrary expressions, so no need to check the type of n.fn
         arg_code = flatten(self.compile_expr(arg) for arg in n.args)
-        return arg_code + self.compile_expr(n.fn) + [mi.Call(mt.TlInt(len(n.args)))]
+        instr = mi.ACall if is_async else mi.Call
+        return arg_code + self.compile_expr(n.fn) + [instr(mt.TlInt(len(n.args)))]
 
     @compile_expr.register
     def _(self, n: nodes.N_Call):
