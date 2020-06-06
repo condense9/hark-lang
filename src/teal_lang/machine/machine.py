@@ -81,6 +81,7 @@ class TlMachine:
     """
 
     builtins = {
+        "wait": Wait,
         "print": Print,
         "sleep": Sleep,
         "atomp": Atomp,
@@ -314,12 +315,13 @@ class TlMachine:
     @evali.register
     def _(self, i: Atomp):
         val = self.state.ds_pop()
-        self.state.ds_push(not isinstance(val, list))
+        self.state.ds_push(tl_bool(not isinstance(val, list)))
 
     @evali.register
     def _(self, i: Nullp):
         val = self.state.ds_pop()
-        self.state.ds_push(len(val) == 0)
+        isnull = isinstance(val, mt.TlNull) or len(val) == 0
+        self.state.ds_push(tl_bool(isnull))
 
     @evali.register
     def _(self, i: List):
@@ -348,6 +350,8 @@ class TlMachine:
         b = self.state.ds_pop()
         a = self.state.ds_pop()
 
+        a = mt.TlList([]) if isinstance(a, mt.TlNull) else a
+
         if not isinstance(a, mt.TlList):
             raise Exception(f"{a} ({type(a)}) is not a list")
 
@@ -356,12 +360,24 @@ class TlMachine:
     @evali.register
     def _(self, i: First):
         lst = self.state.ds_pop()
+        if not isinstance(lst, mt.TlList):
+            raise Exception(f"{lst} ({type(lst)}) is not a list")
         self.state.ds_push(lst[0])
 
     @evali.register
     def _(self, i: Rest):
         lst = self.state.ds_pop()
+        if not isinstance(lst, mt.TlList):
+            raise Exception(f"{lst} ({type(lst)}) is not a list")
         self.state.ds_push(lst[1:])
+
+    @evali.register
+    def _(self, i: Nth):
+        n = self.state.ds_pop()
+        lst = self.state.ds_pop()
+        if not isinstance(lst, mt.TlList):
+            raise Exception(f"{lst} ({type(lst)}) is not a list")
+        self.state.ds_push(lst[n])
 
     @evali.register
     def _(self, i: Plus):
