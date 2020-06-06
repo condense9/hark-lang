@@ -63,7 +63,9 @@ def replace_gotos(code: list):
 
     for idx, instr in enumerate(code):
         if isinstance(instr, nodes.N_Goto):
-            offset = labels[instr.name] - idx
+            # + 1 to compensate for the fact that the IP is advanced before
+            # the current instruction is evaluated.
+            offset = labels[instr.name] - (idx + 1)
             code[idx] = mi.Jump(mt.TlInt(offset))
 
     return code
