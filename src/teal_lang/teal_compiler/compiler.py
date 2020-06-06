@@ -26,9 +26,9 @@ def optimise_block(n: nodes.N_Definition, block):
     last = block.exprs[-1]
 
     if isinstance(last, nodes.N_Call) and last.fn.name == n.name:
-        # recursive call, optimise it! Replace the N_Call with direct
-        # evaluation of the arguments and a jump back to the start
-        new_last_items = list(reversed(last.args)) + [nodes.N_Goto("!start")]
+        # recursive call, optimise it! Replace the N_Call with direct evaluation
+        # of the arguments and a jump back to the start
+        new_last_items = list(last.args) + [nodes.N_Goto("!start")]
         return nodes.N_MultipleValues(block.exprs[:-1] + new_last_items)
 
     elif isinstance(last, nodes.N_If):
