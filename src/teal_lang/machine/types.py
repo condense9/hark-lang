@@ -190,11 +190,19 @@ class TlForeignPtr(TlType):
 
 # NOTE - no conversion to/from Symbols
 
+
+def to_teal_type_list(lst: list) -> TlList:
+    """Recursively convert list to TlList"""
+    if type(lst) != list:
+        raise ValueError(lst)
+    return TlList([to_teal_type(x) for x in lst])
+
+
 PY_TO_TL = {
     int: TlInt,
     float: TlFloat,
     str: TlString,
-    list: TlList,
+    list: to_teal_type_list,
 }
 
 
