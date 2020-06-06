@@ -21,8 +21,10 @@ class ServiceConfig:
     deployment_id: str
     data_dir: str
     lambda_timeout: int
+    lambda_memory: int
     teal_file: str
     extra_layers: tuple
+    s3_access: tuple
 
 
 @dataclass(frozen=True)
@@ -36,8 +38,10 @@ SERVICE_DEFAULTS = dict(
     python_requirements="requirements.txt",
     data_dir=".teal_data",
     lambda_timeout=240,
+    lambda_memory=128,
     teal_file="service.tl",
-    extra_layers=None
+    extra_layers=[],
+    s3_access=[]
 )
 
 DEFAULT_CONFIG_FILENAME = Path("teal.toml")
@@ -108,6 +112,7 @@ def load(config_file: Path = None, *, create_deployment_id=False) -> Config:
 
     # lists are not hashable, and Config must be hashable
     service["extra_layers"] = tuple(service["extra_layers"])
+    service["s3_access"] = tuple(service["s3_access"])
 
     for key in ["python_src", "python_requirements"]:
         service[key] = Path(service[key])

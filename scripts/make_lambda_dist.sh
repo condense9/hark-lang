@@ -4,10 +4,17 @@
 
 set -e
 
-## Path to the resulting ZIP file
-DEST=${1:-teal_lambda.zip}
+# Get dir containing this script. It will work as long as the last component of
+# the path used to find the script is not a symlink (directory links are OK).
+# https://stackoverflow.com/questions/59895/get-the-source-directory-of-a-bash-script-from-within-the-script-itself
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-WORKDIR=${2:-.teal_data}
+
+## Path to the resulting ZIP file
+DEST=${1:-${DIR}/../teal_lambda.zip}
+
+WORKDIR=${2:-${DIR}/../.teal_data}
+
 
 ###
 
@@ -15,11 +22,6 @@ WORKDIR="${WORKDIR}/teal_build"
 mkdir -p "${WORKDIR}"
 
 FILENAME=$(basename "${DEST}")
-
-# Get dir containing this script. It will work as long as the last component of
-# the path used to find the script is not a symlink (directory links are OK).
-# https://stackoverflow.com/questions/59895/get-the-source-directory-of-a-bash-script-from-within-the-script-itself
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 poetry export -f requirements.txt > "${WORKDIR}/requirements.txt"
 

@@ -322,6 +322,7 @@ class ExecutionRole:
             res = client.get_role(RoleName=ExecutionRole.resource_name(config))
             return True
         except client.exceptions.NoSuchEntityException:
+            LOG.info(f"Execution role {name} does not exist yet")
             return False
 
     @staticmethod
@@ -338,6 +339,11 @@ class ExecutionRole:
             pass
 
         try:
+            client.delete_role_policy(RoleName=name, PolicyName="s3_access")
+        except client.exceptions.NoSuchEntityException:
+            pass
+
+        try:
             client.detach_role_policy(
                 RoleName=name,
                 PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
@@ -349,80 +355,129 @@ class ExecutionRole:
         LOG.info(f"deleted execution role {name}")
 
     @staticmethod
+    def get_s3_access_policy(config) -> dict:
+        return {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": ["s3:*"],
+                    "Resource": [
+                        f"arn:aws:s3:::{bucket}/*"
+                        for bucket in config.service.s3_access
+                    ],
+                }
+            ],
+        }
+
+    @staticmethod
+    def update_s3_access_policy(config):
+        client = get_client(config, "iam")
+        name = ExecutionRole.resource_name(config)
+        try:
+            current = client.get_role_policy(
+                RoleName=ExecutionRole.resource_name(config), PolicyName="s3_access"
+            )
+            current_statement = current["PolicyDocument"]["Statement"]
+        except client.exceptions.NoSuchEntityException:
+            current = None
+
+        s3_access_policy = ExecutionRole.get_s3_access_policy(config)
+        if not current or current_statement != s3_access_policy["Statement"]:
+            try:
+                client.delete_role_policy(RoleName=name, PolicyName="s3_access")
+            except client.exceptions.NoSuchEntityException:
+                pass
+
+            client.put_role_policy(
+                RoleName=name,
+                PolicyName="s3_access",
+                PolicyDocument=json.dumps(s3_access_policy),
+            )
+
+            LOG.info(f"Updated S3 bucket access for {name}")
+
+    @staticmethod
     def create_or_update(config):
         if ExecutionRole.exists(config):
+            ExecutionRole.update_s3_access_policy(config)
             return
 
         client = get_client(config, "iam")
         name = ExecutionRole.resource_name(config)
         table_arn = DataTable.get_arn(config)
 
-        policy = json.dumps(
-            {
-                "Version": "2012-10-17",
-                "Statement": [
-                    # TODO log streams
-                    # {
-                    #     "Action": ["logs:CreateLogStream", "logs:CreateLogGroup"],
-                    #     "Resource": [
-                    #         "arn:aws:logs:eu-west-2:297409317403:log-group:/aws/lambda/tryit-prod*:*"
-                    #     ],
-                    #     "Effect": "Allow",
-                    # },
-                    # {
-                    #     "Action": ["logs:PutLogEvents"],
-                    #     "Resource": [
-                    #         "arn:aws:logs:eu-west-2:297409317403:log-group:/aws/lambda/tryit-prod*:*:*"
-                    #     ],
-                    #     "Effect": "Allow",
-                    # },
-                    {
-                        "Action": [
-                            "dynamodb:Query",
-                            "dynamodb:Scan",
-                            "dynamodb:GetItem",
-                            "dynamodb:PutItem",
-                            "dynamodb:UpdateItem",
-                            "dynamodb:DeleteItem",
-                            "dynamodb:DescribeTable",
-                        ],
-                        "Resource": table_arn,
-                        "Effect": "Allow",
-                    },
-                    {
-                        "Action": ["lambda:InvokeFunction"],
-                        "Resource": "*",  # TODO make it only the resume FN?
-                        "Effect": "Allow",
-                    },
-                ],
-            }
-        )
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                # TODO log streams
+                # {
+                #     "Action": ["logs:CreateLogStream", "logs:CreateLogGroup"],
+                #     "Resource": [
+                #         "arn:aws:logs:eu-west-2:297409317403:log-group:/aws/lambda/tryit-prod*:*"
+                #     ],
+                #     "Effect": "Allow",
+                # },
+                # {
+                #     "Action": ["logs:PutLogEvents"],
+                #     "Resource": [
+                #         "arn:aws:logs:eu-west-2:297409317403:log-group:/aws/lambda/tryit-prod*:*:*"
+                #     ],
+                #     "Effect": "Allow",
+                # },
+                {
+                    "Action": [
+                        "dynamodb:Query",
+                        "dynamodb:Scan",
+                        "dynamodb:GetItem",
+                        "dynamodb:PutItem",
+                        "dynamodb:UpdateItem",
+                        "dynamodb:DeleteItem",
+                        "dynamodb:DescribeTable",
+                    ],
+                    "Resource": table_arn,
+                    "Effect": "Allow",
+                },
+                {
+                    "Action": ["lambda:InvokeFunction"],
+                    "Resource": "*",  # TODO make it only the resume FN?
+                    "Effect": "Allow",
+                },
+            ],
+        }
 
-        assume_role_policy = json.dumps(
-            {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Principal": {"Service": "lambda.amazonaws.com"},
-                        "Action": "sts:AssumeRole",
-                    }
-                ],
-            }
-        )
+        s3_access_policy = ExecutionRole.get_s3_access_policy(config)
+
+        assume_role_policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"Service": "lambda.amazonaws.com"},
+                    "Action": "sts:AssumeRole",
+                }
+            ],
+        }
 
         client.create_role(
-            RoleName=name, AssumeRolePolicyDocument=assume_role_policy,
+            RoleName=name, AssumeRolePolicyDocument=json.dumps(assume_role_policy),
         )
         client.put_role_policy(
-            RoleName=name, PolicyName="default", PolicyDocument=policy
+            RoleName=name, PolicyName="default", PolicyDocument=json.dumps(policy)
+        )
+        client.put_role_policy(
+            RoleName=name,
+            PolicyName="s3_access",
+            PolicyDocument=json.dumps(s3_access_policy),
         )
         client.attach_role_policy(
             RoleName=name,
             PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
         )
-        # There isn't a waiter to check that it's propagated :(
-        # See also https://github.com/Miserlou/Zappa/commit/fa1b224fc43c7c8739dd179f9a038d31e13911e9
+        # It takes a while for the execution policy to propagate, and the lambda
+        # creation fails if it isn't. There isn't a waiter to check that it's
+        # propagated :( See also
+        # https://github.com/Miserlou/Zappa/commit/fa1b224fc43c7c8739dd179f9a038d31e13911e9
         # Hack for now:
         time.sleep(10)
 
@@ -556,10 +611,17 @@ class TealFunction:
         current_layers = [layer["Arn"] for layer in current_config["Layers"]]
         required_layers = cls.src_layers_list(config)
 
-        if cls.needs_src and current_layers != required_layers:
-            LOG.info(f"Layers for {name} changed, updating function")
+        if (
+            current_config["MemorySize"] != config.service.lambda_memory
+            or current_config["Timeout"] != config.service.lambda_timeout
+            or (cls.needs_src and current_layers != required_layers)
+        ):
+            LOG.info(f"Configuration for {name} changed, updating function")
             client.update_function_configuration(
-                FunctionName=name, Layers=required_layers
+                FunctionName=name,
+                Layers=required_layers,
+                Timeout=config.service.lambda_timeout,  # TODO make per-function?
+                MemorySize=config.service.lambda_memory,
             )
             needs_publish = True
 
@@ -571,6 +633,7 @@ class TealFunction:
         role_arn = ExecutionRole.get_arn(config)
         name = cls.resource_name(config)
 
+        # docs: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
         client.create_function(
             FunctionName=name,
             Runtime="python3.8",
@@ -583,6 +646,7 @@ class TealFunction:
                 S3Key=TealPackage.key,
             ),
             Timeout=config.service.lambda_timeout,  # TODO make per-function?
+            MemorySize=config.service.lambda_memory,
             Layers=src_layers_list() if cls.needs_src else [],
             # TODO make env per-function
             Environment=dict(
