@@ -21,8 +21,16 @@ extra_layers = [
 ## optional, location of Python dependencies:
 # python_requirements = "requirements.txt"
 
-## optional
-# lambda_timeout
+## optional, lambda function timeout (s)
+# lambda_timeout = 240
+
+## optional, lambda function timeout (s)
+lambda_memory = 512
 
 ## optional
 # data_dir
+
+## optional, enable read/write to one or more s3 buckets
+s3_access = [
+  "teal-examples-data"
+]

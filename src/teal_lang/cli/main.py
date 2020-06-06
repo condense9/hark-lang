@@ -19,7 +19,7 @@ Commands:
   destroy  Remove cloud deployment.
   invoke   Invoke a teal function in the cloud.
   events   Get events for a session.
-  events   Get logs for a session.
+  logs     Get logs for a session.
   default  Run a Teal function locally.
 
 General options:
@@ -170,12 +170,15 @@ def _destroy(args):
 class InvokeError(Exception):
     """Something broke while running"""
 
-    def __init__(self, err, traceback):
+    def __init__(self, err, traceback=None):
         self.err = err
         self.traceback = traceback
 
     def __str__(self):
-        return "\n\n" + str(self.err) + "\n" + "".join(self.traceback)
+        res = "\n\n" + str(self.err)
+        if self.traceback:
+            res += "\n" + "".join(self.traceback)
+        return res
 
 
 def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
@@ -191,13 +194,17 @@ def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
         print(logs)
 
     if "errorMessage" in response:
-        raise InvokeError(response["errorMessage"], response["stackTrace"])
+        raise InvokeError(response["errorMessage"])
 
     code = response.get("statusCode", None)
     if code == 400:
         print("Error! (statusCode: 400)\n")
         err = json.loads(response["body"])
-        raise InvokeError(err, err["traceback"])
+        if "traceback" in err:
+            raise InvokeError(err, err["traceback"])
+        else:
+            # FIXME
+            raise InvokeError(err, err)
 
     if code != 200:
         raise ValueError(f"Unexpected response code: {code}")
@@ -211,11 +218,16 @@ def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
 
 @timed
 def _invoke(args):
+    from ..config import load
+
+    cfg = load(config_file=Path(args["--config"]))
+    payload = {
+        "function": args["--fn"],
+        "args": args["ARG"],
+        "timeout": cfg.service.lambda_timeout,
+    }
     data = _call_cloud_api(
-        "new",
-        {"function": args["--fn"], "args": args["ARG"]},
-        Path(args["--config"]),
-        verbose=args["--verbose"],
+        "new", payload, Path(args["--config"]), verbose=args["--verbose"]
     )
     print(data["result"])
 

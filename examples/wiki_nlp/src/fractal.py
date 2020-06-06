@@ -222,20 +222,23 @@ def test_fracal():
     im.save(sys.stdout.buffer, "PNG")
 
 
-def save_fractal_to_file(fractal_name: str, size, dest):
+def save_fractal_to_file(fractal_name: str, size, dest, dirname=".") -> str:
     """Create a fractal and save it.
 
     Arguments:
         fractal_name (str): Name of a Fractals class member
         dest (str): Filename to save
         size (int): Modify the Fractal's size parameter
+
+    Returns path of saved file
     """
     fractal = getattr(Fractals, fractal_name)
     if size:
         fractal.size = size
     im = draw_fractal(fractal)
-    im.save(dest)
-    return dest
+    full_dest = dirname + "/" + dest
+    im.save(full_dest)
+    return full_dest
 
 
 def random_fractals(num) -> list:
