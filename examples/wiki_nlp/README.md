@@ -6,6 +6,12 @@ TODO - is this below the AWS free tier?
 
 TODO describe workflow.
 
+Workflow:
+- read CSV of fractals to generate
+- generate all of them in parallel
+- assemble into a collage
+
+
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
@@ -26,18 +32,28 @@ TODO describe workflow.
 
 To try this example you need:
 - An AWS account and AWS CLI configured
-- Serverless framework (https://serverless.com/)
 - Python 3.8
+- Minio (https://min.io/) for local testing
 
 
 ## Using This Example
 
 
-### 1. Install Teal
+### 1. Install Teal and retrieve Wikipedia data
 
 `pip install teal`
 
 Recommended: do this inside a virtual environment!
+
+Next, download the large (~800MB) archive of wikipedia abstracts into a
+directory we'll use with minio later.
+
+```
+mkdir -p minio_root/wikipedia_data
+
+curl https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-abstract.xml.gz \
+  -O minio_root/wikipedia_data/enwiki-latest-abstract.xml.gz
+```
 
 
 ### 2. Test it locally
@@ -46,19 +62,21 @@ Teal programs can be run locally before being deployed.
 
 Use minio to spin up a local S3-compatible server:
 
-`minio TODO`
+`minio server --address 127.0.0.1:9000 minio_root`
 
-Copy some test data into the bucket:
+Check that http://127.0.0.1:9000/minio/wikipedia_data/ shows the data.
 
-`s3 cp TODO --endpoint-url`
+Point the code at the server (note that the endpoint is **http***):
 
-Point the code at the server:
+```
+export S3_BUCKET=wikipedia_data
 
-`export S3_URL https://localhost:TODO`
+export MINIO_ENDPOINT=http://localhost:9000
+```
 
 And run the Teal program:
 
-`teal main.tl -f on_upload test_data.xml`
+`teal main.tl enwiki-latest-abstract.xml.gz`
 
 Check the results: TODO
 
@@ -89,24 +107,17 @@ Upload the test data to S3:
 
 Trigger the function:
 
-`tealc run on_upload test_data.xml`
+`teal invoke TODO`
 
 And monitor:
 
-- `tealc status` ?? (Teal Cloud)
-- `tealc list`
-- `tealc logs [-f] SESSION_ID`
-
-
-### 5. To production (optional)
-
-`serverless deploy --prod`
-
-`teal deploy`
+- `teal status` ?? to implement
+- `teal list` ?? to implement
+- `teal logs SESSION_ID`
 
 
 ## Next Steps
 
 The pipeline could be triggered by an S3 upload.
 
-TODO - add serverless.yml extension to do this.
+TODO - add a config option (s3_trigger)? Or make it manual
