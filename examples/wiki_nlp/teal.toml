@@ -6,9 +6,6 @@ name = "wikinlp"
 ## optional, deployment region (defaults to AWS_DEFAULT_REGION):
 # region = "eu-west-2"
 
-
-# tfenv or cdk
-
 ## optional, file containing Teal code to be deployed
 # teal_file = "service.tl"
 
@@ -23,3 +20,9 @@ extra_layers = [
 
 ## optional, location of Python dependencies:
 # python_requirements = "requirements.txt"
+
+## optional
+# lambda_timeout
+
+## optional
+# data_dir

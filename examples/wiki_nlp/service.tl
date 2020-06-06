@@ -1,30 +1,37 @@
-// import(extract_pages, :python src.extract_pages)
-// import(process_page, :python src.process_page)
-// import(aggregate, :python src.aggregate)
-import(test_pillow, :python src.fractal)
+import(random_fractals, :python src.fractal)
+import(save_fractal_to_file, :python src.fractal)
+import(upload_to_bucket, :python src.store)
 
 
-fn _map(list, func, acc) {
-  if nullp(list) {
+// Tail-recursive version of map
+fn map_tr(items, func, acc) {
+  if nullp(items) {
     acc
   }
   else {
-    _map(rest(list), func, append(acc, func(first(list))))
+    map_tr(rest(items), func, append(acc, func(first(items))))
   }
 }
 
-fn map(list, func) {
-  _map(list, func, null)
+fn map(items, func) {
+  map_tr(items, func, null)
 }
 
 
-// fn main(archive_key) {
-//   page_names = extract_pages(archive_key)
-//   results = map(page_names, process_page)
-//   aggregate(results)
-// }
+// Map and wait
+fn map_wait(items, func) {
+  map(map(items, func), wait)
+}
+
+
+fn build_fractal(args) {
+  async save_fractal_to_file(nth(args, 0), nth(args, 1), nth(args, 2))
+}
 
 
 fn main() {
-  test_pillow()
+  // map(list(1, 2, 3), print)
+  fractals = random_fractals(3)
+  results = map_wait(fractals, build_fractal)
+  map(results, upload_to_bucket)
 }

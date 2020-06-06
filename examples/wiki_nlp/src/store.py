@@ -1,4 +1,4 @@
-"""Implement the fractal data store"""
+"""An S3 data store for the fractals"""
 
 import os
 from pathlib import Path
@@ -27,6 +27,7 @@ def _get_s3_bucket():
 
 def upload_to_bucket(filepath, key_prefix: str = "fractals/"):
     """Upload a fractal to a bucket"""
+    print(f"uploading {filepath}...")
     filepath = Path(filepath)
     bucket = _get_s3_bucket()
     bucket.upload_file(str(filepath), key_prefix + filepath.name)

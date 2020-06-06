@@ -175,6 +175,7 @@ def draw_l_system(t: Turtle, instructions: str, angle: Turtle.Degrees, distance:
 
 
 def draw_fractal(fractal, linewidth=2, margin=20) -> Image:
+    """Draw a Fractal"""
     descr = create_l_system(fractal.iterations, fractal.axiom, fractal.rules)
 
     # Walk the fractal once without drawing it, so we can get dimensions
@@ -214,6 +215,7 @@ def draw_fractal(fractal, linewidth=2, margin=20) -> Image:
 
 
 def test_fracal():
+    """Create a single fractal and output it on stdout"""
     im = draw_fractal(Fractals.koch)
     # draw_fractal(Fractals.triangle)
 
@@ -243,17 +245,20 @@ def random_fractals(num) -> list:
         (random.choice(fractal_names), random.randint(5, 10)) for _ in range(num)
     ]
     save_fractal_args = [
-        (name, size, f"{idx:03}_{name}.png") for idx, (name, size) in enumerate(to_draw)
+        [name, size, f"{idx:03}_{name}.png"] for idx, (name, size) in enumerate(to_draw)
     ]
     return save_fractal_args
 
 
-def main():
-    # test_fracal()
-    # save_fractal("koch", "foo2.png")
+def test_store():
+    """Create a random fractal and save it in S3"""
     args = random_fractals(1)
     output = save_fractal_to_file(*args[0])
     store.upload_to_bucket(output)
+
+
+def main():
+    test_store()
 
 
 if __name__ == "__main__":
