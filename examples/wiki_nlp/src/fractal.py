@@ -1,11 +1,77 @@
 """Fun with Fractals!"""
 
-
+import math
 import sys
+from dataclasses import dataclass
+
 from PIL import Image, ImageDraw
 
 
-# https://elc.github.io/posts/plotting-fractals-step-by-step-with-python/#code
+@dataclass
+class Params:
+    axiom: str
+    rules: dict
+    iterations: int
+    angle: int
+
+
+# From https://elc.github.io/posts/plotting-fractals-step-by-step-with-python/#code
+class Fractals:
+    three_dragon = Params(
+        # --
+        axiom="FX+FX+FX",
+        rules={"X": "X+YF+", "Y": "-FX-Y"},
+        iterations=7,
+        angle=90,
+    )
+
+    twin_dragon = Params(
+        # --
+        axiom="FX+FX",
+        rules={"X": "X+YF+", "Y": "-FX-Y"},
+        iterations=6,
+        angle=90,
+    )
+
+    koch = Params(
+        # --
+        axiom="F--F--F",
+        rules={"F": "F+F--F+F"},
+        iterations=4,
+        angle=60,
+    )
+
+
+@dataclass
+class Turtle:
+    """A minimal turtle-like drawing interface"""
+
+    Radians = float
+
+    draw: ImageDraw
+    pos_x: int = 0
+    pos_y: int = 0
+    angle: Radians = 0
+    colour: tuple = (10, 170, 170)
+    width: int = 1
+
+    def forward(self, dist):
+        """Move forward by dist, drawing a line in the process"""
+        start = (self.pos_x, self.pos_y)
+        self.pos_x += dist * math.cos(self.angle)
+        self.pos_y += dist * math.sin(self.angle)
+        end = (self.pos_x, self.pos_y)
+        self.draw.line([start, end], fill=self.colour, width=self.width)
+
+    def right(self, angle: Radians, deg: float = None):
+        if deg:
+            angle = math.radians(deg)
+        self.angle = (self.angle + angle) % math.pi
+
+    def left(self, angle: Radians, deg: float = None):
+        if deg:
+            angle = math.radians(deg)
+        self.angle = (self.angle - angle) % math.pi
 
 
 def create_l_system(iters, axiom, rules):
@@ -34,10 +100,11 @@ def draw_l_system(draw, instructions, angle, distance):
             t.left(angle)
 
 
-def test_pillow(width=200, height=200, alpha=100):
+# https://pillow.readthedocs.io/en/stable/reference/ImageDraw.html
+def test_pillow(width=200, height=200):
     """Draw an X on a gray background and print to stdout"""
     # Modes: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
-    im = Image.new("RGBA", (width, height), (128, 128, 128, alpha))
+    im = Image.new("RGBA", (width, height), (128, 128, 128))
     draw = ImageDraw.Draw(im)
 
     teal_colour = (10, 100, 100)
@@ -48,37 +115,46 @@ def test_pillow(width=200, height=200, alpha=100):
     im.save(sys.stdout.buffer, "PNG")
 
 
-# def main(
-#     iterations,
-#     axiom,
-#     rules,
-#     angle,
-#     length=8,
-#     size=2,
-#     y_offset=0,
-#     x_offset=0,
-#     offset_angle=0,
-#     width=450,
-#     height=450,
-# ):
-#     inst = create_l_system(iterations, axiom, rules)
-#     t = turtle.Turtle()
-#     wn = turtle.Screen()
-#     wn.setup(width, height)
-#     t.up()
-#     t.backward(-x_offset)
-#     t.left(90)
-#     t.backward(-y_offset)
-#     t.left(offset_angle)
-#     t.down()
-#     t.speed(0)
-#     t.pensize(size)
-#     draw_l_system(t, inst, angle, length)
-#     t.hideturtle()
+def test_turtle(width=200, height=200):
+    im = Image.new("RGB", (width, height), (0, 0, 0))
+    draw = ImageDraw.Draw(im)
+    t = Turtle(draw)
+    t.right(45)
+    t.forward(100)
+    im.save(sys.stdout.buffer, "PNG")
+
+
+def main(
+    iterations,
+    axiom,
+    rules,
+    angle,
+    length=8,
+    size=2,
+    y_offset=0,
+    x_offset=0,
+    offset_angle=0,
+    width=450,
+    height=450,
+):
+    inst = create_l_system(iterations, axiom, rules)
+    t = turtle.Turtle()
+    wn = turtle.Screen()
+    wn.setup(width, height)
+    t.up()
+    t.backward(-x_offset)
+    t.left(90)
+    t.backward(-y_offset)
+    t.left(offset_angle)
+    t.down()
+    t.speed(0)
+    t.pensize(size)
+    draw_l_system(t, inst, angle, length)
+    t.hideturtle()
 
 
 def main():
-    test_pillow()
+    test_turtle()
 
 
 if __name__ == "__main__":

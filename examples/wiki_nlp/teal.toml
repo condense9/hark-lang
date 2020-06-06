@@ -17,6 +17,7 @@ name = "wikinlp"
 
 ## optional, extra layers to use (maximum of 4)
 extra_layers = [
+  # Layer from: https://github.com/keithrozario/Klayers
   "arn:aws:lambda:eu-west-2:770693421928:layer:Klayers-python38-Pillow:4"
 ]
 
