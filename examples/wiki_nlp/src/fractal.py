@@ -46,59 +46,38 @@ class Fractals:
 class Turtle:
     """A minimal turtle-like drawing interface"""
 
-    Radians = float
     Degrees = float
 
     draw: ImageDraw
     pos_x: int = 0
     pos_y: int = 0
-    angle: Radians = 0
-    colour: tuple = (10, 170, 170)
+    angle: Degrees = 0
+    colour: tuple = (10, 240, 240)
     width: int = 1
+    pen_down: bool = True
 
     def forward(self, dist):
         """Move forward by dist, drawing a line in the process"""
         start = (self.pos_x, self.pos_y)
-        self.pos_x += dist * math.cos(self.angle)
-        self.pos_y += dist * math.sin(self.angle)
+        self.pos_x += dist * math.cos(math.radians(self.angle))
+        self.pos_y += dist * math.sin(math.radians(self.angle))
         end = (self.pos_x, self.pos_y)
-        self.draw.line([start, end], fill=self.colour, width=self.width)
+        if self.pen_down:
+            self.draw.line([start, end], fill=self.colour, width=self.width)
 
-    def right(self, angle: Radians):
-        """Turn left by ANGLE radians"""
-        self.angle = (self.angle + angle) % (2 * math.pi)
+    def right(self, angle: Degrees):
+        """Turn left by ANGLE degrees"""
+        prev = self.angle
+        self.angle = (self.angle + angle) % 360.0
+        # print(f"RIGHT | {prev} + {angle} = {self.angle}")
 
-    def left(self, angle: Radians):
-        """Turn left by ANGLE radians"""
+    def left(self, angle: Degrees):
+        """Turn left by ANGLE degrees"""
+        prev = self.angle
         self.angle = self.angle - angle
         if self.angle < 0:
-            self.angle += 2 * math.pi
-
-
-def create_l_system(iters, axiom, rules):
-    """Build the complete L-System sequence"""
-    if iters == 0:
-        return axiom
-
-    end_string = ""
-    start_string = axiom
-
-    for _ in range(iters):
-        end_string = "".join(rules[i] if i in rules else i for i in start_string)
-        start_string = end_string
-
-    return end_string
-
-
-def draw_l_system(draw, instructions, angle, distance):
-    """Draw the L-System"""
-    for cmd in instructions:
-        if cmd == "F":
-            t.forward(distance)
-        elif cmd == "+":
-            t.right(angle)
-        elif cmd == "-":
-            t.left(angle)
+            self.angle += 360.0
+        # print(f"LEFT  | {prev} - {angle} = {self.angle}")
 
 
 # https://pillow.readthedocs.io/en/stable/reference/ImageDraw.html
@@ -121,46 +100,70 @@ def test_turtle(width=200, height=200):
     im = Image.new("RGB", (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(im)
     t = Turtle(draw)
-    t.right(math.radians(45))
+    t.right(45)
     t.forward(100)
-    t.left(math.radians(45))
+    t.left(45)
     t.forward(100)
-    t.left(math.radians(90))
+    t.left(90)
     t.forward(50)
     im.save(sys.stdout.buffer, "PNG")
 
 
-def main(
-    iterations,
-    axiom,
-    rules,
-    angle,
-    length=8,
-    size=2,
-    y_offset=0,
-    x_offset=0,
-    offset_angle=0,
-    width=450,
-    height=450,
-):
-    inst = create_l_system(iterations, axiom, rules)
-    t = turtle.Turtle()
-    wn = turtle.Screen()
-    wn.setup(width, height)
-    t.up()
-    t.backward(-x_offset)
-    t.left(90)
-    t.backward(-y_offset)
-    t.left(offset_angle)
-    t.down()
-    t.speed(0)
-    t.pensize(size)
-    draw_l_system(t, inst, angle, length)
-    t.hideturtle()
+def create_l_system(iters, axiom, rules) -> str:
+    """Build the complete L-System sequence"""
+    if iters == 0:
+        return axiom
+
+    end_string = ""
+    start_string = axiom
+
+    for _ in range(iters):
+        end_string = "".join(rules[i] if i in rules else i for i in start_string)
+        start_string = end_string
+
+    return end_string
+
+
+def draw_l_system(t: Turtle, instructions: str, angle: Turtle.Degrees, distance: float):
+    """Draw the L-System"""
+    for cmd in instructions:
+        if cmd == "F":
+            t.forward(distance)
+        elif cmd == "+":
+            t.right(angle)
+        elif cmd == "-":
+            t.left(angle)
+
+
+def draw_fractal(fractal, linewidth=5, width=400, height=400, size=8):
+    # Oversample to reduce anti-aliasing and make things look nicer
+    oversampling = 10
+    original_width = width
+    original_height = height
+    width = int(width * oversampling)
+    height = int(height * oversampling)
+
+    im = Image.new("RGB", (width, height), (0, 0, 0))
+    draw = ImageDraw.Draw(im)
+    t = Turtle(
+        draw, pos_x=int(width / 2), pos_y=int(height / 2), angle=0, width=linewidth,
+    )
+
+    descr = create_l_system(fractal.iterations, fractal.axiom, fractal.rules)
+    draw_l_system(t, descr, fractal.angle, size * oversampling)
+
+    # Scale back down
+    im = im.resize((original_width, original_height), resample=Image.BILINEAR)
+    im.save(sys.stdout.buffer, "PNG")
+
+
+def test_fracal():
+    draw_fractal(Fractals.koch)
 
 
 def main():
-    test_turtle()
+    # test_turtle()
+    test_fracal()
 
 
 if __name__ == "__main__":
