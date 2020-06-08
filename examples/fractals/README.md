@@ -58,7 +58,7 @@ To get the full experience you need:
 - Minio (https://min.io/) for local testing
 
 
-## Using This Example
+## Walkthrough
 
 
 ### 1. Install Teal
