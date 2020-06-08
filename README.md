@@ -7,37 +7,35 @@ with very little infrastructure. It's like having a cluster, without having to
 manage a cluster.
 
 Teal threads run in parallel on separate compute resource, and Teal handles data
-transfer and synchronisation.
+transfer and synchronisation, but without a separate orchestrator or
+coordination service.
 
-**Data in**: Teal is built on AWS Lambda, so if you can pass data in to Lambda,
-you can pass it to Teal.
+**Data in**: You can invoke Teal like any Lambda function (AWS cli, S3 trigger,
+API gateway, etc).
 
 **Data out**: Use the Python libraries you already have for database access.
 Teal just connects them together.
 
-There is a local runtime too, so you can thoroughly test Teal programs before
-deployment.
+**Testing**: There is a local runtime too, so you can thoroughly test Teal
+programs before deployment (using minio and localstack for any additional
+infrastructure that your code uses).
 
 | Teal is like...                     | But...                                                                                                   |
 |-------------------------------------|----------------------------------------------------------------------------------------------------------|
 | AWS Step Functions                  | Teal programs can be tested locally, and aren't bound to AWS.                                            |
 | Orchestrators (Apache Airflow, etc) | You don't have to manage infrastructure, or think in terms of DAGs, and you can test everything locally. |
 | Task runners (Celery, etc)          | You don't have to manage infrastructure.                                                                 |
-| Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex.                                           |
+| Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex - their behaviour isn't always obvious.    |
 
 [Read more...](#why-teal)
 
 ---
 
 Teal functions are like coroutines - they can be paused and resumed at any
-point. Try doing that with Python, across multiple Lambda invocations ([Read
-more...](#faq)).
+point. Each horizontal bar in this plot is a separate Lambda invocation. Try
+implementing that in Python. [Read more...](#faq)
 
 ![Concurrency](doc/functions.png)
-
-Documentation coming soon! For now, check out the [the Fractal example](examples/fractals)
-or the [Playground](https://www.teal-lang.org/playground).
-
 
 
 ## Getting started
@@ -48,7 +46,9 @@ $ pip install teal-lang
 
 This gives you the `teal` executable - try `teal -h`.
 
-Play with [the Fractal example](examples/fractals).
+Documentation is coming soon! For now, check out the [the Fractal
+example](examples/fractals) or the
+[Playground](https://www.teal-lang.org/playground).
 
 [Create an issue](https://github.com/condense9/teal-lang/issues) if none of this
 makes sense, or you'd like help getting started.
@@ -59,7 +59,7 @@ makes sense, or you'd like help getting started.
 Teal *is* for you if:
 - you use Python for long-running tasks.
 - you have an AWS account.
-- you have a repository of data processing scripts, and want to connect them
+- you have a repository of data processing scripts, and want to run them
   together in the cloud.
 - You don't have time (or inclination) to deploy and manage a full-blown task
   platform (Airflow, Celery, etc).
@@ -95,7 +95,7 @@ needlessly reinventing the wheel.
 Teal is a simple compiled language with only a few constructs:
 
 1. named variables
-2. `async`/`await` concurrency primitives 
+2. `async` & `await` concurrency primitives 
 3. Python (>=3.8) interoperability (FFI)
 4. A few basic types (strings, numbers, lists)
 5. first-class functions (proper closures coming soon)
@@ -112,7 +112,7 @@ terminates, and automatically continues when `y` is finished being computed.
 `service.tl` and prints to stdout.
 
 **Tracing and profiling**: Teal has a built-in tracer tool, so it's easy to see
-where the time is going: `teal events $SESSION_ID`.
+where the time is going.
 
 
 ## FAQ
