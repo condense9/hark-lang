@@ -27,8 +27,8 @@ The Teal service is pretty simple:
         - [1. Install Teal](#1-install-teal)
         - [2. Test Fractal generation locally](#2-test-fractal-generation-locally)
         - [3. Configure the deployment](#3-configure-the-deployment)
-        - [3. Deploy the infrastructure](#3-deploy-the-infrastructure)
-        - [4. Test it](#4-test-it)
+        - [4. Deploy the infrastructure](#4-deploy-the-infrastructure)
+        - [5. Test it](#5-test-it)
     - [Next Steps](#next-steps)
 
 <!-- markdown-toc end -->
@@ -94,7 +94,7 @@ Variables in `teal_env.txt` will be exposed to your Python code.
 Teal will be given full read/write access to this bucket.
 
 
-### 3. Deploy the infrastructure
+### 4. Deploy the infrastructure
 
 (From inside the virtual environment.)
 
@@ -114,7 +114,7 @@ Feel free to re-run this command -- it will only update the necessary parts.
 Use the `-v` flag to see what is actually updated.
 
 
-### 4. Test it
+### 5. Test it
 
 `$ teal -v invoke`
 
