@@ -1,5 +1,12 @@
 # Batch Fractal Generation
 
+This example generates Fractals in parallel on AWS Lambda, using Python's PIL
+(Pillow) library and some recursive plotting.
+
+1. randomly generate a list of N Fractals to draw.
+2. draw each one in parallel (fan-out N Lambda invocations) and save in S3.
+3. Coming soon: merge them all into a collage (fan-in).
+
 Quick-start:
 
 ```
@@ -15,13 +22,6 @@ $ aws s3 ls s3://<your_s3_bucket>/fractals --recursive
 ```
 
 ---
-
-This example generates Fractals in parallel on AWS Lambda, using Python's PIL
-(Pillow) library and some recursive plotting.
-
-1. randomly generate a list of N Fractals to draw.
-2. draw each one in parallel (fan-out N Lambda invocations) and save in S3.
-3. Coming soon: merge them all into a collage (fan-in).
 
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
