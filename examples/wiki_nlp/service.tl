@@ -1,5 +1,5 @@
-import(random_fractals, :python src.fractal)
-import(save_fractal_to_file, :python src.fractal)
+import(random_fractals, :python src.draw)
+import(save_fractal_to_file, :python src.draw)
 import(upload_to_bucket, :python src.store)
 
 
