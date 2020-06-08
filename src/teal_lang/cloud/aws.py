@@ -541,8 +541,9 @@ class SourceLayer:
             if not versions["LayerVersions"]:
                 break
             for v in versions["LayerVersions"]:
-                client.delete_layer_version(LayerName=name, VersionNumber=v["Version"])
-                LOG.info(f"deleted layer {name} v{v}")
+                number = v["Version"]
+                client.delete_layer_version(LayerName=name, VersionNumber=number)
+                LOG.info(f"deleted layer {name} v{number}")
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#client
@@ -653,7 +654,7 @@ class TealFunction:
             ),
             Timeout=config.service.lambda_timeout,  # TODO make per-function?
             MemorySize=config.service.lambda_memory,
-            Layers=src_layers_list() if cls.needs_src else [],
+            Layers=cls.src_layers_list(config) if cls.needs_src else [],
             Environment=dict(Variables=cls.get_environment_variables(config)),
         )
         LOG.info(f"Created function {name}")
