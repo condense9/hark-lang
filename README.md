@@ -14,7 +14,6 @@ import(get_metadata,   :python src.data_lib)
 import(save_item,      :python src.data_lib)
 import(aggregate,      :python src.data_lib)
 
-
 fn handle(item) {
   // Get the metadata and do the transform in parallel
   metadata = async get_metadata(item)
@@ -26,6 +25,7 @@ fn main(items_csv) {
   items = read_items(items_csv)
   results = map(items, async handle)
   aggregate(map(results, await)) // wait for all handling to finish
+  "done"
 }
 ```
 
@@ -35,12 +35,15 @@ Run it locally:
 $ teal service.tl test_items.csv
 ```
 
-And deploy it in less than 60 seconds:
+And deploy it to the cloud:
 
-```
+```shell
 $ teal deploy
+Teal: {"version": "0.2.1"}
+Done (52s elapsed).
 
 $ aws s3 cp test_items.csv s3://your-bucket teal
+...
 
 $ invoke -f main test_items.csv
 ```
@@ -48,28 +51,6 @@ $ invoke -f main test_items.csv
 ---
 
 ## Introduction
-
-<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
-**Table of Contents**
-
-- [The Teal Programming Language](#the-teal-programming-language)
-    - [Introduction](#introduction)
-    - [Getting started](#getting-started)
-        - [Teal May Not Be For You!](#teal-may-not-be-for-you)
-    - [Why Teal?](#why-teal)
-    - [FAQ](#faq)
-    - [Current Limitations and Roadmap](#current-limitations-and-roadmap)
-        - [Libraries](#libraries)
-        - [Error Handling](#error-handling)
-        - [Typing](#typing)
-        - [Calling Arbitrary Services](#calling-arbitrary-services)
-        - [Dictionary (associative map) primitives](#dictionary-associative-map-primitives)
-    - [Contributing](#contributing)
-    - [About](#about)
-    - [License](#license)
-
-<!-- markdown-toc end -->
-
 
 Teal threads run in parallel on separate compute resource, and Teal handles data
 transfer and synchronisation.
@@ -92,8 +73,6 @@ infrastructure that your code uses).
 | Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex - their behaviour isn't always obvious.    |
 
 [Read more...](#why-teal)
-
----
 
 Teal functions are like coroutines - they can be paused and resumed at any
 point. Each horizontal bar in this plot is a separate Lambda invocation. Try
