@@ -12,7 +12,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ROOT=$(realpath "${DIR}/..")
 
 
-BRANCH=$(git rev-parse --abbrev-ref HEAD --)
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 if [[ "${BRANCH}" != "master" ]]; then
     echo "You must be on master to release."
