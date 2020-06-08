@@ -17,7 +17,6 @@ LOG = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class ServiceConfig:
-    name: str
     region: str
     python_src: Path
     python_requirements: Path
@@ -96,17 +95,21 @@ def load(config_file: Path = None, *, create_deployment_id=False) -> Config:
     if not config_file:
         config_file = DEFAULT_CONFIG_FILENAME
 
-    data = toml.load(config_file)
-
     try:
-        service = data["service"]
-    except KeyError:
-        raise ConfigError(f"No [service] section in {config_file}")
+        data = toml.load(config_file)
+    except FileNotFoundError:
+        LOG.info(f"{config_file} not found, using default service configuration")
+        service = SERVICE_DEFAULTS
+    else:
+        try:
+            service = data["service"]
+        except KeyError:
+            raise ConfigError(f"No [service] section in {config_file}")
 
-    for key, value in SERVICE_DEFAULTS.items():
-        if key not in service:
-            service[key] = value
-            LOG.info(f"Using default for `{key}`: {value}")
+        for key, value in SERVICE_DEFAULTS.items():
+            if key not in service:
+                service[key] = value
+                LOG.info(f"Using default for `{key}`: {value}")
 
     if not service.get("region", None):
         session = boto3.session.Session()

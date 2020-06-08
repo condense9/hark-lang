@@ -1,16 +1,13 @@
 [service]
 
-## required, name of the service:
-name = "wikinlp"
-
 ## optional, deployment region (defaults to AWS_DEFAULT_REGION):
-# region = "eu-west-2"
+region = "eu-west-2"
 
 ## optional, file containing Teal code to be deployed
-# teal_file = "service.tl"
+teal_file = "service.tl"
 
 ## optional, location of Python source:
-# python_src = "src"
+python_src = "src"
 
 ## optional, extra layers to use (maximum of 4)
 extra_layers = [

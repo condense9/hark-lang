@@ -68,7 +68,7 @@ def hash_file(filename: Path) -> str:
 class DataBucket:
     @staticmethod
     def resource_name(config):
-        return f"teal-{config.service.deployment_id}-{config.service.name}"
+        return f"teal-{config.service.deployment_id}"
 
     @staticmethod
     def exists(config):
@@ -250,7 +250,7 @@ class SourceLayerPackage(S3File):
 class DataTable:
     @staticmethod
     def resource_name(config):
-        return f"teal-{config.service.deployment_id}-{config.service.name}"
+        return f"teal-{config.service.deployment_id}"
 
     @staticmethod
     def exists(config):
@@ -311,7 +311,7 @@ class DataTable:
 class ExecutionRole:
     @staticmethod
     def resource_name(config):
-        return f"teal-{config.service.deployment_id}-{config.service.name}"
+        return f"teal-{config.service.deployment_id}"
 
     @staticmethod
     def get_arn(config):
@@ -326,7 +326,6 @@ class ExecutionRole:
             res = client.get_role(RoleName=ExecutionRole.resource_name(config))
             return True
         except client.exceptions.NoSuchEntityException:
-            LOG.info(f"Execution role {name} does not exist yet")
             return False
 
     @staticmethod
@@ -489,7 +488,7 @@ class ExecutionRole:
 class SourceLayer:
     @staticmethod
     def resource_name(config):
-        return f"teal-{config.service.deployment_id}-{config.service.name}-src"
+        return f"teal-{config.service.deployment_id}-src"
 
     @staticmethod
     def get_arn(config) -> Union[None, str]:
@@ -543,7 +542,7 @@ class SourceLayer:
                 break
             for v in versions["LayerVersions"]:
                 client.delete_layer_version(LayerName=name, VersionNumber=v["Version"])
-        LOG.info(f"deleted layer {name}")
+                LOG.info(f"deleted layer {name} v{v}")
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#client
@@ -552,7 +551,7 @@ class TealFunction:
 
     @classmethod
     def resource_name(cls, config):
-        return f"teal-{config.service.deployment_id}-{config.service.name}-{cls.name}"
+        return f"teal-{config.service.deployment_id}-{cls.name}"
 
     @classmethod
     def exists(cls, config):
@@ -780,6 +779,8 @@ def destroy(config):
     # destroy in reverse order so dependencies go first
     for res in reversed(CORE_RESOURCES):
         res.delete_if_exists(config)
+
+    print(f"You can safely rm -rf {config.service.data_dir}")
 
 
 def show(config):
