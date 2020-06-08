@@ -204,7 +204,7 @@ def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
     if code != 200:
         raise ValueError(f"Unexpected response code: {code}")
 
-    body = json.loads(response["body"]) if as_json else body
+    body = json.loads(response["body"]) if as_json else response["body"]
     if verbose:
         pprint.pprint(body)
 
