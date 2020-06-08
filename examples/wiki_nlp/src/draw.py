@@ -1,11 +1,14 @@
-"""Fun with Fractals!"""
+"""Fun with Fractals!
+
+Credit: https://elc.github.io/posts/plotting-fractals-step-by-step-with-python
+"""
 
 import itertools
 import math
 import random
 import sys
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 from . import store
 from .fractals import Fractals
 from .tortoise import Tortoise
@@ -90,6 +93,7 @@ def draw_fractal(fractal, linewidth=2, margin=20) -> Image:
     # Scale back down
     # Filters: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#filters
     im = im.resize((final_width, final_height), resample=Image.LANCZOS)
+    im = im.filter(ImageFilter.SMOOTH)
     im = im.convert("RGB")
     return im
 
@@ -104,7 +108,7 @@ def test_fractal():
     im.save(sys.stdout.buffer, "PNG")
 
 
-def save_fractal_to_file(fractal_name: str, size, dest, dirname=".") -> str:
+def save_fractal_to_file(fractal_name: str, size, dirname=".") -> str:
     """Create a fractal and save it.
 
     Arguments:
@@ -114,9 +118,9 @@ def save_fractal_to_file(fractal_name: str, size, dest, dirname=".") -> str:
 
     Returns path of saved file
     """
+    dest = f"{fractal_name}_{size}.png"
     fractal = getattr(Fractals, fractal_name)
-    if size:
-        fractal.size = size
+    fractal.size = size
     im = draw_fractal(fractal)
     full_dest = dirname + "/" + dest
     im.save(full_dest)
@@ -126,13 +130,9 @@ def save_fractal_to_file(fractal_name: str, size, dest, dirname=".") -> str:
 def random_fractals(num) -> list:
     """Create a list of random fractals to generate"""
     fractal_names = [x for x in dir(Fractals) if not x.startswith("_")]
-    to_draw = [
-        (random.choice(fractal_names), random.randint(5, 10)) for _ in range(num)
+    return [  # --
+        [random.choice(fractal_names), random.randint(5, 10)] for _ in range(num)
     ]
-    save_fractal_args = [
-        [name, size, f"{idx:03}_{name}.png"] for idx, (name, size) in enumerate(to_draw)
-    ]
-    return save_fractal_args
 
 
 def test_store():
@@ -142,5 +142,10 @@ def test_store():
     store.upload_to_bucket(output)
 
 
+# TODO make a Fractal collage with https://github.com/secnot/rectpack
+
 if __name__ == "__main__":
     test_fractal()
+    # im = draw_fractal(Fractals.segment_curve)
+    # im = draw_fractal(Fractals.ter_dragon)
+    # im.save(sys.stdout.buffer, "PNG")

@@ -6,7 +6,7 @@ from pathlib import Path
 import boto3
 from botocore.client import Config
 
-DATA_BUCKET_NAME = os.getenv("S3_BUCKET", "teal-examples-data")
+DATA_BUCKET_NAME = os.environ["FRACTALS_BUCKET"]
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", None)
 
 
@@ -27,9 +27,9 @@ def _get_s3_bucket():
 
 def upload_to_bucket(filepath, key_prefix: str = "fractals/") -> str:
     """Upload a fractal to a bucket"""
-    print(f"uploading {filepath}...")
     filepath = Path(filepath)
     bucket = _get_s3_bucket()
+    print(f"uploading {filepath} to {bucket}...")
     dest = key_prefix + filepath.name
     bucket.upload_file(str(filepath), dest)
     return dest

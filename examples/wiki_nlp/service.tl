@@ -27,7 +27,7 @@ fn map_wait(items, func) {
 // FFI must be wrapped in a Teal func to be called async
 fn do_save(args) {
   print(args)
-  result = save_fractal_to_file(nth(args, 0), nth(args, 1), nth(args, 2), "/tmp")
+  result = save_fractal_to_file(nth(args, 0), nth(args, 1), "/tmp")
   upload_to_bucket(result)
 }
 

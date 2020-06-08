@@ -1,28 +1,33 @@
-# Wikipedia NLP
+# Batch Fractal Generation
 
-Batch NLP (natural language processing) analysis of wikipedia data dumps. 
+Quick-start:
+- `$ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt`
+- `$ teal -v deploy`
+- `$ teal invoke`
+- `$ aws s3 ls s3://<your_s3_bucket>/fractals --recursive`
+- Check out the Fractal PNGs that have been generated in your S3 bucket!
 
-TODO - is this below the AWS free tier?
+---
 
-TODO describe workflow.
+This example generates Fractals in parallel on AWS Lambda, using Python's PIL
+(Pillow) library and some recursive plotting.
 
-Workflow:
-- read CSV of fractals to generate
-- generate all of them in parallel
-- assemble into a collage
+The Teal service is pretty simple:
+- randomly generate a list of N Fractals to draw
+- draw each one in parallel (fan-out N Lambda invocations) and save in S3
+- Coming soon: merge them all into a collage (fan-in)
 
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
-- [Wikipedia NLP](#wikipedia-nlp)
+- [Batch Fractal Generation](#batch-fractal-generation)
     - [Prerequisites](#prerequisites)
     - [Using This Example](#using-this-example)
-        - [1. Install Teal](#1-install-teal)
+        - [1. Install Teal and retrieve Wikipedia data](#1-install-teal-and-retrieve-wikipedia-data)
         - [2. Test it locally](#2-test-it-locally)
         - [3. Deploy the infrastructure](#3-deploy-the-infrastructure)
         - [4. Test it](#4-test-it)
-        - [5. To production (optional)](#5-to-production-optional)
     - [Next Steps](#next-steps)
 
 <!-- markdown-toc end -->
@@ -30,8 +35,9 @@ Workflow:
 
 ## Prerequisites
 
-To try this example you need:
+To get the full experience you need:
 - An AWS account and AWS CLI configured
+- An S3 bucket in your account
 - Python 3.8
 - Minio (https://min.io/) for local testing
 
@@ -39,56 +45,62 @@ To try this example you need:
 ## Using This Example
 
 
-### 1. Install Teal and retrieve Wikipedia data
+### 1. Install Teal
 
-`pip install teal`
+`$ pip install teal`
 
 Recommended: do this inside a virtual environment!
 
-Next, download the large (~800MB) archive of wikipedia abstracts into a
-directory we'll use with minio later.
 
-```
-mkdir -p minio_root/wikipedia_data
-
-curl https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-abstract.xml.gz \
-  -O minio_root/wikipedia_data/enwiki-latest-abstract.xml.gz
-```
-
-
-### 2. Test it locally
+### 2. Test Fractal generation locally
 
 Teal programs can be run locally before being deployed.
 
 Use minio to spin up a local S3-compatible server:
 
-`minio server --address 127.0.0.1:9000 minio_root`
+```
+$ mkdir -p minio_root/data
 
-Check that http://127.0.0.1:9000/minio/wikipedia_data/ shows the data.
+$ minio server --address 127.0.0.1:9000 minio_root
+```
+
+Check that http://127.0.0.1:9000/minio/data is working.
 
 Point the code at the server (note that the endpoint is **http***):
 
 ```
-export S3_BUCKET=wikipedia_data
+$ export FRACTALS_BUCKET=data
 
-export MINIO_ENDPOINT=http://localhost:9000
+$ export MINIO_ENDPOINT=http://localhost:9000
 ```
 
-And run the Teal program:
+Run the Teal program:
 
-`teal main.tl enwiki-latest-abstract.xml.gz`
+`$ teal service.tl`
 
-Check the results: TODO
+**Check the results**: Browse to http://127.0.0.1:9000/minio/data/fractals/ and
+check that the fractals have been generated.
+
+
+### 3. Configure the deployment
+
+**1.** `$ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt`
+
+Variables in `teal_env.txt` will be exposed to your Python code.
+
+**2.** Change "teal-examples-data" in `teal.toml` to the name of your S3 bucket.
+
+Teal will be given full read/write access to this bucket.
 
 
 ### 3. Deploy the infrastructure
 
 (From inside the virtual environment.)
 
-`teal deploy`
+`$ teal deploy`
 
 This deploys the cloud service, according to the configuration in the "service"
-part of [`teal.toml`](teal.toml). 
+part of [`teal.toml`](teal.toml).
 
 This command does several things:
 - packages the `src` directory into a lambda layer
@@ -98,26 +110,51 @@ This command does several things:
 
 Feel free to re-run this command -- it will only update the necessary parts.
 
+Use the `-v` flag to see what is actually updated.
+
 
 ### 4. Test it
 
-Upload the test data to S3:
+`$ teal -v invoke`
 
-`s3 cp TODO`
+After a little while, and if all goes well, you'll see:
 
-Trigger the function:
+```
+...
+START RequestId: xxx-xxx-xxx
+END RequestId: xxx-xxx-xxx
+REPORT RequestId: xxx-xxx-xxx 5344.70 ms	Billed Duration: 5400 ms	Memory Size: 512 MB	Max Memory Used: 86 MB	Init Duration: 481.59 ms
 
-`teal invoke TODO`
+{'finished': True,
+ 'result': ['fractals/levy_c_9.png',
+            'fractals/sierpinski_7.png',
+            'fractals/moore_8.png'],
+ 'session_id': '68232w8b-6dde-4dca-ade4-23cba2b3c254',
+ 'vmid': 0}
+['fractals/levy_c_9.png', 'fractals/sierpinski_7.png', 'fractals/moore_8.png']
+Done (6s elapsed).
+```
 
-And monitor:
+Confirm that the Fractals exist:
 
-- `teal status` ?? to implement
-- `teal list` ?? to implement
-- `teal logs SESSION_ID`
+`$ aws s3 ls s3://<your_s3_bucket>/fractals --recursive`
+
+And check the Teal logs:
+
+`$ teal events SESSION_ID`
+
+Where SESSION_ID is taken from the (verbose) output of `invoke`.
+
+Another useful view:
+
+`$ teal events --unified SESSION_ID`
 
 
 ## Next Steps
 
-The pipeline could be triggered by an S3 upload.
+The pipeline could be triggered by an S3 upload (e.g. a CSV list of Fractals to
+generate).
 
-TODO - add a config option (s3_trigger)? Or make it manual
+Add a final stage where all of the fractals are combined into a collage to
+demonstrate fan-in.
+

@@ -1,4 +1,7 @@
-"""Fractal definitions"""
+"""Fractal definitions
+
+Credit: https://elc.github.io/posts/plotting-fractals-step-by-step-with-python
+"""
 from dataclasses import dataclass
 
 
@@ -13,7 +16,6 @@ class Params:
     size: int = 10
 
 
-# From https://elc.github.io/posts/plotting-fractals-step-by-step-with-python/#code
 class Fractals:
     """A collection of Fractal parameters"""
 
@@ -44,7 +46,7 @@ class Fractals:
         # --
         axiom="F",
         rules={"F": "F-F+F"},
-        iterations=5,  # TOP: 10
+        iterations=8,  # TOP: 10
         angle=120,
         size=10,
     )
@@ -53,7 +55,7 @@ class Fractals:
         # --
         axiom="F--F--F",
         rules={"F": "F+F--F+F"},
-        iterations=4,
+        iterations=5,
         angle=60,
     )
 
@@ -114,6 +116,7 @@ class Fractals:
         angle=60,
     )
 
+    # NOTE: this one is slooow
     sierpinski_sieve = Params(
         # --
         axiom="FXF--FF--FF",
@@ -170,11 +173,12 @@ class Fractals:
         angle=36,
     )
 
+    # NOTE: this one is slooooow
     segment_curve = Params(
         # --
         axiom="F+F+F+F",
         rules={"F": "-F+F-F-F+F+FF-F+F+FF+F-F-FF+FF-FF+F+F-FF-F-F+FF-F-F+F+F-F+"},
-        iterations=3,  # TOP: 3
+        iterations=2,  # TOP: 3
         angle=90,
     )
 
@@ -233,6 +237,6 @@ class Fractals:
         # --
         axiom="F",
         rules={"F": "F+F-F-F-F+F+F+F-F"},
-        iterations=2,  # TOP: 5
+        iterations=4,  # TOP: 5
         angle=90,
     )
