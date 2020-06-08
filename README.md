@@ -151,11 +151,9 @@ there's no reason Teal couldn't run on top of (for example) Kubernetes. [Issue
 instance. And then when you do `await y`, the current Lambda function
 terminates, and automatically continues when `y` is finished being computed.
 
-**Testing**: `teal service.tl -f foo arg` runs `foo("arg")` defined in
-`service.tl` and prints to stdout.
-
-**Tracing and profiling**: Teal has a built-in tracer tool, so it's easy to see
-where the time is going.
+The compiler is basic at the moment, but does feature tail-call optimisation for
+recursive functions. Compile-time correctness checks (e.g. bound names, types,
+etc) are coming soon.
 
 
 ## FAQ
