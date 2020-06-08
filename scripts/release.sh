@@ -11,6 +11,15 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 ROOT=$(realpath "${DIR}/..")
 
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD --)
+
+if [[ "${BRANCH}" != "master" ]]; then
+    echo "You must be on master to release."
+    exit 1
+fi
+
+
 VERSION=$(sed -n 's/^version = \(.*\)/\1/p' "${ROOT}/pyproject.toml")
 
 do_release() {
