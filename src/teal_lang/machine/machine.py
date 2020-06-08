@@ -11,8 +11,10 @@ import builtins
 import importlib
 import logging
 import os
+import sys
 import time
 from functools import singledispatchmethod
+from io import StringIO
 from typing import Any, Dict, List
 
 from . import types as mt
@@ -247,9 +249,18 @@ class TlMachine:
             # waiting for in the continuation
 
             py_args = list(map(mt.to_py_type, args))
-            py_result = foreign_f(*py_args)
-            result = mt.to_teal_type(py_result)
 
+            # capture Python's standard output
+            sys.stdout = capstdout = StringIO()
+            try:
+                py_result = foreign_f(*py_args)
+            finally:
+                sys.stdout = sys.__stdout__
+
+            out = capstdout.getvalue()
+            self.data_controller.write_stdout(out)
+
+            result = mt.to_teal_type(py_result)
             self.state.ds_push(result)
 
         elif isinstance(fn, mt.TlInstruction):
