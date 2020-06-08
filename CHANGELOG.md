@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [unreleased]
 
 
+## [0.2.4] (2020-06-08)
+
+### Fixed
+
+- Version tag naming in release.sh
+- Writing `__version__` before release
+
 ## [0.2.3] (2020-06-08)
 
 No changes - releasing just so that master is tagged.
@@ -92,7 +99,8 @@ Initial release.
 - A few examples
 
 
-[unreleased]: https://github.com/condense9/teal-lang/compare/v0.2.3...HEAD
+[unreleased]: https://github.com/condense9/teal-lang/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/condense9/teal-lang/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/condense9/teal-lang/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/condense9/teal-lang/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/condense9/teal-lang/compare/v0.2.0...v0.2.1
