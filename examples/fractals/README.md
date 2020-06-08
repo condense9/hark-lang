@@ -28,6 +28,8 @@ $ aws s3 ls s3://<your_s3_bucket>/fractals --recursive
 2020-06-08 13:19:38       7451 fractals/rings_8.png
 ```
 
+![Sierpinski](img/sierpinski.png)
+
 ---
 
 

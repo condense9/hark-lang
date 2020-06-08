@@ -131,7 +131,7 @@ def random_fractals(num) -> list:
     """Create a list of random fractals to generate"""
     fractal_names = [x for x in dir(Fractals) if not x.startswith("_")]
     return [  # --
-        [random.choice(fractal_names), random.randint(5, 10)] for _ in range(num)
+        [random.choice(fractal_names), random.randint(10, 20)] for _ in range(num)
     ]
 
 
@@ -145,7 +145,10 @@ def test_store():
 # TODO make a Fractal collage with https://github.com/secnot/rectpack
 
 if __name__ == "__main__":
-    test_fractal()
+    # test_fractal()
+    args = random_fractals(1)
+    print(args)
+    save_fractal_to_file(*args[0])
     # im = draw_fractal(Fractals.segment_curve)
     # im = draw_fractal(Fractals.ter_dragon)
     # im.save(sys.stdout.buffer, "PNG")
