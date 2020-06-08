@@ -29,6 +29,48 @@ fn main(items_csv) {
 }
 ```
 
+Run it locally:
+
+```
+$ teal service.tl test_items.csv
+```
+
+And deploy it in less than 60 seconds:
+
+```
+$ teal deploy
+
+$ aws s3 cp test_items.csv s3://your-bucket teal
+
+$ invoke -f main test_items.csv
+```
+
+---
+
+## Introduction
+
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [The Teal Programming Language](#the-teal-programming-language)
+    - [Introduction](#introduction)
+    - [Getting started](#getting-started)
+        - [Teal May Not Be For You!](#teal-may-not-be-for-you)
+    - [Why Teal?](#why-teal)
+    - [FAQ](#faq)
+    - [Current Limitations and Roadmap](#current-limitations-and-roadmap)
+        - [Libraries](#libraries)
+        - [Error Handling](#error-handling)
+        - [Typing](#typing)
+        - [Calling Arbitrary Services](#calling-arbitrary-services)
+        - [Dictionary (associative map) primitives](#dictionary-associative-map-primitives)
+    - [Contributing](#contributing)
+    - [About](#about)
+    - [License](#license)
+
+<!-- markdown-toc end -->
+
+
 Teal threads run in parallel on separate compute resource, and Teal handles data
 transfer and synchronisation.
 
