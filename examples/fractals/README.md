@@ -1,4 +1,4 @@
-# Batch Fractal Generation
+# Batch Fractal Generation 💮
 
 This example generates Fractals in parallel on AWS Lambda, using Python's PIL
 (Pillow) library and some recursive plotting.

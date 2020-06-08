@@ -2,76 +2,42 @@
 
 ![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang) [![Gitter](https://badges.gitter.im/Teal-Lang/community.svg)](https://gitter.im/Teal-Lang/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-Teal is a programming language for cloud applications, designed for passing data
-between Python functions and making concurrency easy. It's like having a
-cluster, without having to manage a cluster.
+Teal is designed for passing data between Python functions running in the cloud
+with very little infrastructure. It's like having a cluster, without having to
+manage a cluster.
 
-Teal functions are like coroutines - they can be paused and resumed at any
-point. Try doing that with Python, across multiple Lambda invocations ([Read
-more...](#faq)).
+Teal threads run in parallel on separate compute resource, and Teal handles data
+transfer and synchronisation.
 
-Teal threads run in parallel, on separate compute resource. Data transfer and
-synchronisation is entirely handled by Teal.
+**Data in**: Teal is built on AWS Lambda, so if you can pass data in to Lambda,
+you can pass it to Teal.
 
-Teal is built on AWS Lambda, so if you can pass data in to Lambda, you can pass
-it to Teal.
+**Data out**: Use the Python libraries you already have for database access.
+Teal just connects them together.
 
 There is a local runtime too, so you can thoroughly test Teal programs before
 deployment.
 
-Similar technologies:
-
-| Tech                                | Reasons for Teal                                               |
-|-------------------------------------|----------------------------------------------------------------|
-| AWS Step Functions                  | Simpler testing and CI, no lock-in to AWS.                     |
-| Orchestrators (Apache Airflow, etc) | No infrastructure management, simpler mental model.            |
-| Azure Durable Functions             | More familiar programming model.                               |
-| Task runners (Celery, etc)          | No infrastructure management, easier testing of chained tasks. |
+| Teal is like...                     | But...                                                                                                   |
+|-------------------------------------|----------------------------------------------------------------------------------------------------------|
+| AWS Step Functions                  | Teal programs can be tested locally, and aren't bound to AWS.                                            |
+| Orchestrators (Apache Airflow, etc) | You don't have to manage infrastructure, or think in terms of DAGs, and you can test everything locally. |
+| Task runners (Celery, etc)          | You don't have to manage infrastructure.                                                                 |
+| Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex.                                           |
 
 [Read more...](#why-teal)
 
 ---
+
+Teal functions are like coroutines - they can be paused and resumed at any
+point. Try doing that with Python, across multiple Lambda invocations ([Read
+more...](#faq)).
 
 ![Concurrency](doc/functions.png)
 
 Documentation coming soon! For now, check out the [the Fractal example](examples/fractals)
 or the [Playground](https://www.teal-lang.org/playground).
 
-
-## FAQ
-
-**Why is this not a library/DSL in Python?**
-
-When Teal threads wait on a Future, they stop completely. The Lambda function
-saves the machine state and then terminates. When the Future resolves, the
-resolving thread restarts any waiting threads by invoking new Lambdas to pick up
-execution.
-
-To achieve the same thing in Python, the framework would need to dump the entire
-Python VM state to disk, and then reload it at a later point -- I don't know
-Python internals well enough to do this, and it felt like a huge task.
-
-**How is Teal like Go?**
-
-Goroutines are very lightweight, while Teal `async` functions are pretty heavy --
-they involve creating a new Lambda (or process, when running locally).
-
-Teal's concurrency model is similar to Go's, but channels are not fully
-implemented so data can only be sent to/from a thread at call/return points.
-
-**Is this an infrastructure-as-code tool?**
-
-No, Teal does not do general-purpose infrastructure management. There are
-already great tools to do that ([Terraform](https://www.terraform.io/),
-[Pulumi](https://www.pulumi.com/), [Serverless
-Framework](https://www.serverless.com/), etc).
-
-Instead, Teal reduces the amount of infrastructure you need. Instead of a
-distinct Lambda function for every piece of application logic, you only need the
-core Teal interpreter (purely serverless) infrastructure.
-
-Teal will happily manage that infrastructure for you (through `teal deploy` and
-`teal destroy`), or you can set it up with your in-house custom system.
 
 
 ## Getting started
@@ -147,6 +113,42 @@ terminates, and automatically continues when `y` is finished being computed.
 
 **Tracing and profiling**: Teal has a built-in tracer tool, so it's easy to see
 where the time is going: `teal events $SESSION_ID`.
+
+
+## FAQ
+
+**Why is this not a library/DSL in Python?**
+
+When Teal threads wait on a Future, they stop completely. The Lambda function
+saves the machine state and then terminates. When the Future resolves, the
+resolving thread restarts any waiting threads by invoking new Lambdas to pick up
+execution.
+
+To achieve the same thing in Python, the framework would need to dump the entire
+Python VM state to disk, and then reload it at a later point -- I don't know
+Python internals well enough to do this, and it felt like a huge task.
+
+**How is Teal like Go?**
+
+Goroutines are very lightweight, while Teal `async` functions are pretty heavy --
+they involve creating a new Lambda (or process, when running locally).
+
+Teal's concurrency model is similar to Go's, but channels are not fully
+implemented so data can only be sent to/from a thread at call/return points.
+
+**Is this an infrastructure-as-code tool?**
+
+No, Teal does not do general-purpose infrastructure management. There are
+already great tools to do that ([Terraform](https://www.terraform.io/),
+[Pulumi](https://www.pulumi.com/), [Serverless
+Framework](https://www.serverless.com/), etc).
+
+Instead, Teal reduces the amount of infrastructure you need. Instead of a
+distinct Lambda function for every piece of application logic, you only need the
+core Teal interpreter (purely serverless) infrastructure.
+
+Teal will happily manage that infrastructure for you (through `teal deploy` and
+`teal destroy`), or you can set it up with your in-house custom system.
 
 
 ## Current Limitations and Roadmap
