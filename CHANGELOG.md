@@ -8,6 +8,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [unreleased]
 
 
+## [0.2.2] (2020-06-08)
+
+### Added
+
+- Fractals example
+- Tail-call optimisation for recusive function calls
+- `teal deploy` and `teal destroy` for infrastructure management
+- CLI interface for invoking sessions and getting session data
+- `parse_float` builtin (string to float)
+- service configuration file
+- `nth` builtin (list access - maybe should be called `elem`)
+- `wait` builtin to do what `await` does
+- goto/loop at the compiler level
+
+### Fixed
+
+- Parser conflict with anonymous functions
+- Various list data type instruction bugs
+- Catch more runtime errors in AWS and record them
+
+### Changed
+
+- Teal names can start with underscore
+
+
 ## [0.2.1] (2020-05-29)
 
 ### Fixed
@@ -62,7 +87,8 @@ Initial release.
 - A few examples
 
 
-[unreleased]: https://github.com/condense9/teal-lang/compare/v0.2.1...HEAD
+[unreleased]: https://github.com/condense9/teal-lang/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/condense9/teal-lang/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/condense9/teal-lang/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/condense9/teal-lang/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/condense9/teal-lang/releases/tag/v0.1.0
