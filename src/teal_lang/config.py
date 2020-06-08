@@ -11,6 +11,9 @@ import toml
 
 LOG = logging.getLogger(__name__)
 
+# NOTE: we could have a "[service.prod]" section with production overrides, and
+# a CLI flag to switch
+
 
 @dataclass(frozen=True)
 class ServiceConfig:
@@ -25,6 +28,7 @@ class ServiceConfig:
     teal_file: str
     extra_layers: tuple
     s3_access: tuple
+    env: Path
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,7 @@ SERVICE_DEFAULTS = dict(
     lambda_timeout=240,
     lambda_memory=128,
     teal_file="service.tl",
+    env="teal_env.txt",
     extra_layers=[],
     s3_access=[]
 )
@@ -114,7 +119,7 @@ def load(config_file: Path = None, *, create_deployment_id=False) -> Config:
     service["extra_layers"] = tuple(service["extra_layers"])
     service["s3_access"] = tuple(service["s3_access"])
 
-    for key in ["python_src", "python_requirements"]:
+    for key in ["python_src", "python_requirements", "env"]:
         service[key] = Path(service[key])
 
     root = config_file.parent.resolve()

@@ -610,11 +610,13 @@ class TealFunction:
         # Check if layers need to be updated
         current_layers = [layer["Arn"] for layer in current_config["Layers"]]
         required_layers = cls.src_layers_list(config)
+        env_vars = cls.get_environment_variables(config)
 
         if (
             current_config["MemorySize"] != config.service.lambda_memory
             or current_config["Timeout"] != config.service.lambda_timeout
             or (cls.needs_src and current_layers != required_layers)
+            or current_config["Environment"]["Variables"] != env_vars
         ):
             LOG.info(f"Configuration for {name} changed, updating function")
             client.update_function_configuration(
@@ -622,6 +624,7 @@ class TealFunction:
                 Layers=required_layers,
                 Timeout=config.service.lambda_timeout,  # TODO make per-function?
                 MemorySize=config.service.lambda_memory,
+                Environment=dict(Variables=env_vars),
             )
             needs_publish = True
 
@@ -648,17 +651,26 @@ class TealFunction:
             Timeout=config.service.lambda_timeout,  # TODO make per-function?
             MemorySize=config.service.lambda_memory,
             Layers=src_layers_list() if cls.needs_src else [],
-            # TODO make env per-function
-            Environment=dict(
-                Variables={
-                    "TL_REGION": config.service.region,
-                    "DYNAMODB_TABLE": DataTable.resource_name(config),
-                    "USE_LIVE_AWS": "foo",  # setting this to "yes" breaks AWS...?
-                    "RESUME_FN_NAME": FnResume.resource_name(config),
-                }
-            ),
+            Environment=dict(Variables=cls.get_environment_variables(config)),
         )
         LOG.info(f"Created function {name}")
+
+    @classmethod
+    def get_environment_variables(cls, config):
+        # TODO make env per-function?
+        if config.service.env.exists():
+            with open(config.service.env) as f:
+                user_env = dict(line.strip().split("=") for line in f.readlines())
+        else:
+            user_env = {}
+
+        return {
+            "TL_REGION": config.service.region,
+            "DYNAMODB_TABLE": DataTable.resource_name(config),
+            "USE_LIVE_AWS": "foo",  # setting this to "yes" breaks AWS...?
+            "RESUME_FN_NAME": FnResume.resource_name(config),
+            **user_env,
+        }
 
     @classmethod
     def delete_if_exists(cls, config):

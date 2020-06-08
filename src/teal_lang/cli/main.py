@@ -6,8 +6,8 @@ Usage:
   teal [options] deploy [--config CONFIG]
   teal [options] destroy [--config CONFIG]
   teal [options] invoke [--config CONFIG] [ARG...]
-  teal [options] events [--unified | --json] SESSION_ID
-  teal [options] logs SESSION_ID
+  teal [options] events [--config CONFIG] [--unified | --json] SESSION_ID
+  teal [options] logs [--config CONFIG] SESSION_ID
   teal [options] FILE [ARG...]
   teal --version
   teal --help
@@ -22,7 +22,7 @@ Commands:
   logs     Get logs for a session.
   default  Run a Teal function locally.
 
-General options:
+Options:
   -h, --help      Show this screen.
   -q, --quiet     Be quiet.
   -v, --verbose   Be verbose.
@@ -37,13 +37,8 @@ General options:
 
   --config CONFIG  Config file to use  [default: teal.toml]
 
-  --unified  Merge events into one table
-  --json     Print as json
-
-Arguments:
-  FILE  Main Teal file
-  ARG   Function arguments [default: None]
-  URL   Base URL to deploy to
+  -u, --unified  Merge events into one table
+  -j, --json     Print as json
 """
 
 # http://try.docopt.org/
@@ -289,7 +284,9 @@ def main():
     elif args["FILE"] and args["FILE"].endswith(".tl"):
         _run(args)
     else:
-        raise NotImplementedError
+        print(em("Invalid command line.\n"))
+        print(__doc__)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
