@@ -43,4 +43,4 @@ popd >/dev/null
 
 cp "${WORKDIR}/${FILENAME}" "${DEST}"
 
-printf "\nSuccess: %s\n" "${FILENAME}"
+printf "Success: %s\n" "${FILENAME}"
