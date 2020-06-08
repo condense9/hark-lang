@@ -3,33 +3,44 @@
 # Create a lambda deployment package for Tl
 
 set -e
-set -x
-
-## Name of the resulting ZIP file
-DIST=${1:-dist.zip}
-
 
 # Get dir containing this script. It will work as long as the last component of
 # the path used to find the script is not a symlink (directory links are OK).
 # https://stackoverflow.com/questions/59895/get-the-source-directory-of-a-bash-script-from-within-the-script-itself
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-TMP=$(mktemp -d)
 
-poetry export -f requirements.txt > "${TMP}/requirements.txt"
+## Path to the resulting ZIP file
+DEST=${1:-${DIR}/../teal_lambda.zip}
 
-pushd "${TMP}"
+WORKDIR=${2:-${DIR}/../.teal_data}
 
-mkdir libs
-pip install -q --target libs -r requirements.txt
+
+###
+
+WORKDIR="${WORKDIR}/teal_build"
+mkdir -p "${WORKDIR}"
+
+FILENAME=$(basename "${DEST}")
+
+poetry export -f requirements.txt > "${WORKDIR}/requirements.txt"
+
+pushd "${WORKDIR}" >/dev/null
+
+mkdir -p libs
+
+# SKIP_DEPS=yes to skip installing dependencies if you know they haven't changed
+[[ -z "${SKIP_DEPS}" ]] && \
+    pip install -q --target libs -r requirements.txt 2>/dev/null
 rm -rf libs/boto*
 
 # Install Teal manually
 cp -r "${DIR}/../src/teal_lang" libs
 
-cd libs && zip -q -r "../${DIST}" . -x "*__pycache__*"
+cd libs && zip -u -q -r "../${FILENAME}" . -x "*__pycache__*"
 
-popd
+popd >/dev/null
 
-cp "${TMP}/${DIST}" .
-rm -rf "${TMP}"
+cp "${WORKDIR}/${FILENAME}" "${DEST}"
+
+printf "\nSuccess: %s\n" "${FILENAME}"

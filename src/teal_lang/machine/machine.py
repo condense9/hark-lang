@@ -11,8 +11,10 @@ import builtins
 import importlib
 import logging
 import os
+import sys
 import time
 from functools import singledispatchmethod
+from io import StringIO
 from typing import Any, Dict, List
 
 from . import types as mt
@@ -81,12 +83,14 @@ class TlMachine:
     """
 
     builtins = {
+        "wait": Wait,
         "print": Print,
         "sleep": Sleep,
         "atomp": Atomp,
         "nullp": Nullp,
         "list": List,
         "conc": Conc,
+        "append": Append,
         "first": First,
         "rest": Rest,
         # "future": Future,
@@ -97,6 +101,7 @@ class TlMachine:
         "*": Multiply,
         ">": GreaterThan,
         "<": LessThan,
+        "parse_float": ParseFloat,
     }
 
     def __init__(self, vmid, invoker):
@@ -181,7 +186,8 @@ class TlMachine:
         elif ptr in TlMachine.builtins:
             val = mt.TlInstruction(ptr)
         else:
-            raise Exception(f"Nothing bound to {ptr}")
+            # TODO: runtime_error(self, i, ...)
+            raise NameError(f"'{ptr}' is not defined")
 
         self.state.ds_push(val)
 
@@ -243,9 +249,18 @@ class TlMachine:
             # waiting for in the continuation
 
             py_args = list(map(mt.to_py_type, args))
-            py_result = foreign_f(*py_args)
-            result = mt.to_teal_type(py_result)
 
+            # capture Python's standard output
+            sys.stdout = capstdout = StringIO()
+            try:
+                py_result = foreign_f(*py_args)
+            finally:
+                sys.stdout = sys.__stdout__
+
+            out = capstdout.getvalue()
+            self.data_controller.write_stdout(out)
+
+            result = mt.to_teal_type(py_result)
             self.state.ds_push(result)
 
         elif isinstance(fn, mt.TlInstruction):
@@ -311,12 +326,13 @@ class TlMachine:
     @evali.register
     def _(self, i: Atomp):
         val = self.state.ds_pop()
-        self.state.ds_push(not isinstance(val, list))
+        self.state.ds_push(tl_bool(not isinstance(val, list)))
 
     @evali.register
     def _(self, i: Nullp):
         val = self.state.ds_pop()
-        self.state.ds_push(len(val) == 0)
+        isnull = isinstance(val, mt.TlNull) or len(val) == 0
+        self.state.ds_push(tl_bool(isnull))
 
     @evali.register
     def _(self, i: List):
@@ -341,14 +357,38 @@ class TlMachine:
             self.state.ds_push(mt.TlList([a] + b))
 
     @evali.register
+    def _(self, i: Append):
+        b = self.state.ds_pop()
+        a = self.state.ds_pop()
+
+        a = mt.TlList([]) if isinstance(a, mt.TlNull) else a
+
+        if not isinstance(a, mt.TlList):
+            raise Exception(f"{a} ({type(a)}) is not a list")
+
+        self.state.ds_push(mt.TlList(a + [b]))
+
+    @evali.register
     def _(self, i: First):
         lst = self.state.ds_pop()
+        if not isinstance(lst, mt.TlList):
+            raise Exception(f"{lst} ({type(lst)}) is not a list")
         self.state.ds_push(lst[0])
 
     @evali.register
     def _(self, i: Rest):
         lst = self.state.ds_pop()
+        if not isinstance(lst, mt.TlList):
+            raise Exception(f"{lst} ({type(lst)}) is not a list")
         self.state.ds_push(lst[1:])
+
+    @evali.register
+    def _(self, i: Nth):
+        n = self.state.ds_pop()
+        lst = self.state.ds_pop()
+        if not isinstance(lst, mt.TlList):
+            raise Exception(f"{lst} ({type(lst)}) is not a list")
+        self.state.ds_push(lst[n])
 
     @evali.register
     def _(self, i: Plus):
@@ -381,6 +421,11 @@ class TlMachine:
         a = self.state.ds_pop()
         b = self.state.ds_pop()
         self.state.ds_push(tl_bool(a < b))
+
+    @evali.register
+    def _(self, i: ParseFloat):
+        x = self.state.ds_pop()
+        self.state.ds_push(mt.TlFloat(float(x)))
 
     @evali.register
     def _(self, i: Sleep):

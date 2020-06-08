@@ -2,16 +2,23 @@ import functools
 import json
 import logging
 import os
+import sys
 import time
+import traceback
+from typing import List
 
 import boto3
 import botocore
 
-from .. import __version__
-from .. import load
+from operator import itemgetter
+
+from .. import __version__, load
+from ..cli.styling import dim, em
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..machine import TlMachine
+from ..machine import types as mt
+from ..machine.executable import Executable
 
 RESUME_FN_NAME = os.environ.get("RESUME_FN_NAME", "resume")
 
@@ -59,6 +66,10 @@ class Invoker:
 # These are Lambda handlers, and maybe should be somewhere else:
 
 
+def version(event, context):
+    return success(version=__version__)
+
+
 def success(code=200, **body_data):
     """Return successfully"""
     return dict(
@@ -73,10 +84,16 @@ def success(code=200, **body_data):
     )
 
 
-def fail(msg, code=400, **body_data):
+def fail(msg, code=400, exception=None, **body_data):
     """Return an error message"""
     # 400 = client error
     # 500 = server error
+    if exception:
+        etype, value, tb = sys.exc_info()
+        body_data["etype"] = str(etype)
+        body_data["evalue"] = str(value)
+        body_data["traceback"] = traceback.format_exception(etype, value, tb)
+
     return dict(
         statusCode=code,
         isBase64Encoded=False,
@@ -86,6 +103,18 @@ def fail(msg, code=400, **body_data):
         },
         body=json.dumps({"message": msg, **body_data}),
     )
+
+
+def try_run(session, vmid, invoker):
+    """Try to run a machine, saving a session exception if it fails"""
+    machine = TlMachine(vmid, invoker)
+    try:
+        machine.run()
+    except Exception as exc:
+        session.refresh()
+        session.machines[vmid].exception = traceback.format_exc()
+        session.save()
+        raise
 
 
 def resume(event, context):
@@ -98,14 +127,7 @@ def resume(event, context):
     controller = ddb_controller.DataController(session, lock)
     invoker = Invoker(controller)
 
-    machine = TlMachine(vmid, invoker)
-    try:
-        machine.run()
-    except Exception as exc:
-        session.refresh()
-        session.machines[vmid].exception = str(exc)
-        session.save()
-        raise
+    try_run(session, vmid, invoker)
 
     return success(
         session_id=session_id,
@@ -118,7 +140,7 @@ def resume(event, context):
 def new(event, context):
     """Create a new session - event is a simple payload"""
     function = event.get("function", "main")
-    args = event.get("args", [])
+    args = [mt.TlString(a) for a in event.get("args", [])]
     check_period = event.get("check_period", 1)
     wait_for_finish = event.get("wait_for_finish", True)
     code = event.get("code", None)
@@ -127,7 +149,12 @@ def new(event, context):
 
     session = db.new_session()
 
-    if code:
+    if not code:
+        exe = Executable.deserialise(session.executable)
+
+    # NOTE: First, teal code is loaded from the base executable. This allows the
+    # user to override that with custom code. This might not be a good idea...
+    else:
         try:
             exe = load.compile_text(code)
         except Exception as exc:
@@ -147,15 +174,9 @@ def new(event, context):
         fn_ptr = exe.bindings[function]
         vmid = controller.new_machine(args, fn_ptr, is_top_level=True)
     except Exception as exc:
-        return fail(f"Error initialising:\n{exc}")
+        return fail("Error initialising", exception=exc)
 
-    try:
-        TlMachine(vmid, invoker).run()
-    except Exception as exc:
-        session.refresh()
-        session.machines[vmid].exception = str(exc)
-        session.save()
-        return fail("Runtime error", session_id=session.session_id)
+    try_run(session, vmid, invoker)
 
     if wait_for_finish:
         start_time = time.time()
@@ -226,13 +247,13 @@ def getoutput(event, context):
     except db.Session.DoesNotExist:
         return fail("Couldn't find that session")
 
-    output = [m.stdout for m in session.machines]
+    output = session.stdout
     exceptions = [m.exception for m in session.machines]
 
     return success(output=output, exceptions=exceptions)
 
 
-def getevents(event, context):
+def getevents(event, context) -> dict:
     """Get probe events for a session"""
     session_id = event.get("session_id", None)
 
@@ -249,8 +270,56 @@ def getevents(event, context):
     return success(events=events)
 
 
-def version(event, context):
-    return success(version=__version__)
+## CLI helpers (TODO - these probably shouldn't be here):
+
+
+def print_outputs(success_result: dict):
+    exceptions = success_result["exceptions"]
+    output = success_result["output"]
+
+    print("".join(output))
+    for idx, item in enumerate(exceptions):
+        if item:
+            print(em(f"Exception in Thread {idx}!"))
+            print(item)
+
+
+def print_events_by_machine(success_result: dict):
+    """Print the results of `getevents`, grouped by machine"""
+    elist = success_result["events"]
+    lowest_time = min(float(event["time"]) for machines in elist for event in machines)
+
+    for i, machine in enumerate(elist):
+        print(em(f"Thread {i}:"))
+        for event in machine:
+            offset_time = float(event["time"]) - lowest_time
+            time = dim("{:.3f}".format(offset_time))
+            name = event["event"]
+            data = event["data"] if len(event["data"]) else ""
+            print(f"{time}  {name} {data}")
+
+
+def print_events_unified(success_result: dict):
+    """Print the results of `getevents`, in one table"""
+    elist = success_result["events"]
+    lowest_time = min(float(event["time"]) for machines in elist for event in machines)
+
+    all_events = []
+    for i, machine in enumerate(elist):
+        for event in machine:
+            offset_time = float(event["time"]) - lowest_time
+            event["machine"] = i
+            event["offset_time"] = offset_time
+            event["insert_idx"] = len(all_events)
+            all_events.append(event)
+
+    print(em("{:>8}  {}  {}".format("Time", "Thread", "Event")))
+    for event in sorted(all_events, key=itemgetter("offset_time", "insert_idx")):
+        time = dim("{:8.3f}".format(event["offset_time"]))
+        name = event["event"]
+        machine = event["machine"]
+        data = event["data"] if len(event["data"]) else ""
+        print(f"{time:^}  {machine:^7}  {name} {data}")
 
 
 ## API gateway wrappers

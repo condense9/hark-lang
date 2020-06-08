@@ -35,6 +35,8 @@ def setup_module(module):
 @pytest.fixture(autouse=True)
 def session_db(pytestconfig):
     """Initialise the Teal sessions DynamoDB table"""
+    if not pytestconfig.getoption("testddb"):
+        return
     if db.Session.exists():
         db.Session.delete_table()
     db.Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
@@ -48,7 +50,8 @@ def test_example(filename, function, args, expected, call_method):
     random.seed(seed)
     LOG.info("Random seed: %d", seed)
 
-    result = call_method(filename, function, list(map(to_teal_type, args)))
+    # args will all be strings
+    result = call_method(filename, function, args)
 
     # controllers should return normal python types
     assert not isinstance(result, TlType)

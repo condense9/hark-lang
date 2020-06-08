@@ -1,6 +1,6 @@
 import itertools
 import logging
-from functools import singledispatch, singledispatchmethod
+from functools import singledispatch, singledispatchmethod, wraps
 from typing import Dict, Tuple
 
 from ..machine import instructionset as mi
@@ -19,11 +19,65 @@ class CompileError(Exception):
     pass
 
 
+def optimise_block(n: nodes.N_Definition, block):
+    if not isinstance(block, nodes.N_Progn):
+        raise ValueError
+
+    last = block.exprs[-1]
+
+    if isinstance(last, nodes.N_Call) and last.fn.name == n.name:
+        # recursive call, optimise it! Replace the N_Call with direct evaluation
+        # of the arguments and a jump back to the start
+        new_last_items = list(last.args) + [nodes.N_Goto("!start")]
+        return nodes.N_MultipleValues(block.exprs[:-1] + new_last_items)
+
+    elif isinstance(last, nodes.N_If):
+        new_cond = nodes.N_If(
+            last.cond, optimise_block(n, last.then), optimise_block(n, last.els)
+        )
+        return nodes.N_Progn(block.exprs[:-1] + [new_cond])
+
+    else:
+        # Nothing to optimise
+        return block
+
+
+def optimise_tailcall(n: nodes.N_Definition):
+    """Optimise tail calls in a definition"""
+    n.body = optimise_block(n, n.body)
+    return n
+
+
+def replace_gotos(code: list):
+    """Replace Labels and Gotos with Jumps"""
+    labels = {}
+    original_positions = []
+    for idx, instr in enumerate(code):
+        if isinstance(instr, nodes.N_Label):
+            offset = idx - len(labels)
+            labels[instr.name] = offset
+            original_positions.append(idx)
+
+    for idx in original_positions:
+        code.pop(idx)
+
+    for idx, instr in enumerate(code):
+        if isinstance(instr, nodes.N_Goto):
+            # + 1 to compensate for the fact that the IP is advanced before
+            # the current instruction is evaluated.
+            offset = labels[instr.name] - (idx + 1)
+            code[idx] = mi.Jump(mt.TlInt(offset))
+
+    return code
+
+
 class CompileToplevel:
     def __init__(self, exprs):
         """Compile a toplevel list of expressions"""
         self.functions = {}
         self.bindings = {}
+        self.labels = {}
+        self.instruction_idx = 0
         for e in exprs:
             self.compile_toplevel(e)
 
@@ -31,7 +85,11 @@ class CompileToplevel:
         """Make a new executable function object with a unique name, and save it"""
         count = len(self.functions)
         identifier = f"#{count}:{name}"
-        fn_code = self.compile_function(n)
+        # a label to point at the beginning on the function, prefixed with "!"
+        # to imply that it is automatically created:
+        start_label = nodes.N_Label(f"!start")
+        code = self.compile_function(optimise_tailcall(n))
+        fn_code = replace_gotos([start_label] + code)
         self.functions[identifier] = fn_code
         return identifier
 
@@ -93,6 +151,15 @@ class CompileToplevel:
         raise NotImplementedError(node)
 
     @compile_expr.register
+    def _(self, n: nodes.N_Goto):
+        # Will be replaced later
+        return [n]
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Label):
+        raise NotImplementedError
+
+    @compile_expr.register
     def _(self, n: nodes.N_Lambda):
         # Create a local binding to the function
         identifier = self.make_function(n)
@@ -115,16 +182,26 @@ class CompileToplevel:
         return discarded + self.compile_expr(n.exprs[-1])
 
     @compile_expr.register
-    def _(self, n: nodes.N_Call):
+    def _(self, n: nodes.N_MultipleValues):
+        # like progn, but keep everything
+        return flatten(self.compile_expr(exp) for exp in n.exprs)
+
+    def _compile_call(self, n: nodes.N_Call, is_async: bool):
+        # NOTE: parser only allows direct, named function calls atm, not
+        # arbitrary expressions, so no need to check the type of n.fn
         arg_code = flatten(self.compile_expr(arg) for arg in n.args)
-        call_inst = mi.ACall if isinstance(n.fn, nodes.N_Async) else mi.Call
-        return arg_code + self.compile_expr(n.fn) + [call_inst(mt.TlInt(len(n.args)))]
+        instr = mi.ACall if is_async else mi.Call
+        return arg_code + self.compile_expr(n.fn) + [instr(mt.TlInt(len(n.args)))]
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Call):
+        return self._compile_call(n, False)
 
     @compile_expr.register
     def _(self, n: nodes.N_Async):
-        if not isinstance(n.expr, nodes.N_Id):
+        if not isinstance(n.expr, nodes.N_Call):
             raise ValueError(f"Can't use async with {n.expr}")
-        return self.compile_expr(n.expr)
+        return self._compile_call(n.expr, True)
 
     @compile_expr.register
     def _(self, n: nodes.N_Argument):

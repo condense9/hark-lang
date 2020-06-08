@@ -2,7 +2,7 @@
 import(coin, :python pysrc.main)
 
 fn test(x) {
-  if x > 0.5 {
+  if parse_float(x) > 0.5 {
     print("yes")
   }
   else {
@@ -26,6 +26,6 @@ fn main() {
 // If-expressions return values too:
 
 fn if_expr(x) {
-  result = if (x > 0.5) {"yep"} else { "nah"}
-  result
+  x = parse_float(x)
+  if (x > 0.5) {"yep"} else { "nah"}
 }

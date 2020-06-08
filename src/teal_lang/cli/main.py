@@ -3,16 +3,28 @@
 Usage:
   teal [options] asm FILE
   teal [options] ast [-o OUTPUT] FILE
-  teal [options] deploy FILE URL
+  teal [options] deploy [--config CONFIG]
+  teal [options] destroy [--config CONFIG]
+  teal [options] invoke [--config CONFIG] [ARG...]
+  teal [options] events [--config CONFIG] [--unified | --json] SESSION_ID
+  teal [options] logs [--config CONFIG] SESSION_ID
   teal [options] FILE [ARG...]
+  teal --version
+  teal --help
 
 Commands:
   asm      Compile a file and print the bytecode listing.
-  ast      Create a data flow graph (PNG)
+  ast      Create a data flow graph (PNG).
+  deploy   Deploy to the cloud.
+  destroy  Remove cloud deployment.
+  invoke   Invoke a teal function in the cloud.
+  events   Get events for a session.
+  logs     Get logs for a session.
   default  Run a Teal function locally.
 
-General options:
+Options:
   -h, --help      Show this screen.
+  -q, --quiet     Be quiet.
   -v, --verbose   Be verbose.
   -V, --vverbose  Be very verbose.
   --version       Show version.
@@ -23,10 +35,10 @@ General options:
 
   -o OUTPUT  Name of the output file
 
-Arguments:
-  FILE  Main Teal file
-  ARG   Function arguments [default: None]
-  URL   Base URL to deploy to
+  --config CONFIG  Config file to use  [default: teal.toml]
+
+  -u, --unified  Merge events into one table
+  -j, --json     Print as json
 """
 
 # http://try.docopt.org/
@@ -38,14 +50,17 @@ Arguments:
 import logging
 import sys
 from pathlib import Path
+import subprocess
 
+import time
+import pprint
+import json
 import colorama
-from colorama import Back, Fore, Style
+
+from .. import __version__
+from .styling import em, dim
 
 from docopt import docopt
-
-from .. import __version__, load
-from ..machine import executable
 
 LOG = logging.getLogger(__name__)
 
@@ -90,11 +105,9 @@ def _ast(args):
     raise NotImplementedError
 
 
-def em(string):
-    return Style.BRIGHT + string + Style.RESET_ALL
-
-
 def _asm(args):
+    from .. import load
+
     exe = load.compile_file(Path(args["FILE"]))
     print(em("\nBYTECODE:"))
     print(exe.listing())
@@ -103,8 +116,146 @@ def _asm(args):
     print()
 
 
+def timed(fn):
+    """Time execution of fn and print it"""
+
+    def _wrapped(args, **kwargs):
+        start = time.time()
+        fn(args, **kwargs)
+        end = time.time()
+        if not args["--quiet"]:
+            print(f"Done ({int(end-start)}s elapsed).")
+
+    return _wrapped
+
+
+@timed
 def _deploy(args):
-    raise NotImplementedError
+    from ..cloud import aws
+    from ..config import load
+
+    cfg = load(config_file=Path(args["--config"]), create_deployment_id=True)
+
+    # Deploy the infrastructure (idempotent)
+    aws.deploy(cfg)
+    api = aws.get_api()
+
+    logs, response = api.version.invoke(cfg, {})
+    print("Teal:", response["body"])
+
+    # Deploy the teal code
+    with open(cfg.service.teal_file) as f:
+        content = f.read()
+
+    # See teal_lang/executors/awslambda.py
+    exe_payload = {"content": content}
+    logs, response = api.set_exe.invoke(cfg, exe_payload)
+    LOG.info(f"Uploaded {cfg.service.teal_file}")
+
+
+@timed
+def _destroy(args):
+    from ..cloud import aws
+    from ..config import load
+
+    cfg = load(config_file=Path(args["--config"]))
+    aws.destroy(cfg)
+
+
+class InvokeError(Exception):
+    """Something broke while running"""
+
+    def __init__(self, err, traceback=None):
+        self.err = err
+        self.traceback = traceback
+
+    def __str__(self):
+        res = "\n\n" + str(self.err)
+        if self.traceback:
+            res += "\n" + "".join(self.traceback)
+        return res
+
+
+def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
+    from ..cloud import aws
+    from ..config import load
+
+    api = aws.get_api()
+    cfg = load(config_file=config_file)
+
+    # See teal_lang/executors/awslambda.py
+    logs, response = getattr(api, function).invoke(cfg, args)
+    if verbose:
+        print(logs)
+
+    if "errorMessage" in response:
+        raise InvokeError(response["errorMessage"])
+
+    code = response.get("statusCode", None)
+    if code == 400:
+        print("Error! (statusCode: 400)\n")
+        err = json.loads(response["body"])
+        if "traceback" in err:
+            raise InvokeError(err, err["traceback"])
+        else:
+            # FIXME
+            raise InvokeError(err, err)
+
+    if code != 200:
+        raise ValueError(f"Unexpected response code: {code}")
+
+    body = json.loads(response["body"]) if as_json else response["body"]
+    if verbose:
+        pprint.pprint(body)
+
+    return body
+
+
+@timed
+def _invoke(args):
+    from ..config import load
+
+    cfg = load(config_file=Path(args["--config"]))
+    payload = {
+        "function": args["--fn"],
+        "args": args["ARG"],
+        "timeout": cfg.service.lambda_timeout,
+    }
+    data = _call_cloud_api(
+        "new", payload, Path(args["--config"]), verbose=args["--verbose"]
+    )
+    print(data["result"])
+
+
+@timed
+def _events(args):
+    from ..executors import awslambda
+
+    data = _call_cloud_api(
+        "get_events",
+        {"session_id": args["SESSION_ID"]},
+        Path(args["--config"]),
+        verbose=args["--verbose"],
+    )
+    if args["--unified"]:
+        awslambda.print_events_unified(data)
+    elif args["--json"]:
+        print(json.dumps(data, indent=2))
+    else:
+        awslambda.print_events_by_machine(data)
+
+
+@timed
+def _logs(args):
+    from ..executors import awslambda
+
+    data = _call_cloud_api(
+        "get_output",
+        {"session_id": args["SESSION_ID"]},
+        Path(args["--config"]),
+        verbose=args["--verbose"],
+    )
+    awslambda.print_outputs(data)
 
 
 def main():
@@ -118,14 +269,24 @@ def main():
 
     if args["ast"]:
         _ast(args)
-    if args["asm"]:
+    elif args["asm"]:
         _asm(args)
     elif args["deploy"]:
         _deploy(args)
-    elif args["FILE"]:
+    elif args["destroy"]:
+        _destroy(args)
+    elif args["invoke"]:
+        _invoke(args)
+    elif args["events"]:
+        _events(args)
+    elif args["logs"]:
+        _logs(args)
+    elif args["FILE"] and args["FILE"].endswith(".tl"):
         _run(args)
     else:
-        raise NotImplementedError
+        print(em("Invalid command line.\n"))
+        print(__doc__)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

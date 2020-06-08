@@ -57,7 +57,7 @@ class TealLexer(Lexer):
         return t
 
     # Identifiers and keywords
-    ID = "[a-z][a-zA-Z0-9_?.]*"
+    ID = "[a-z_][a-zA-Z0-9_?.]*"
     ID["fn"] = FN
     ID["lambda"] = LAMBDA
     ID["if"] = IF
@@ -125,6 +125,7 @@ def post_lex(toks):
 
 
 class TealParser(Parser):
+    # debugfile = "parser.out"
     tokens = TealLexer.tokens
     precedence = (
         ("nonassoc", LT, GT),
@@ -204,9 +205,15 @@ class TealParser(Parser):
 
     # function call
 
-    @_("expr '(' arglist ')'")
+    # NOTE: to avoid a conflict between "LAMBDA (" and "expr (", function calls
+    # are restricted to "named" calls - ie you can't directly call the result of
+    # an expression, you have to assign to a variable first. This isn't ideal,
+    # but too hard to fix now.
+
+    # NOTE:
+    @_("ID '(' arglist ')'")
     def expr(self, p):
-        return nodes.N_Call(p.expr, p.arglist)
+        return nodes.N_Call(nodes.N_Id(p.ID), p.arglist)
 
     @_("nothing")
     def arglist(self, p):

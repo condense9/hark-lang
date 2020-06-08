@@ -191,6 +191,10 @@ class Conc(I):
     """Concatenate the top two elements on the stack"""
 
 
+class Append(I):
+    """Append element to a list"""
+
+
 class First(I):
     """CAR (first element) of a list"""
 
@@ -205,6 +209,13 @@ class Nth(I):
 
 class Nullp(I):
     """Check whether the top item on the stack is Null"""
+
+
+##± Types and Type Conversion ±#################################################
+
+
+class ParseFloat(I):
+    """Parse a string into a float"""
 
 
 ##± Arithmetic ±################################################################

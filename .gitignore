@@ -8,6 +8,10 @@ examples/*/libs
 
 .serverless
 
+# Teal packaging
+teal_lambda.zip
+.teal_data
+
 # pytest logs
 logs
 

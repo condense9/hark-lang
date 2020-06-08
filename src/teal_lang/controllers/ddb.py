@@ -154,5 +154,7 @@ class DataController:
         if type(value) != str:
             raise ValueError(f"{value} ({type(value)}) is not str")
 
-        with self.lock:
-            self.session.stdout.append(value)
+        # Avoid empty strings
+        if value:
+            with self.lock:
+                self.session.stdout.append(value)

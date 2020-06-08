@@ -59,6 +59,11 @@ class N_Progn:
 
 
 @dataclass
+class N_MultipleValues:
+    exprs: list
+
+
+@dataclass
 class N_Id:
     name: str
 
@@ -77,3 +82,13 @@ class N_Argument:
 @dataclass
 class N_Literal:
     value: Any
+
+
+@dataclass
+class N_Label:
+    name: str
+
+
+@dataclass
+class N_Goto:
+    name: str
