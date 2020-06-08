@@ -6,9 +6,31 @@ Teal is designed for passing data between Python functions running in the cloud
 with very little infrastructure. It's like having a cluster, without having to
 manage a cluster.
 
+```javascript
+// service.tl
+import(read_items,     :python src.data_lib)
+import(transform_item, :python src.data_lib)
+import(get_metadata,   :python src.data_lib)
+import(save_item,      :python src.data_lib)
+import(aggregate,      :python src.data_lib)
+
+
+fn handle(item) {
+  // Get the metadata and do the transform in parallel
+  metadata = async get_metadata(item)
+  transformed = async transform_item(item)
+  save_item(await metadata, await transformed)
+}
+
+fn main(items_csv) {
+  items = read_items(items_csv)
+  results = map(items, async handle)
+  aggregate(map(results, await)) // wait for all handling to finish
+}
+```
+
 Teal threads run in parallel on separate compute resource, and Teal handles data
-transfer and synchronisation, but without a separate orchestrator or
-coordination service.
+transfer and synchronisation.
 
 **Data in**: You can invoke Teal like any Lambda function (AWS cli, S3 trigger,
 API gateway, etc).
