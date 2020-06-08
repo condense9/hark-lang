@@ -200,9 +200,13 @@ class TealPackage(S3File):
     @staticmethod
     def get_file(config, dest: Path):
         """Create the Teal code Zip, saving it in dest"""
-        root = Path(__file__).parents[3]
-
         LOG.info(f"Copying Teal Lambda package to {dest}")
+
+        # NOTE - magic here. Relies on you running "scripts/make_lambda_dist.sh"
+        # before deployment, which creates teal_lambda.zip at the repository
+        # root, and is packaged in the teal pip distribution. Not very nice or
+        # clean, and we find a better way.
+        root = Path(__file__).parents[3]
         shutil.copyfile(root / "teal_lambda.zip", dest)
 
 

@@ -2,29 +2,40 @@
 
 ![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang) [![Gitter](https://badges.gitter.im/Teal-Lang/community.svg)](https://gitter.im/Teal-Lang/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-Teal is a programming language for serverless cloud applications, designed for
-passing data around between Python functions. Concurrency supported. Execution
-tracing built-in.
+Teal is a programming language for cloud applications, designed for passing data
+between Python functions and making concurrency easy. It's like having a
+cluster, without having to manage a cluster.
 
-Key features:
-- Very little infrastructure, for applications of any complexity. The Teal
-  runtime shares 4 Lambda functions and stores execution state in a DynamoDB
-  table.
-- Minimal wasted server time. When your code is waiting for another thread to
-  finish, the Lambda is completely stopped.
-- Simple mental models. Teal programs can be traced, profiled, and the code can
-  be reviewed just like any other language. Want to see where your Python
-  function is being used? Just grep your codebase.
-- Local testing is first-class. Teal programs can be run locally, so you can
-  test your entire workflow before deployment.
+Teal functions are like coroutines - they can be paused and resumed at any
+point. Try doing that with Python, across multiple Lambda invocations ([Read
+more...](#faq)).
 
-Teal runs locally or on AWS Lambda. Teal threads can be suspended while another
-thread finishes. Execution data is stored in memory or in a DynamoDB table.
+Teal threads run in parallel, on separate compute resource. Data transfer and
+synchronisation is entirely handled by Teal.
+
+Teal is built on AWS Lambda, so if you can pass data in to Lambda, you can pass
+it to Teal.
+
+There is a local runtime too, so you can thoroughly test Teal programs before
+deployment.
+
+Similar technologies:
+
+| Tech                                | Reasons for Teal                                               |
+|-------------------------------------|----------------------------------------------------------------|
+| AWS Step Functions                  | Simpler testing and CI, no lock-in to AWS.                     |
+| Orchestrators (Apache Airflow, etc) | No infrastructure management, simpler mental model.            |
+| Azure Durable Functions             | More familiar programming model.                               |
+| Task runners (Celery, etc)          | No infrastructure management, easier testing of chained tasks. |
+
+[Read more...](#why-teal)
+
+---
 
 ![Concurrency](doc/functions.png)
 
-Documentation coming soon! For now, browse the [the examples](test/examples) or
-the check out the [Teal Playground](https://www.condense9.com/playground).
+Documentation coming soon! For now, check out the [the Fractal example](examples/fractals)
+or the [Playground](https://www.teal-lang.org/playground).
 
 
 ## FAQ
@@ -50,31 +61,28 @@ implemented so data can only be sent to/from a thread at call/return points.
 
 **Is this an infrastructure-as-code tool?**
 
-No, Teal doesn't create or manage infrastructure. There are already great tools
-to do that ([Terraform](https://www.terraform.io/),
+No, Teal does not do general-purpose infrastructure management. There are
+already great tools to do that ([Terraform](https://www.terraform.io/),
 [Pulumi](https://www.pulumi.com/), [Serverless
-Framework](https://www.serverless.com/), etc). Teal requires infrastructure to
-run on AWS, and you can set that up however you prefer.
+Framework](https://www.serverless.com/), etc).
 
 Instead, Teal reduces the amount of infrastructure you need. Instead of a
 distinct Lambda function for every piece of application logic, you only need the
-core Teal interpreter Lambda functions.
+core Teal interpreter (purely serverless) infrastructure.
+
+Teal will happily manage that infrastructure for you (through `teal deploy` and
+`teal destroy`), or you can set it up with your in-house custom system.
 
 
 ## Getting started
-
-**Teal is alpha quality - don't use it for mission critical things.**
 
 ```shell
 $ pip install teal-lang
 ```
 
-This gives you the `teal` executable.
+This gives you the `teal` executable - try `teal -h`.
 
-Browse the [the examples](test/examples) to explore the syntax.
-
-Check out an [example AWS deployment](examples/hello/serverless.yml) using the
-Serverless Framework.
+Play with [the Fractal example](examples/fractals).
 
 [Create an issue](https://github.com/condense9/teal-lang/issues) if none of this
 makes sense, or you'd like help getting started.
@@ -83,13 +91,13 @@ makes sense, or you'd like help getting started.
 ### Teal May Not Be For You!
 
 Teal *is* for you if:
-- you want to build ETL pipelines.
+- you use Python for long-running tasks.
+- you have an AWS account.
 - you have a repository of data processing scripts, and want to connect them
   together in the cloud.
-- you insist on being able to test as much as possible locally.
-- You don't have time (or inclination) to deploy and manage a full-blown
-  platform (Spark, Airflow, etc).
-- You're wary of Step Functions (and similar) because of vendor lock-in and cost.
+- You don't have time (or inclination) to deploy and manage a full-blown task
+  platform (Airflow, Celery, etc).
+- You don't want to use AWS Step Functions .
 
 Core principles guiding Teal design:
 - Do the heavy-lifting in Python.
@@ -100,39 +108,45 @@ Core principles guiding Teal design:
 
 ## Why Teal?
 
+Teal is like AWS Step Functions, but is cheaper (pay only for the Lambda
+invocations and process data), and way easier to program and test. The tradeoff
+is you don't get tight integration with the AWS ecosystem (e.g. Teal doesn't
+natively support timed triggers).
+
+Teal is like Azure Durable Functions -- it lets you pause and resume workflows,
+but it's (subjectively) nicer to write. The syntax feels natural. Also it's not
+bound to Azure.
+
+Teal is like a task runner (Celery, Apache Airflow, etc), but you don't have to
+manage any infrastructure.
+
 Teal is **not** Kubernetes, because it's not trying to let you easily scale
 Dockerised services.
-
-Teal is **not** containerisation, because.. well because there are no containers
-here.
 
 Teal is **not** a general-purpose programming language, because that would be
 needlessly reinventing the wheel.
 
-Teal is a very simple compiled language with only a few constructs:
+Teal is a simple compiled language with only a few constructs:
 
-1. named variables (data, functions)
+1. named variables
 2. `async`/`await` concurrency primitives 
-3. Python (>=3.8) interop
-4. A few basic types
+3. Python (>=3.8) interoperability (FFI)
+4. A few basic types (strings, numbers, lists)
+5. first-class functions (proper closures coming soon)
 
 Two interpreters have been implemented so far -- local and AWS Lambda, but
 there's no reason Teal couldn't run on top of (for example) Kubernetes. [Issue
 #8](https://github.com/condense9/teal-lang/issues/8)
 
-**Concurrency**: Teal gives you "bare-metal concurrency" (i.e. without external
-coordination) on top of AWS Lambda.
+**Concurrency**: When you do `y = async f(x)`, `f(x)` is started on a new Lambda
+instance. And then when you do `await y`, the current Lambda function
+terminates, and automatically continues when `y` is finished being computed.
 
-When you do `y = async f(x)`, Teal computes `f(x)` on a new Lambda instance. And
-then when you do `await y`, the current Lambda function terminates, and
-automatically continues when `y` is finished being computed. There's no idle
-server time.
-
-**Testing**: The local interpreter lets you test your program before deployment,
-and uses Python threading for concurrency.
+**Testing**: `teal service.tl -f foo arg` runs `foo("arg")` defined in
+`service.tl` and prints to stdout.
 
 **Tracing and profiling**: Teal has a built-in tracer tool, so it's easy to see
-where the time is going.
+where the time is going: `teal events $SESSION_ID`.
 
 
 ## Current Limitations and Roadmap
@@ -185,7 +199,7 @@ Use `scripts/run_dynamodb_local.sh` to start the database and web UI. Export the
 environment variables it gives you - these are required by the Teal runtime.
 
 
-## Who?
+## About
 
 Teal is maintained by [Condense9 Ltd.](https://www.condense9.com/). Get in touch
 with [ric@condense9.com](ric@condense9.com) for bespoke data engineering and
