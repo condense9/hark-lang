@@ -1,21 +1,27 @@
 # Batch Fractal Generation
 
 Quick-start:
-- `$ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt`
-- `$ teal -v deploy`
-- `$ teal invoke`
-- `$ aws s3 ls s3://<your_s3_bucket>/fractals --recursive`
-- Check out the Fractal PNGs that have been generated in your S3 bucket!
+
+```
+$ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt
+$ teal -v deploy
+$ teal invoke
+```
+
+Check out the Fractal PNGs that have been generated in your S3 bucket!
+
+```
+$ aws s3 ls s3://<your_s3_bucket>/fractals --recursive
+```
 
 ---
 
 This example generates Fractals in parallel on AWS Lambda, using Python's PIL
 (Pillow) library and some recursive plotting.
 
-The Teal service is pretty simple:
-- randomly generate a list of N Fractals to draw
-- draw each one in parallel (fan-out N Lambda invocations) and save in S3
-- Coming soon: merge them all into a collage (fan-in)
+1. randomly generate a list of N Fractals to draw.
+2. draw each one in parallel (fan-out N Lambda invocations) and save in S3.
+3. Coming soon: merge them all into a collage (fan-in).
 
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
@@ -48,7 +54,9 @@ To get the full experience you need:
 
 ### 1. Install Teal
 
-`$ pip install teal`
+```
+$ pip install teal
+```
 
 Recommended: do this inside a virtual environment!
 
@@ -77,7 +85,9 @@ $ export MINIO_ENDPOINT=http://localhost:9000
 
 Run the Teal program:
 
-`$ teal service.tl`
+```
+$ teal service.tl
+```
 
 **Check the results**: Browse to http://127.0.0.1:9000/minio/data/fractals/ and
 check that the fractals have been generated.
@@ -98,7 +108,9 @@ Teal will be given full read/write access to this bucket.
 
 (From inside the virtual environment.)
 
-`$ teal deploy`
+```
+$ teal deploy
+```
 
 This deploys the cloud service, according to the configuration in the "service"
 part of [`teal.toml`](teal.toml).
@@ -116,7 +128,9 @@ Use the `-v` flag to see what is actually updated.
 
 ### 5. Test it
 
-`$ teal -v invoke`
+```
+$ teal -v invoke
+```
 
 After a little while, and if all goes well, you'll see:
 
@@ -138,17 +152,23 @@ Done (6s elapsed).
 
 Confirm that the Fractals exist:
 
-`$ aws s3 ls s3://<your_s3_bucket>/fractals --recursive`
+```
+$ aws s3 ls s3://<your_s3_bucket>/fractals --recursive
+```
 
 And check the Teal logs:
 
-`$ teal events SESSION_ID`
+```
+$ teal events SESSION_ID
+```
 
 Where SESSION_ID is taken from the (verbose) output of `invoke`.
 
 Another useful view:
 
-`$ teal events --unified SESSION_ID`
+```
+$ teal events --unified SESSION_ID
+```
 
 
 ## Next Steps
