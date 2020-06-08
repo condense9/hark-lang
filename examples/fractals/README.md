@@ -9,16 +9,23 @@ This example generates Fractals in parallel on AWS Lambda, using Python's PIL
 
 Quick-start:
 
-```
+```shell
 $ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt
+
 $ teal -v deploy
+...
+
 $ teal invoke
+['fractals/rings_8.png', 'fractals/hilbert2_6.png', 'fractals/levy_c_5.png']
 ```
 
 Check out the Fractal PNGs that have been generated in your S3 bucket!
 
-```
+```shell
 $ aws s3 ls s3://<your_s3_bucket>/fractals --recursive
+2020-06-08 13:19:39      28695 fractals/hilbert2_6.png
+2020-06-08 13:19:38      29558 fractals/levy_c_5.png
+2020-06-08 13:19:38       7451 fractals/rings_8.png
 ```
 
 ---
