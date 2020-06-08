@@ -29,6 +29,8 @@ do_release() {
 
     echo "Tagging..."
     git tag -a -s "v${VERSION}" -m "Published version v${VERSION}."
+
+    echo "DONE :)"
 }
 
 
