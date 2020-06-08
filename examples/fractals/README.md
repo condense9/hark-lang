@@ -61,7 +61,7 @@ To get the full experience you need:
 
 ### 1. Install Teal
 
-```
+```shell
 $ pip install teal
 ```
 
@@ -70,11 +70,9 @@ Recommended: do this inside a virtual environment!
 
 ### 2. Test Fractal generation locally
 
-Teal programs can be run locally before being deployed.
-
 Use minio to spin up a local S3-compatible server:
 
-```
+```shell
 $ mkdir -p minio_root/data
 
 $ minio server --address 127.0.0.1:9000 minio_root
@@ -82,17 +80,17 @@ $ minio server --address 127.0.0.1:9000 minio_root
 
 Check that http://127.0.0.1:9000/minio/data is working.
 
-Point the code at the server (note that the endpoint is **http***):
+Point the code at the server (note that the endpoint is **http**):
 
-```
+```shell
 $ export FRACTALS_BUCKET=data
 
 $ export MINIO_ENDPOINT=http://localhost:9000
 ```
 
-Run the Teal program:
+Generate fractals:
 
-```
+```shell
 $ teal service.tl
 ```
 
@@ -104,23 +102,21 @@ check that the fractals have been generated.
 
 **1.** `$ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt`
 
-Variables in `teal_env.txt` will be exposed to your Python code.
+Variables in `teal_env.txt` will be exposed to your Python code on AWS.
 
 **2.** Change "teal-examples-data" in `teal.toml` to the name of your S3 bucket.
 
-Teal will be given full read/write access to this bucket.
+Your code will be given full read/write access to this bucket.
 
 
 ### 4. Deploy the infrastructure
 
-(From inside the virtual environment.)
-
-```
+```shell
 $ teal deploy
 ```
 
-This deploys the cloud service, according to the configuration in the "service"
-part of [`teal.toml`](teal.toml).
+This deploys the cloud service according to the configuration in the `[service]`
+section of [`teal.toml`](teal.toml). Use `teal destroy` to reverse it.
 
 This command does several things:
 - packages the `src` directory into a lambda layer
@@ -128,14 +124,14 @@ This command does several things:
 - deploys the Lambda data
 - deploys the Teal code
 
-Feel free to re-run this command -- it will only update the necessary parts.
+Feel free to re-run this command -- it's idempotent.
 
 Use the `-v` flag to see what is actually updated.
 
 
 ### 5. Test it
 
-```
+```shell
 $ teal -v invoke
 ```
 
@@ -159,22 +155,22 @@ Done (6s elapsed).
 
 Confirm that the Fractals exist:
 
-```
+```shell
 $ aws s3 ls s3://<your_s3_bucket>/fractals --recursive
 ```
 
 And check the Teal logs:
 
-```
-$ teal events SESSION_ID
+```shell
+$ teal events $SESSION_ID
 ```
 
-Where SESSION_ID is taken from the (verbose) output of `invoke`.
+Where `$SESSION_ID` is taken from the (verbose) output of `invoke`.
 
 Another useful view:
 
-```
-$ teal events --unified SESSION_ID
+```shell
+$ teal events --unified $SESSION_ID
 ```
 
 
