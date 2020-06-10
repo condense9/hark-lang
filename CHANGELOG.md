@@ -7,6 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [unreleased]
 
+### Changed
+
+- Removed the project name in config - it doesn't help anything, and adds extra
+  state to keep track of (deployment ID is enough).
+
+### Fixed
+
+- Tail-call optimisation bug which caused all values in a block to be kept
+
 
 ## [0.2.4] (2020-06-08)
 
