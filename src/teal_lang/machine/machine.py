@@ -122,7 +122,10 @@ class TlMachine:
 
     def error(self, original, msg):
         # TODO stacktraces
-        raise TealRuntimeError(msg) from original
+        if original:
+            raise TealRuntimeError(msg) from original
+        else:
+            raise TealRuntimeError(msg)
 
     @property
     def stopped(self):
@@ -268,7 +271,7 @@ class TlMachine:
             self.evali(instr)
 
         else:
-            raise Exception(f"Don't know how to call {fn} ({type(fn)})")
+            self.error(None, f"Don't know how to call {fn} ({type(fn)})")
 
     @evali.register
     def _(self, i: ACall):
@@ -281,7 +284,7 @@ class TlMachine:
             raise ValueError(fn_ptr)
 
         if fn_ptr.identifier not in self.exe.locations:
-            raise Exception(f"Function `{fn_ptr}` doesn't exist")
+            self.error(None, f"Function `{fn_ptr}` doesn't exist")
 
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
         machine = self.data_controller.new_machine(args, fn_ptr)
@@ -314,7 +317,7 @@ class TlMachine:
             # of lists.
             # NOTE - we don't try to detect futures hidden in other
             # kinds of structured data, which could cause runtime bugs!
-            raise Exception("Waiting on a list that contains futures!")
+            self.error(error, "Waiting on a list that contains futures!")
 
         else:
             # Not an exception. This can happen if a wait is generated for a
@@ -349,7 +352,7 @@ class TlMachine:
         b = mt.TlList([]) if isinstance(b, mt.TlNull) else b
 
         if not isinstance(b, mt.TlList):
-            raise Exception(f"b ({b}, {type(b)}) is not a list")
+            self.error(None, f"b ({b}, {type(b)}) is not a list")
 
         if isinstance(a, mt.TlList):
             self.state.ds_push(mt.TlList(a + b))
@@ -364,7 +367,7 @@ class TlMachine:
         a = mt.TlList([]) if isinstance(a, mt.TlNull) else a
 
         if not isinstance(a, mt.TlList):
-            raise Exception(f"{a} ({type(a)}) is not a list")
+            self.error(None, f"{a} ({type(a)}) is not a list")
 
         self.state.ds_push(mt.TlList(a + [b]))
 
@@ -372,14 +375,14 @@ class TlMachine:
     def _(self, i: First):
         lst = self.state.ds_pop()
         if not isinstance(lst, mt.TlList):
-            raise Exception(f"{lst} ({type(lst)}) is not a list")
+            self.error(None, f"{lst} ({type(lst)}) is not a list")
         self.state.ds_push(lst[0])
 
     @evali.register
     def _(self, i: Rest):
         lst = self.state.ds_pop()
         if not isinstance(lst, mt.TlList):
-            raise Exception(f"{lst} ({type(lst)}) is not a list")
+            self.error(None, f"{lst} ({type(lst)}) is not a list")
         self.state.ds_push(lst[1:])
 
     @evali.register
@@ -387,7 +390,7 @@ class TlMachine:
         n = self.state.ds_pop()
         lst = self.state.ds_pop()
         if not isinstance(lst, mt.TlList):
-            raise Exception(f"{lst} ({type(lst)}) is not a list")
+            self.error(None, f"{lst} ({type(lst)}) is not a list")
         self.state.ds_push(lst[n])
 
     @evali.register
