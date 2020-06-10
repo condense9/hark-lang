@@ -31,11 +31,12 @@ class Executable:
 
     def bindings_table(self):
         """Get a pretty table of bindings"""
+        spacing = max(len(x) for x in self.bindings.keys()) + 5
         res = ""
         k = "NAME"
-        res += f" {k: <14} VALUE\n"
+        res += f" {k: <{spacing}}VALUE\n"
         for k, v in self.bindings.items():
-            res += f" {k:.<14} {v}\n"
+            res += f" {k:.<{spacing}}{v}\n"
         return res
 
     def serialise(self) -> dict:
