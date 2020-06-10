@@ -21,7 +21,7 @@ class ServiceConfig:
     python_src: Path
     python_requirements: Path
     deployment_id: str
-    data_dir: str
+    data_dir: Path
     lambda_timeout: int
     lambda_memory: int
     teal_file: str
@@ -62,11 +62,11 @@ def _create_deployment_id(service):
     did = uuid.uuid4().hex[:16]
     LOG.info(f"Using new deployment ID {did}")
 
-    did_file = Path(service["data_dir"]) / DEPLOYMENT_ID_FILE
+    did_file = service["data_dir"] / DEPLOYMENT_ID_FILE
     LOG.info(f"Writing deployment ID to {did_file}")
 
     # Ensure the data directory exists
-    os.makedirs(service["data_dir"], exist_ok=True)
+    os.makedirs(str(service["data_dir"]), exist_ok=True)
 
     with open(str(did_file), "w") as f:
         f.write(did)
@@ -76,7 +76,7 @@ def _create_deployment_id(service):
 
 def _get_deployment_id(service: dict, create_deployment_id: bool) -> str:
     """Try to find a deployment ID"""
-    did_file = Path(service["data_dir"]) / DEPLOYMENT_ID_FILE
+    did_file = service["data_dir"] / DEPLOYMENT_ID_FILE
     if did_file.exists():
         with open(str(did_file), "r") as f:
             return f.read().strip()
@@ -111,6 +111,10 @@ def load(config_file: Path = None, *, create_deployment_id=False) -> Config:
                 service[key] = value
                 LOG.info(f"Using default for `{key}`: {value}")
 
+    # Ensure some keys are paths
+    for key in ["python_src", "python_requirements", "env", "data_dir"]:
+        service[key] = Path(service[key])
+
     if not service.get("region", None):
         session = boto3.session.Session()
         service["region"] = session.region_name
@@ -121,9 +125,6 @@ def load(config_file: Path = None, *, create_deployment_id=False) -> Config:
     # lists are not hashable, and Config must be hashable
     service["extra_layers"] = tuple(service["extra_layers"])
     service["s3_access"] = tuple(service["s3_access"])
-
-    for key in ["python_src", "python_requirements", "env"]:
-        service[key] = Path(service[key])
 
     root = config_file.parent.resolve()
     return Config(root=root, service=ServiceConfig(**service))

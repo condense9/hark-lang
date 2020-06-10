@@ -116,7 +116,7 @@ class DataBucket:
 
 def get_data_dir(config) -> Path:
     """Get path to the Teal data directory, ensuring it exists"""
-    data_dir = Path(config.service.data_dir)
+    data_dir = config.service.data_dir
 
     if not data_dir.is_absolute():
         data_dir = (Path(config.root) / config.service.data_dir).resolve()

@@ -47,21 +47,21 @@ Options:
 # - typer? https://typer.tiangolo.com/
 # - colorama https://pypi.org/project/colorama/
 
-import logging
-import sys
-from pathlib import Path
-import subprocess
-
-import time
-import pprint
 import json
+import logging
+import pprint
+import subprocess
+import sys
+import time
+from pathlib import Path
+
 import colorama
 
-from .. import __version__
-from .styling import em, dim
-from .ui import configure_logging
-
 from docopt import docopt
+
+from .. import __version__
+from .styling import dim, em
+from .ui import configure_logging
 
 LOG = logging.getLogger(__name__)
 
@@ -222,6 +222,13 @@ def _invoke(args):
         "timeout": cfg.service.lambda_timeout,
     }
     data = _call_cloud_api("new", payload, Path(args["--config"]))
+
+    session_id = data["session_id"]
+    last_session_file = cfg.service.data_dir / "last_session_id.txt"
+    with open(last_session_file, "w") as f:
+        LOG.info("Session ID: %s (saved in %s)", session_id, last_session_file)
+        f.write(session_id)
+
     print(data["result"])
 
 
