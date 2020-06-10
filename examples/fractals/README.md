@@ -170,7 +170,8 @@ And check the Teal logs:
 $ teal events $SESSION_ID
 ```
 
-Where `$SESSION_ID` is taken from the (verbose) output of `invoke`.
+Where `$SESSION_ID` is taken from the (verbose) output of `invoke`
+(`68232w8b-6dde-4dca-ade4-23cba2b3c254` in this case).
 
 Another useful view:
 
