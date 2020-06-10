@@ -32,7 +32,6 @@ fn map_tr(func, items, acc) {
     acc
   }
   else {
-    sleep(1) // Reduce runtime load (won't be necessary in future versions)
     map_tr(func, rest(items), append(acc, func(first(items))))
   }
 }
