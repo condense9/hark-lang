@@ -19,7 +19,8 @@ class CompileError(Exception):
     pass
 
 
-def optimise_block(n: nodes.N_Definition, block):
+def optimise_block(n: nodes.N_Definition, block: nodes.N_Progn):
+    """Optimise a single block (progn) of expressions"""
     if not isinstance(block, nodes.N_Progn):
         raise ValueError
 
@@ -29,7 +30,8 @@ def optimise_block(n: nodes.N_Definition, block):
         # recursive call, optimise it! Replace the N_Call with direct evaluation
         # of the arguments and a jump back to the start
         new_last_items = list(last.args) + [nodes.N_Goto("!start")]
-        return nodes.N_MultipleValues(block.exprs[:-1] + new_last_items)
+        return_values = nodes.N_MultipleValues(new_last_items)
+        return nodes.N_Progn(block.exprs[:-1] + [return_values])
 
     elif isinstance(last, nodes.N_If):
         new_cond = nodes.N_If(

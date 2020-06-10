@@ -55,11 +55,15 @@ class N_If:
 
 @dataclass
 class N_Progn:
+    """List of expressions, but only the last evaluation result is kept"""
+
     exprs: list
 
 
 @dataclass
 class N_MultipleValues:
+    """Like progn, but all results are kept"""
+
     exprs: list
 
 
