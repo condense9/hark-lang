@@ -12,11 +12,14 @@ Quick-start:
 ```shell
 $ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt
 
-$ teal -v deploy
+$ teal -v deploy  # Set up a Teal project in your AWS account (<60s)
 ...
 
-$ teal invoke
+$ teal invoke  # Start the computation on Lambda
 ['fractals/rings_8.png', 'fractals/hilbert2_6.png', 'fractals/levy_c_5.png']
+
+$ teal destroy  # Tear down the infrastructure (<60s)
+Done.
 ```
 
 Check out the Fractal PNGs that have been generated in your S3 bucket!
