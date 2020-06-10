@@ -46,6 +46,7 @@ sly = "^0.4"
 colorama = "^0.4.3"
 toml = "^0.10.1"
 deterministic_zip = "^0.1"
+coloredlogs = "^14.0"
 
 [tool.poetry.dev-dependencies]
 boto3 = "*"

@@ -59,6 +59,7 @@ import colorama
 
 from .. import __version__
 from .styling import em, dim
+from .ui import configure_logging
 
 from docopt import docopt
 
@@ -176,7 +177,7 @@ class InvokeError(Exception):
         return res
 
 
-def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
+def _call_cloud_api(function, args, config_file, as_json=True):
     from ..cloud import aws
     from ..config import load
 
@@ -184,9 +185,9 @@ def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
     cfg = load(config_file=config_file)
 
     # See teal_lang/executors/awslambda.py
+    LOG.debug("Calling Teal cloud: %s %s", function, args)
     logs, response = getattr(api, function).invoke(cfg, args)
-    if verbose:
-        print(logs)
+    LOG.info(logs)
 
     if "errorMessage" in response:
         raise InvokeError(response["errorMessage"])
@@ -198,15 +199,14 @@ def _call_cloud_api(function, args, config_file, verbose=False, as_json=True):
         if "traceback" in err:
             raise InvokeError(err, err["traceback"])
         else:
-            # FIXME
+            # FIXME this sometimes breaks unexpectedly.
             raise InvokeError(err, err)
 
     if code != 200:
         raise ValueError(f"Unexpected response code: {code}")
 
     body = json.loads(response["body"]) if as_json else response["body"]
-    if verbose:
-        pprint.pprint(body)
+    LOG.info(body)
 
     return body
 
@@ -221,9 +221,7 @@ def _invoke(args):
         "args": args["ARG"],
         "timeout": cfg.service.lambda_timeout,
     }
-    data = _call_cloud_api(
-        "new", payload, Path(args["--config"]), verbose=args["--verbose"]
-    )
+    data = _call_cloud_api("new", payload, Path(args["--config"]))
     print(data["result"])
 
 
@@ -232,10 +230,7 @@ def _events(args):
     from ..executors import awslambda
 
     data = _call_cloud_api(
-        "get_events",
-        {"session_id": args["SESSION_ID"]},
-        Path(args["--config"]),
-        verbose=args["--verbose"],
+        "get_events", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
     )
     if args["--unified"]:
         awslambda.print_events_unified(data)
@@ -250,10 +245,7 @@ def _logs(args):
     from ..executors import awslambda
 
     data = _call_cloud_api(
-        "get_output",
-        {"session_id": args["SESSION_ID"]},
-        Path(args["--config"]),
-        verbose=args["--verbose"],
+        "get_output", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
     )
     awslambda.print_outputs(data)
 
@@ -261,11 +253,8 @@ def _logs(args):
 def main():
     colorama.init()
     args = docopt(__doc__, version=__version__)
-    if args["--vverbose"]:
-        logging.basicConfig(level=logging.DEBUG)
-        LOG.debug(args)
-    elif args["--verbose"]:
-        logging.basicConfig(level=logging.INFO)
+    configure_logging(args["--verbose"], args["--vverbose"])
+    LOG.debug("CLI args: %s", args)
 
     if args["ast"]:
         _ast(args)
