@@ -3,8 +3,8 @@
 [`service.tl`](service.tl) generates Fractals in parallel on AWS Lambda, using
 Python's PIL (Pillow) library and some recursive plotting.
 
-1. randomly generate a list of N Fractals to draw.
-2. draw each one in parallel (fan-out N Lambda invocations) and save in S3.
+1. Randomly generate a list of N Fractals to draw.
+2. Draw each one in parallel (fan-out N Lambda invocations) and save in S3.
 3. Coming soon: merge them all into a collage (fan-in).
 
 Quick-start:
