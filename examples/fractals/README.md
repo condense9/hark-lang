@@ -7,7 +7,7 @@ Python's PIL (Pillow) library and some recursive plotting.
 2. Draw each one in parallel (fan-out N Lambda invocations) and save in S3.
 3. Coming soon: merge them all into a collage (fan-in).
 
-Quick-start:
+Quick-start (2-3 minutes):
 
 ```shell
 $ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt
@@ -35,13 +35,14 @@ $ aws s3 ls s3://<your_s3_bucket>/fractals --recursive
 
 ---
 
+(Expected time to complete: <5 minutes)
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
-- [Batch Fractal Generation](#batch-fractal-generation)
+- [Batch Fractal Generation 💮](#batch-fractal-generation-💮)
     - [Prerequisites](#prerequisites)
-    - [Using This Example](#using-this-example)
+    - [Walkthrough](#walkthrough)
         - [1. Install Teal](#1-install-teal)
         - [2. Test Fractal generation locally](#2-test-fractal-generation-locally)
         - [3. Configure the deployment](#3-configure-the-deployment)
