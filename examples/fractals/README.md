@@ -163,21 +163,186 @@ Confirm that the Fractals exist:
 
 ```shell
 $ aws s3 ls s3://<your_s3_bucket>/fractals --recursive
+# ...
 ```
 
-And check the Teal logs:
+Check the standard output, where `$SESSION_ID` is taken from the (verbose)
+output of `invoke` (`68232w8b-6dde-4dca-ade4-23cba2b3c254` in this case):
+
+```shell
+$ teal logs $SESSION_ID
+['crystal', 16]
+['tiles', 18]
+['crystal', 14]
+uploading /tmp/tiles_18.png to s3.Bucket(name='teal-examples-data')...
+uploading /tmp/crystal_16.png to s3.Bucket(name='teal-examples-data')...
+uploading /tmp/crystal_14.png to s3.Bucket(name='teal-examples-data')...
+Done
+
+Done (1s elapsed).
+```
+
+And an execution trace (more detail coming soon):
 
 ```shell
 $ teal events $SESSION_ID
+Thread 0:
+0.000  run
+0.000  call {'fn_name': '<TlForeignPtr src.draw.random_fractals>'}
+0.000  call {'fn_name': '<TlFunctionPtr #2:map_wait>'}
+0.000  call {'fn_name': '<TlFunctionPtr #1:map>'}
+0.001  call {'fn_name': '<TlFunctionPtr #0:map_tr>'}
+0.001  call {'fn_name': 'nullp'}
+0.001  call {'fn_name': 'rest'}
+0.001  call {'fn_name': 'first'}
+0.001  call {'fn_name': '<TlFunctionPtr #4:build_fractal_async>'}
+0.269  return
+0.269  call {'fn_name': 'append'}
+0.269  call {'fn_name': 'nullp'}
+0.269  call {'fn_name': 'rest'}
+0.269  call {'fn_name': 'first'}
+0.269  call {'fn_name': '<TlFunctionPtr #4:build_fractal_async>'}
+0.370  return
+0.370  call {'fn_name': 'append'}
+0.370  call {'fn_name': 'nullp'}
+0.370  call {'fn_name': 'rest'}
+0.370  call {'fn_name': 'first'}
+0.370  call {'fn_name': '<TlFunctionPtr #4:build_fractal_async>'}
+0.466  return
+0.466  call {'fn_name': 'append'}
+0.467  call {'fn_name': 'nullp'}
+0.467  return
+0.467  return
+0.467  call {'fn_name': '<TlFunctionPtr #1:map>'}
+0.467  call {'fn_name': '<TlFunctionPtr #0:map_tr>'}
+0.467  call {'fn_name': 'nullp'}
+0.467  call {'fn_name': 'rest'}
+0.467  call {'fn_name': 'first'}
+0.467  call {'fn_name': 'wait'}
+0.520  stop
+2.892  run
+2.892  call {'fn_name': 'append'}
+2.893  call {'fn_name': 'nullp'}
+2.893  call {'fn_name': 'rest'}
+2.893  call {'fn_name': 'first'}
+2.893  call {'fn_name': 'wait'}
+3.083  call {'fn_name': 'append'}
+3.084  call {'fn_name': 'nullp'}
+3.084  call {'fn_name': 'rest'}
+3.084  call {'fn_name': 'first'}
+3.084  call {'fn_name': 'wait'}
+3.192  call {'fn_name': 'append'}
+3.192  call {'fn_name': 'nullp'}
+3.192  return
+3.192  return
+3.192  return
+3.192  call {'fn_name': 'print'}
+3.427  stop
+Thread 1:
+0.737  run
+0.737  call {'fn_name': 'print'}
+0.924  call {'fn_name': 'nth'}
+0.925  call {'fn_name': 'nth'}
+0.925  call {'fn_name': '<TlForeignPtr src.draw.save_fractal_to_file>'}
+1.915  call {'fn_name': '<TlForeignPtr src.store.upload_to_bucket>'}
+2.826  stop
+Thread 2:
+0.452  run
+0.452  call {'fn_name': 'print'}
+0.718  call {'fn_name': 'nth'}
+0.718  call {'fn_name': 'nth'}
+0.718  call {'fn_name': '<TlForeignPtr src.draw.save_fractal_to_file>'}
+1.683  call {'fn_name': '<TlForeignPtr src.store.upload_to_bucket>'}
+2.063  stop
+Thread 3:
+0.536  run
+0.536  call {'fn_name': 'print'}
+0.804  call {'fn_name': 'nth'}
+0.804  call {'fn_name': 'nth'}
+0.804  call {'fn_name': '<TlForeignPtr src.draw.save_fractal_to_file>'}
+1.637  call {'fn_name': '<TlForeignPtr src.store.upload_to_bucket>'}
+2.325  stop
+Done (0s elapsed).
 ```
 
-Where `$SESSION_ID` is taken from the (verbose) output of `invoke`
-(`68232w8b-6dde-4dca-ade4-23cba2b3c254` in this case).
-
-Another useful view:
+Another useful view, highlighting the parallel execution of the threads:
 
 ```shell
 $ teal events --unified $SESSION_ID
+    Time  Thread  Event
+   0.000     0     run
+   0.000     0     call {'fn_name': '<TlForeignPtr src.draw.random_fractals>'}
+   0.000     0     call {'fn_name': '<TlFunctionPtr #2:map_wait>'}
+   0.000     0     call {'fn_name': '<TlFunctionPtr #1:map>'}
+   0.001     0     call {'fn_name': '<TlFunctionPtr #0:map_tr>'}
+   0.001     0     call {'fn_name': 'nullp'}
+   0.001     0     call {'fn_name': 'rest'}
+   0.001     0     call {'fn_name': 'first'}
+   0.001     0     call {'fn_name': '<TlFunctionPtr #4:build_fractal_async>'}
+   0.269     0     return
+   0.269     0     call {'fn_name': 'append'}
+   0.269     0     call {'fn_name': 'nullp'}
+   0.269     0     call {'fn_name': 'rest'}
+   0.269     0     call {'fn_name': 'first'}
+   0.269     0     call {'fn_name': '<TlFunctionPtr #4:build_fractal_async>'}
+   0.370     0     return
+   0.370     0     call {'fn_name': 'append'}
+   0.370     0     call {'fn_name': 'nullp'}
+   0.370     0     call {'fn_name': 'rest'}
+   0.370     0     call {'fn_name': 'first'}
+   0.370     0     call {'fn_name': '<TlFunctionPtr #4:build_fractal_async>'}
+   0.452     2     run
+   0.452     2     call {'fn_name': 'print'}
+   0.466     0     return
+   0.466     0     call {'fn_name': 'append'}
+   0.467     0     call {'fn_name': 'nullp'}
+   0.467     0     return
+   0.467     0     return
+   0.467     0     call {'fn_name': '<TlFunctionPtr #1:map>'}
+   0.467     0     call {'fn_name': '<TlFunctionPtr #0:map_tr>'}
+   0.467     0     call {'fn_name': 'nullp'}
+   0.467     0     call {'fn_name': 'rest'}
+   0.467     0     call {'fn_name': 'first'}
+   0.467     0     call {'fn_name': 'wait'}
+   0.520     0     stop
+   0.536     3     run
+   0.536     3     call {'fn_name': 'print'}
+   0.718     2     call {'fn_name': 'nth'}
+   0.718     2     call {'fn_name': 'nth'}
+   0.718     2     call {'fn_name': '<TlForeignPtr src.draw.save_fractal_to_file>'}
+   0.737     1     run
+   0.737     1     call {'fn_name': 'print'}
+   0.804     3     call {'fn_name': 'nth'}
+   0.804     3     call {'fn_name': 'nth'}
+   0.804     3     call {'fn_name': '<TlForeignPtr src.draw.save_fractal_to_file>'}
+   0.924     1     call {'fn_name': 'nth'}
+   0.925     1     call {'fn_name': 'nth'}
+   0.925     1     call {'fn_name': '<TlForeignPtr src.draw.save_fractal_to_file>'}
+   1.637     3     call {'fn_name': '<TlForeignPtr src.store.upload_to_bucket>'}
+   1.683     2     call {'fn_name': '<TlForeignPtr src.store.upload_to_bucket>'}
+   1.915     1     call {'fn_name': '<TlForeignPtr src.store.upload_to_bucket>'}
+   2.063     2     stop
+   2.325     3     stop
+   2.826     1     stop
+   2.892     0     run
+   2.892     0     call {'fn_name': 'append'}
+   2.893     0     call {'fn_name': 'nullp'}
+   2.893     0     call {'fn_name': 'rest'}
+   2.893     0     call {'fn_name': 'first'}
+   2.893     0     call {'fn_name': 'wait'}
+   3.083     0     call {'fn_name': 'append'}
+   3.084     0     call {'fn_name': 'nullp'}
+   3.084     0     call {'fn_name': 'rest'}
+   3.084     0     call {'fn_name': 'first'}
+   3.084     0     call {'fn_name': 'wait'}
+   3.192     0     call {'fn_name': 'append'}
+   3.192     0     call {'fn_name': 'nullp'}
+   3.192     0     return
+   3.192     0     return
+   3.192     0     return
+   3.192     0     call {'fn_name': 'print'}
+   3.427     0     stop
+Done (0s elapsed).
 ```
 
 
