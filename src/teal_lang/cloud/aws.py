@@ -669,6 +669,7 @@ class TealFunction:
             user_env = {}
 
         return {
+            "TEAL_SESSION_TTL": 3600,
             "TL_REGION": config.service.region,
             "DYNAMODB_TABLE": DataTable.resource_name(config),
             "USE_LIVE_AWS": "foo",  # setting this to "yes" breaks AWS...?
