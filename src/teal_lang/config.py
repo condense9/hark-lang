@@ -39,13 +39,13 @@ class Config:
 SERVICE_DEFAULTS = dict(
     python_src="src",
     python_requirements="requirements.txt",
-    data_dir=".teal_data",
+    data_dir=".teal",
     lambda_timeout=240,
     lambda_memory=128,
     teal_file="service.tl",
     env="teal_env.txt",
     extra_layers=[],
-    s3_access=[]
+    s3_access=[],
 )
 
 DEFAULT_CONFIG_FILENAME = Path("teal.toml")
@@ -90,7 +90,9 @@ def _get_deployment_id(service: dict, create_deployment_id: bool) -> str:
     raise ConfigError("Can't find a deployment ID")
 
 
-def load(config_file: Path = None, *, create_deployment_id=False) -> Config:
+def load(
+    config_file: Path = None, *, load_deployment_id=False, create_deployment_id=False
+) -> Config:
     """Load the configuration, creating a new deployment ID if desired"""
     if not config_file:
         config_file = DEFAULT_CONFIG_FILENAME
@@ -120,7 +122,10 @@ def load(config_file: Path = None, *, create_deployment_id=False) -> Config:
         service["region"] = session.region_name
 
     # TODO get deployment_id from CLI arg?
-    service["deployment_id"] = _get_deployment_id(service, create_deployment_id)
+    if load_deployment_id:
+        service["deployment_id"] = _get_deployment_id(service, create_deployment_id)
+    else:
+        service["deployment_id"] = None
 
     # lists are not hashable, and Config must be hashable
     service["extra_layers"] = tuple(service["extra_layers"])

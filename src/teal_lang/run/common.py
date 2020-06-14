@@ -15,12 +15,16 @@ class ThreadDied(Exception):
 
 
 def wait_for_finish(check_period, timeout, data_controller, invoker):
-    """Wait for a machine to finish, checking every CHECK_PERIOD"""
+    """Wait for a machine to finish, checking every CHECK_PERIOD
+
+    If timeout is None, wait indefinitely.
+
+    """
     start_time = time.time()
     try:
         while not data_controller.finished:
             time.sleep(check_period)
-            if time.time() - start_time > timeout:
+            if timeout and time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for finish")
 
             for probe in data_controller.probes:

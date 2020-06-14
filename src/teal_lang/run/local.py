@@ -8,10 +8,11 @@ from ..machine.types import to_py_type
 from .common import LOG, run_and_wait, wait_for_finish
 
 
-def run_local(filename, function, args):
+def run_local(filename, function, args, timeout_s=10):
     LOG.debug(f"PYTHONPATH: {os.getenv('PYTHONPATH')}")
     controller = local.DataController()
     invoker = teal_thread.Invoker(controller)
-    waiter = partial(wait_for_finish, 0.1, 10)
+    check_period = 0.1
+    waiter = partial(wait_for_finish, check_period, timeout_s)
     run_and_wait(controller, invoker, waiter, filename, function, args)
     return controller.result

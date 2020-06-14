@@ -67,6 +67,9 @@ LOG = logging.getLogger(__name__)
 
 
 def _run(args):
+    from ..config import load
+
+    cfg = load(config_file=Path(args["--config"]), load_deployment_id=False)
     fn = args["--fn"]
     filename = args["FILE"]
     sys.path.append(".")
@@ -81,7 +84,9 @@ def _run(args):
 
         from ..run.local import run_local
 
-        run_local(filename, fn, fn_args)
+        # NOTE: we use the "lambda" timeout even for local invocations. Maybe
+        # there should be a more general timeout
+        run_local(filename, fn, fn_args, cfg.service.lambda_timeout)
 
     elif args["--storage"] == "dynamodb":
         from ..run.dynamodb import run_ddb_local, run_ddb_processes
