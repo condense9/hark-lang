@@ -69,7 +69,7 @@ LOG = logging.getLogger(__name__)
 def _run(args):
     from ..config import load
 
-    cfg = load(config_file=Path(args["--config"]), load_deployment_id=False)
+    cfg = load(config_file=Path(args["--config"]))
     fn = args["--fn"]
     filename = args["FILE"]
     sys.path.append(".")
@@ -140,7 +140,13 @@ def _deploy(args):
     from ..cloud import aws
     from ..config import load
 
-    cfg = load(config_file=Path(args["--config"]), create_deployment_id=True)
+    configure_logging(args["--verbose"], args["--vverbose"])
+
+    cfg = load(
+        config_file=Path(args["--config"]),
+        load_deployment_id=True,
+        create_deployment_id=True,
+    )
 
     # Deploy the infrastructure (idempotent)
     aws.deploy(cfg)
@@ -164,7 +170,9 @@ def _destroy(args):
     from ..cloud import aws
     from ..config import load
 
-    cfg = load(config_file=Path(args["--config"]))
+    configure_logging(args["--verbose"], args["--vverbose"])
+
+    cfg = load(config_file=Path(args["--config"]), load_deployment_id=True)
     aws.destroy(cfg)
 
 
@@ -265,7 +273,6 @@ def _logs(args):
 def main():
     colorama.init()
     args = docopt(__doc__, version=__version__)
-    configure_logging(args["--verbose"], args["--vverbose"])
     LOG.debug("CLI args: %s", args)
 
     if args["ast"]:

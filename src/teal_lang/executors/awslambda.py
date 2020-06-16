@@ -139,14 +139,43 @@ def resume(event, context):
 
 def new(event, context):
     """Create a new session - event is a simple payload"""
-    function = event.get("function", "main")
-    args = [mt.TlString(a) for a in event.get("args", [])]
-    check_period = event.get("check_period", 1)
-    wait_for_finish = event.get("wait_for_finish", True)
-    code = event.get("code", None)
     timeout = event.get("timeout", None)
-    timeout = timeout if timeout else int(os.getenv("FIXED_TEAL_TIMEOUT", 5))
 
+    return _new_session(
+        function=event.get("function", "main"),
+        args=[mt.TlString(a) for a in event.get("args", [])],
+        check_period=event.get("check_period", 1),
+        wait_for_finish=event.get("wait_for_finish", True),
+        timeout=timeout if timeout else int(os.getenv("FIXED_TEAL_TIMEOUT", 5)),
+        code_override=event.get("code", None),
+    )
+
+
+def upload_handler(event, context):
+    """Handle uploads to S3 buckets
+
+    NOTE - unlike `new', this does not wait for finish by default.
+    """
+
+    # https://docs.aws.amazon.com/AmazonS3/latest/dev/notification-content-structure.html
+
+    raise NotImplementedError
+
+    # FIXME
+    return _new_session(
+        function=trigger["function"],
+        args=[mt.TlString(a) for a in trigger.get("args", [])],
+        check_period=trigger.get("check_period", 1),
+        wait_for_finish=trigger.get("wait_for_finish", False),
+        # timeout=???,
+        code_override=event.get("code", None),
+    )
+
+
+def _new_session(
+    function, args, check_period, wait_for_finish, timeout, code_override=None
+):
+    """Create a new teal session"""
     session = db.new_session()
 
     if not code:

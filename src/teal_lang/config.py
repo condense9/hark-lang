@@ -3,8 +3,10 @@
 import logging
 import os
 import uuid
+from collections import namedtuple
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Tuple
 
 import boto3
 import toml
@@ -13,6 +15,13 @@ LOG = logging.getLogger(__name__)
 
 # NOTE: we could have a "[service.prod]" section with production overrides, and
 # a CLI flag to switch
+
+
+@dataclass(frozen=True)
+class BucketTriggerConfig:
+    name: str
+    prefix: str
+    suffix: str
 
 
 @dataclass(frozen=True)
@@ -26,8 +35,10 @@ class ServiceConfig:
     lambda_memory: int
     teal_file: str
     extra_layers: tuple
-    s3_access: tuple
     env: Path
+    s3_access: tuple
+    upload_triggers: Tuple[BucketTriggerConfig]
+    managed_buckets: list
 
 
 @dataclass(frozen=True)
@@ -46,6 +57,8 @@ SERVICE_DEFAULTS = dict(
     env="teal_env.txt",
     extra_layers=[],
     s3_access=[],
+    upload_triggers=[],
+    managed_buckets=[],
 )
 
 DEFAULT_CONFIG_FILENAME = Path("teal.toml")
@@ -113,9 +126,13 @@ def load(
                 service[key] = value
                 LOG.info(f"Using default for `{key}`: {value}")
 
-    # Ensure some keys are paths
+    # ensure some keys are paths
     for key in ["python_src", "python_requirements", "env", "data_dir"]:
         service[key] = Path(service[key])
+
+    # lists are not hashable, and Config must be hashable
+    for key in ["extra_layers", "s3_access", "managed_buckets"]:
+        service[key] = tuple(service[key])
 
     if not service.get("region", None):
         session = boto3.session.Session()
@@ -127,9 +144,9 @@ def load(
     else:
         service["deployment_id"] = None
 
-    # lists are not hashable, and Config must be hashable
-    service["extra_layers"] = tuple(service["extra_layers"])
-    service["s3_access"] = tuple(service["s3_access"])
+    service["upload_triggers"] = tuple(
+        BucketTriggerConfig(*val) for val in service["upload_triggers"]
+    )
 
     root = config_file.parent.resolve()
     return Config(root=root, service=ServiceConfig(**service))

@@ -7,3 +7,9 @@ different formats and sizes as quickly as possible on AWS Lambda.
 2. Check the format is suitable.
 3. Start a new thread for each transcoding task.
 4. When each task finishes, save the results.
+
+
+
+```shell
+aws s3 cp foo.txt s3://teal-examples-data/
+```

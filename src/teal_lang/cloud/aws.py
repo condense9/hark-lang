@@ -1,8 +1,6 @@
 """Manage Teal deployments in AWS"""
 
 import base64
-import zipfile
-import functools
 import json
 import logging
 import os
@@ -11,7 +9,9 @@ import random
 import shutil
 import subprocess
 import time
+import zipfile
 from dataclasses import dataclass
+from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Tuple, Union
@@ -41,7 +41,7 @@ class InvokeError(Exception):
     "Failed to invoke function"
 
 
-@functools.lru_cache
+@lru_cache
 def get_client(config, service):
     """Get a boto3 client for SERVICE, setting endpoint and region"""
     args = {}
@@ -206,8 +206,8 @@ class TealPackage(S3File):
         # before deployment, which creates teal_lambda.zip at the repository
         # root, and is packaged in the teal pip distribution. Not very nice or
         # clean, and we find a better way.
-        root = Path(__file__).parents[3]
-        shutil.copyfile(root / "teal_lambda.zip", dest)
+        zipfile = Path(__file__).parents[3] / "teal_lambda.zip"
+        shutil.copyfile(zipfile, dest)
 
 
 def zip_dir(dirname: Path, dest: Path, deterministic=True):
@@ -232,17 +232,26 @@ class SourceLayerPackage(S3File):
 
         LOG.info(f"Building Source Layer package in {dest}...")
         workdir = get_data_dir(config) / "source_build" / "python"
-        # def make_source_zip(workdir, src_dir, requirements_file, dest)
         os.makedirs(workdir, exist_ok=True)
+
+        # User source
         shutil.copytree(
             config.service.python_src,
             workdir / config.service.python_src.name,
             dirs_exist_ok=True,
         )
+
+        # Pip requirements if they exist
         reqs_file = config.service.python_requirements
-        subprocess.check_output(
-            ["pip", "install", "-q", "--target", workdir, "-r", reqs_file]
-        )
+        if reqs_file.exists():
+            subprocess.check_output(
+                ["pip", "install", "-q", "--target", workdir, "-r", reqs_file]
+            )
+
+        # Make sure the zip is not empty
+        with open(workdir / "packaged_by_teal.txt", "w") as f:
+            f.write("Packed by Teal :)")
+
         zip_dir(workdir, dest)
 
 
@@ -404,6 +413,7 @@ class ExecutionRole:
     def create_or_update(config):
         if ExecutionRole.exists(config):
             ExecutionRole.update_s3_access_policy(config)
+            # ExecutionRole.update_trigger_policy(config)
             return
 
         client = get_client(config, "iam")
@@ -548,7 +558,11 @@ class SourceLayer:
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#client
 class TealFunction:
-    needs_src = False
+    needs_src_layer = False
+
+    @classmethod
+    def create_extra_permissions(cls, config):
+        pass
 
     @classmethod
     def resource_name(cls, config):
@@ -563,6 +577,14 @@ class TealFunction:
             return True
         except client.exceptions.ResourceNotFoundException:
             return False
+
+    @classmethod
+    def get_arn(cls, config):
+        """Get the ARN. Raises ResourceNotFoundException if it doesn't exist"""
+        client = get_client(config, "lambda")
+        name = cls.resource_name(config)
+        res = client.get_function(FunctionName=name)
+        return res["Configuration"]["FunctionArn"]
 
     @classmethod
     def src_layers_list(cls, config):
@@ -619,7 +641,7 @@ class TealFunction:
         if (
             current_config["MemorySize"] != config.service.lambda_memory
             or current_config["Timeout"] != config.service.lambda_timeout
-            or (cls.needs_src and current_layers != required_layers)
+            or (cls.needs_src_layer and current_layers != required_layers)
             or current_config["Environment"]["Variables"] != env_vars
         ):
             LOG.info(f"Configuration for {name} changed, updating function")
@@ -637,6 +659,7 @@ class TealFunction:
     @classmethod
     def create(cls, config):
         client = get_client(config, "lambda")
+        # TODO maybe - per-function roles
         role_arn = ExecutionRole.get_arn(config)
         name = cls.resource_name(config)
 
@@ -654,10 +677,11 @@ class TealFunction:
             ),
             Timeout=config.service.lambda_timeout,  # TODO make per-function?
             MemorySize=config.service.lambda_memory,
-            Layers=cls.src_layers_list(config) if cls.needs_src else [],
+            Layers=cls.src_layers_list(config) if cls.needs_src_layer else [],
             Environment=dict(Variables=cls.get_environment_variables(config)),
         )
         LOG.info(f"Created function {name}")
+        cls.create_extra_permissions(config)
 
     @classmethod
     def get_environment_variables(cls, config):
@@ -669,7 +693,7 @@ class TealFunction:
             user_env = {}
 
         return {
-            "TEAL_SESSION_TTL": 3600,
+            "TEAL_SESSION_TTL": "3600",
             "TL_REGION": config.service.region,
             "DYNAMODB_TABLE": DataTable.resource_name(config),
             "USE_LIVE_AWS": "foo",  # setting this to "yes" breaks AWS...?
@@ -722,13 +746,34 @@ class FnSetexe(TealFunction):
 class FnNew(TealFunction):
     name = "new"
     handler = "teal_lang.executors.awslambda.new"
-    needs_src = True
+    needs_src_layer = True
 
 
 class FnResume(TealFunction):
     name = "resume"
     handler = "teal_lang.executors.awslambda.resume"
-    needs_src = True
+    needs_src_layer = True
+
+
+class FnS3UploadHandler(TealFunction):
+    name = "upload_handler"
+    handler = "teal_lang.executors.awslambda.upload_handler"
+
+    @classmethod
+    def create_extra_permissions(cls, config):
+        client = get_client(config, "lambda")
+        name = cls.resource_name(config)
+        # add_permission: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.add_permission
+        for bucket in config.service.upload_triggers:
+            client.add_permission(
+                FunctionName=name,
+                StatementId="s3-trigger",
+                Action="lambda:InvokeFunction",
+                Principal="s3.amazonaws.com",
+                SourceArn=f"arn:aws:s3:::{bucket.name}",
+                # SourceAccount="", # TODO get this account ID
+            )
+            LOG.info(f"Added S3 trigger permission from {bucket} to {name}")
 
 
 class FnGetOutput(TealFunction):
@@ -746,7 +791,120 @@ class FnVersion(TealFunction):
     handler = "teal_lang.executors.awslambda.version"
 
 
-# ... TODO
+## optional infrastructure
+
+
+class Trigger:
+    pass
+
+
+@dataclass
+class BucketTrigger:
+    bucket: str
+
+    def resource_name(self, config):
+        return f"teal-{config.service.deployment_id}"
+
+    def _get_filter(self, config):
+        trigger_config = next(
+            b for b in config.service.upload_triggers if b.name == self.bucket
+        )
+        return dict(
+            Key=dict(
+                FilterRules=[
+                    dict(Name="Prefix", Value=trigger_config.prefix),
+                    dict(Name="Suffix", Value=trigger_config.suffix),
+                ]
+            )
+        )
+
+    def _get_current(self, config) -> dict:
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.get_bucket_notification_configuration
+        client = get_client(config, "s3")
+        res = client.get_bucket_notification_configuration(Bucket=self.bucket)
+        current = {}
+
+        for key in [
+            "LambdaFunctionConfigurations",
+            "TopicConfigurations",
+            "QueueConfigurations",
+        ]:
+            try:
+                current[key] = res[key]
+            except KeyError:
+                pass
+
+        return current
+
+    def exists(self, config):
+        res = self._get_current(config)
+        arn = FnS3UploadHandler.get_arn(config)
+        if "LambdaFunctionConfigurations" in res:
+            for fn in res["LambdaFunctionConfigurations"]:
+                if fn["LambdaFunctionArn"] == arn and fn["Filter"] == self._get_filter(
+                    config
+                ):
+                    return True
+        return False
+
+    def create(self, config):
+        client = get_client(config, "s3")
+        arn = FnS3UploadHandler.get_arn(config)
+        new = self._get_current(config)
+
+        new_notification = dict(
+            Id=self.resource_name(config),
+            LambdaFunctionArn=arn,
+            Events=["s3:ObjectCreated:*"],
+            Filter=self._get_filter(config),
+        )
+
+        # Add or update the Lambda handler
+        if "LambdaFunctionConfigurations" not in new:
+            new["LambdaFunctionConfigurations"] = [new_notification]
+        else:
+            for idx, notification in enumerate(new["LambdaFunctionConfigurations"]):
+                if notification["LambdaFunctionArn"] == arn:
+                    new["LambdaFunctionConfigurations"][idx] = new_notification
+                    break
+            else:
+                new.append(new_notification)
+
+        # NOTE: the lambda MUST be configured to allow S3 triggers first
+        client.put_bucket_notification_configuration(
+            Bucket=self.bucket, NotificationConfiguration=new
+        )
+
+    def destroy(self, config):
+        client = get_client(config, "s3")
+        current = self._get_current(config)
+        arn = FnS3UploadHandler.get_arn(config)
+
+        # remove just this key
+        new_fn_config = [
+            fn
+            for fn in current["LambdaFunctionConfigurations"]
+            if fn["LambdaFunctionArn"] != arn
+        ]
+        current["LambdaFunctionConfigurations"] = new_fn_config
+        client.put_bucket_notification_configuration(
+            Bucket=self.bucket, NotificationConfiguration=current
+        )
+
+    def create_or_update_or_destroy(self, config):
+        exists = self.exists(config)
+        needed = False
+        for bucket in config.service.upload_triggers:
+            if bucket.name == self.bucket:
+                needed = True
+
+        if needed:
+            if not exists:
+                self.create(config)
+                LOG.info(f"Created/updated {self}")
+        elif exists:
+            self.destroy(config)
+            LOG.info(f"Destroyed {self}")
 
 
 CORE_RESOURCES = [
@@ -759,19 +917,28 @@ CORE_RESOURCES = [
     FnSetexe,
     FnNew,
     FnResume,
+    FnS3UploadHandler,
+    # TODO combine these three:
     FnGetOutput,
     FnGetEvents,
     FnVersion,
+    # SharedAPIGateway, TODO
 ]
 
 
 def deploy(config):
     """Deploy (or update) infrastructure for this config"""
+    if not config.service.deployment_id:
+        raise ValueError("Need deployment ID")
+
     LOG.info(f"Deploying: {config.service.deployment_id}")
 
     # TODO parallelise some deployment for funs.
     for res in CORE_RESOURCES:
         res.create_or_update(config)
+
+    for bucket in config.service.managed_buckets:
+        BucketTrigger(bucket).create_or_update_or_destroy(config)
 
 
 def destroy(config):
