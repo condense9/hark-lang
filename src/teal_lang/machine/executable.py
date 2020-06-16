@@ -1,7 +1,7 @@
 """The Teal Machine Executable class"""
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from . import instructionset
 from .instruction import Instruction
@@ -12,9 +12,10 @@ from .types import TlType
 class Executable:
     """Teal executable"""
 
-    bindings: dict
-    locations: dict
-    code: list
+    bindings: Dict[str, TlType]
+    locations: Dict[str, int]
+    code: List[Instruction]
+    attributes: dict
 
     def listing(self) -> str:
         """Get a pretty assembly listing string"""
@@ -53,16 +54,3 @@ class Executable:
             name: TlType.deserialise(val) for name, val in obj["bindings"].items()
         }
         return cls(locations=obj["locations"], bindings=bindings, code=code)
-
-
-def link(bindings: Dict[str, Any], functions: Dict[str, list]) -> Executable:
-    """Link bindings and functions into a complete Executable"""
-    location = 0
-    code = []
-    locations = {}
-    for fn_name, fn_code in functions.items():
-        locations[fn_name] = location
-        code += fn_code
-        location += len(fn_code)
-
-    return Executable(bindings, locations, code)

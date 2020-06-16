@@ -2,15 +2,14 @@
 
 from pathlib import Path
 
-from .machine.executable import Executable, link
+from .machine.executable import Executable
 from .teal_compiler import tl_compile
 from .teal_parser import tl_parse
 
 
 def compile_text(text: str) -> Executable:
-    "Compile a Teal file, creating an Executable ready to be used"
-    bindings, functions = tl_compile(tl_parse(text))
-    return link(bindings, functions)
+    "Parse and compile a Teal program"
+    return tl_compile(tl_parse(text))
 
 
 def compile_file(filename: Path) -> Executable:
@@ -29,10 +28,6 @@ if __name__ == "__main__":
         text = f.read()
 
     debug = len(sys.argv) > 2 and sys.argv[2] == "-d"
-    bindings, functions = tl_compile(tl_parse(text, debug_lex=debug))
+    exe = tl_compile(tl_parse(text, debug_lex=debug))
 
-    pprint.pprint(bindings)
-    print("")
-    pprint.pprint(functions)
-
-    print(link(bindings, functions).listing())
+    print(exe.listing())

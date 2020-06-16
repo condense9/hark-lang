@@ -1,6 +1,6 @@
 """Nodes used to create the Teal AST"""
 
-from typing import Any
+from typing import Any, Union
 from dataclasses import dataclass
 
 
@@ -9,6 +9,7 @@ class N_Definition:
     name: str
     paramlist: list
     body: list
+    attribute: Union[str, None]
 
 
 @dataclass

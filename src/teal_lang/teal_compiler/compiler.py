@@ -1,3 +1,4 @@
+"""Optimise and compile an AST into executable code"""
 import itertools
 import logging
 from functools import singledispatch, singledispatchmethod, wraps
@@ -5,9 +6,16 @@ from typing import Dict, Tuple
 
 from ..machine import instructionset as mi
 from ..machine import types as mt
+from ..machine.executable import Executable
 from ..teal_parser import nodes
+from .attributes import parse_attribute
 
 LOG = logging.getLogger(__name__)
+
+
+# A label to point at the beginning on the function, prefixed with "!" to imply
+# that it is automatically created:
+START_LABEL = "!start"
 
 
 def flatten(list_of_lists: list) -> list:
@@ -29,7 +37,7 @@ def optimise_block(n: nodes.N_Definition, block: nodes.N_Progn):
     if isinstance(last, nodes.N_Call) and last.fn.name == n.name:
         # recursive call, optimise it! Replace the N_Call with direct evaluation
         # of the arguments and a jump back to the start
-        new_last_items = list(last.args) + [nodes.N_Goto("!start")]
+        new_last_items = list(last.args) + [nodes.N_Goto(START_LABEL)]
         return_values = nodes.N_MultipleValues(new_last_items)
         return nodes.N_Progn(block.exprs[:-1] + [return_values])
 
@@ -77,6 +85,7 @@ class CompileToplevel:
     def __init__(self, exprs):
         """Compile a toplevel list of expressions"""
         self.functions = {}
+        self.attributes = {}
         self.bindings = {}
         self.labels = {}
         self.instruction_idx = 0
@@ -87,12 +96,11 @@ class CompileToplevel:
         """Make a new executable function object with a unique name, and save it"""
         count = len(self.functions)
         identifier = f"#{count}:{name}"
-        # a label to point at the beginning on the function, prefixed with "!"
-        # to imply that it is automatically created:
-        start_label = nodes.N_Label(f"!start")
+        start_label = nodes.N_Label(START_LABEL)
         code = self.compile_function(optimise_tailcall(n))
         fn_code = replace_gotos([start_label] + code)
         self.functions[identifier] = fn_code
+        # self.attributes[identifier] = parse_attribute(n.attribute)
         return identifier
 
     def compile_function(self, n: nodes.N_Definition) -> list:
@@ -250,7 +258,16 @@ class CompileToplevel:
 ###
 
 
-def tl_compile(top_exprs: list) -> Tuple[Dict, Dict]:
-    """Compile top-level expressions and return (bindings, functions)"""
-    res = CompileToplevel(top_exprs)
-    return res.bindings, res.functions
+def tl_compile(top_nodes: list) -> Executable:
+    """Compile top-level nodes into an executable"""
+    collection = CompileToplevel(top_nodes)
+
+    location_offset = 0
+    code = []
+    locations = {}
+    for fn_name, fn_code in collection.functions.items():
+        locations[fn_name] = location_offset
+        location_offset += len(fn_code)
+        code += fn_code
+
+    return Executable(collection.bindings, locations, code, collection.attributes)

@@ -11,6 +11,7 @@ from . import nodes
 
 class TealLexer(Lexer):
     tokens = {
+        ATTRIBUTE,
         TERM,
         SYMBOL,
         ID,
@@ -43,6 +44,10 @@ class TealLexer(Lexer):
     literals = {"(", ")", ",", "{", "}"}
 
     ignore = " \t"
+
+    @_(r"#\[.*\]\n")
+    def ATTRIBUTE(self, t):
+        return t
 
     # Must come before DIV (same starting char)
     @_(r"(/\*(.|\n)*?\*/)|(//.*)")
@@ -183,9 +188,17 @@ class TealParser(Parser):
 
     # definitions (functions only, for now)
 
-    @_("FN ID '(' paramlist ')' block_expr")
+    @_("maybe_attribute FN ID '(' paramlist ')' block_expr")
     def expr(self, p):
-        return nodes.N_Definition(p.ID, p.paramlist, p.block_expr)
+        return nodes.N_Definition(p.ID, p.paramlist, p.block_expr, p.maybe_attribute)
+
+    @_("nothing")
+    def maybe_attribute(self, p):
+        return None
+
+    @_("ATTRIBUTE")
+    def maybe_attribute(self, p):
+        return p.ATTRIBUTE
 
     @_("LAMBDA '(' paramlist ')' block_expr")
     def expr(self, p):
