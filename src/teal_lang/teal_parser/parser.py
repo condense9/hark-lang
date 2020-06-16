@@ -154,6 +154,9 @@ class TealParser(Parser):
 
     @_("'{' expressions '}'")
     def block_expr(self, p):
+        if not p.expressions:
+            # TODO parser error framework
+            raise Exception("Empty block expression")
         return nodes.N_Progn(p.expressions)
 
     @_("terminated_expr more_expressions")
@@ -260,10 +263,6 @@ class TealParser(Parser):
     @_("IF expr block_expr TERM rest_if")
     def expr(self, p):
         return nodes.N_If(p.expr, p.block_expr, p.rest_if)
-
-    @_("nothing")
-    def rest_if(self, p):
-        return []
 
     @_("ELIF expr block_expr TERM rest_if")
     def rest_if(self, p):
