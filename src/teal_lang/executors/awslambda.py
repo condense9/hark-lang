@@ -172,7 +172,7 @@ def upload_handler(event, context):
 
     return _new_session(
         function="on_upload",  # constant
-        args=[mt.TlString(bucket), mt.TlString(key)],
+        args=[mt.TlString(bucket), mt.TlString(key), mt.TlString("aws")],
         wait_for_finish=False,
         check_period=None,
         timeout=None,

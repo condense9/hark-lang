@@ -4,7 +4,7 @@ import time
 
 
 def transcode(bucket, key, video_format, size):
-    print("Transcoding {key} -> {video_format} ({size})")
+    print(f"Transcoding {key} -> {video_format} ({size})")
 
     # .... Do stuff.
     time.sleep(5)
@@ -27,6 +27,6 @@ def correct_format(bucket, key) -> bool:
 
 
 def save_results(results) -> bool:
-    print("Saving results:", results)
+    print(f"Saving results:", results[0])
     time.sleep(2)
     return True

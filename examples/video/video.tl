@@ -36,18 +36,23 @@ fn transcode_and_save(bucket, key, format, size) {
  * The upload handler - check the format and spin up transcode tasks
 **/
 // #[aws_trigger="s3", bucket="upload-bucket"]
-fn on_upload(bucket, key) {
+fn on_upload(bucket, key, env) {
   if correct_format(bucket, key) {
     print("Format ok.")
+
     mp4 = async transcode_and_save(bucket, key, "mp4", "1080p")
     mp4_2 = async transcode_and_save(bucket, key, "mp4", "720p")
     hls = async transcode_and_save(bucket, key, "hls", "480")
 
-    await mp4
-    await mp4_2
-    await hls
-
-    "done."
+    if env == "local" {
+      await mp4
+      await mp4_2
+      await hls
+      "done"
+    }
+    else {
+      "done."
+    }
   }
   else {
     error("bad format")
