@@ -53,4 +53,7 @@ class Executable:
         bindings = {
             name: TlType.deserialise(val) for name, val in obj["bindings"].items()
         }
-        return cls(locations=obj["locations"], bindings=bindings, code=code)
+        # FIXME attributes
+        return cls(
+            locations=obj["locations"], bindings=bindings, code=code, attributes=None
+        )
