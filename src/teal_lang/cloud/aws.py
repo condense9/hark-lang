@@ -758,6 +758,7 @@ class FnResume(TealFunction):
 class FnS3UploadHandler(TealFunction):
     name = "upload_handler"
     handler = "teal_lang.executors.awslambda.upload_handler"
+    needs_src_layer = True
 
     @classmethod
     def create_extra_permissions(cls, config):
@@ -933,11 +934,11 @@ def deploy(config):
 
     LOG.info(f"Deploying: {config.service.deployment_id}")
 
-    # TODO parallelise some deployment for funs.
     for res in CORE_RESOURCES:
         res.create_or_update(config)
 
     for bucket in config.service.managed_buckets:
+        # TODO s3_access should be here too.
         BucketTrigger(bucket).create_or_update_or_destroy(config)
 
 
