@@ -30,7 +30,7 @@ managed_buckets = [
 ## optional, trigger a Teal function on upload to a bucket
 upload_triggers = [
   # bucket, prefix (e.g. "images/"), suffix (e.g. ".jpg")
-  ["teal-examples-data", "", ".txt"]
+  ["teal-examples-data", "", ".mp4"]
 ]
 
 ## optional, enable read/write to one or more s3 buckets

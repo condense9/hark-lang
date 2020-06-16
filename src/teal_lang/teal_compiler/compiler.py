@@ -233,8 +233,7 @@ class CompileToplevel:
         return [
             # --
             *cond_code,
-            mi.PushV(mt.TlTrue()),
-            mi.JumpIE(mt.TlInt(len(else_code) + 1)),  # to then_code
+            mi.JumpIf(mt.TlInt(len(else_code) + 1)),  # to then_code
             *else_code,
             mi.Jump(mt.TlInt(len(then_code))),  # to Return
             *then_code,

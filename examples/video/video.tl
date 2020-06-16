@@ -1,4 +1,4 @@
-/** -*- mode: rust -*-  (it's not rust, but the syntax is close)
+/** -*- mode: javascript -*-  (it's not, but the syntax is close)
  * video.tl
  *
  * Transcode video files uploaded to an S3 bucket.
@@ -8,19 +8,20 @@
 
 import(transcode, :python src.video)
 import(correct_format, :python src.video)
-import(save_results, :python src.store)
+import(save_results, :python src.video)
 
-// Teal standard library functions to get/put files in S3
-import(s3_get, teal.aws)
-import(s3_put, teal.aws)
+
+// Will be part of the std lib
+fn error(message) {
+  signal("error", message)
+}
 
 
 /**
  * The main transcode task
 **/
 fn transcode_and_save(bucket, key, format, size) {
-  filename = s3_get(bucket, key)
-  result = transcode(filename, format, size)
+  result = transcode(bucket, key, format, size)
 
   if result {
     save_results(result)
@@ -34,14 +35,19 @@ fn transcode_and_save(bucket, key, format, size) {
 /**
  * The upload handler - check the format and spin up transcode tasks
 **/
-#[aws_trigger="s3", bucket="upload-bucket"]
+// #[aws_trigger="s3", bucket="upload-bucket"]
 fn on_upload(bucket, key) {
-  filename = s3_get(bucket, key)
+  if correct_format(bucket, key) {
+    print("Format ok.")
+    mp4 = async transcode_and_save(bucket, key, "mp4", "1080p")
+    mp4_2 = async transcode_and_save(bucket, key, "mp4", "720p")
+    hls = async transcode_and_save(bucket, key, "hls", "480")
 
-  if correct_format(filename) {
-    mp4 = async transcode_and_save(bucket, key, "mp4", "TODO")
-    mp4_2 = async transcode_and_save(bucket, key, "mp4", "TODO")
-    hls = async transcode_and_save(bucket, key, "hls", "TODO")
+    await mp4
+    await mp4_2
+    await hls
+
+    "done."
   }
   else {
     error("bad format")

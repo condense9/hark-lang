@@ -36,6 +36,10 @@ class TealRuntimeError(Exception):
     """Error while executing Teal code"""
 
 
+class TealUnhandledError(Exception):
+    """Some Teal code signaled an error which was not handled"""
+
+
 def traverse(o, tree_types=(list, tuple)):
     """Traverse an arbitrarily nested list"""
     if isinstance(o, tree_types):
@@ -102,6 +106,7 @@ class TlMachine:
         ">": GreaterThan,
         "<": LessThan,
         "parse_float": ParseFloat,
+        "signal": Signal,
     }
 
     def __init__(self, vmid, invoker):
@@ -209,11 +214,11 @@ class TlMachine:
         self.state.ip += distance
 
     @evali.register
-    def _(self, i: JumpIE):
+    def _(self, i: JumpIf):
         distance = i.operands[0]
         a = self.state.ds_pop()
-        b = self.state.ds_pop()
-        if a == b:
+        # "true" means anything that's not False or Null
+        if not isinstance(a, (mt.TlNull, mt.TlFalse)):
             self.state.ip += distance
 
     @evali.register
@@ -442,6 +447,15 @@ class TlMachine:
         # This should take a vmid - data stored is a tuple (vmid, str)
         # Could also store a timestamp...
         self.data_controller.write_stdout(str(val) + "\n")
+
+    @evali.register
+    def _(self, i: Signal):
+        obj = self.state.ds_peek(0)
+        val = self.state.ds_peek(1)
+        # TODO make traceback nicer
+        if str(val) == "error":
+            raise TealUnhandledError(obj)
+        # TODO How to handle others?
 
     def __repr__(self):
         return f"<Machine {id(self)}>"

@@ -12,8 +12,8 @@ class Jump(I):
     op_types = [int]
 
 
-class JumpIE(I):
-    """Relative jump, only if top two elements on the stack are equal"""
+class JumpIf(I):
+    """Relative jump, only if top element on the stack is True-ish"""
 
     op_types = [int]
 
@@ -98,7 +98,8 @@ class ACall(I):
 class Signal(I):
     """Signal a condition"""
 
-    op_types = [str]
+    op_types = [int]
+    # op_types = [str, str]
 
 
 class HandleCondition(I):

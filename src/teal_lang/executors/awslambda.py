@@ -159,16 +159,24 @@ def upload_handler(event, context):
 
     # https://docs.aws.amazon.com/AmazonS3/latest/dev/notification-content-structure.html
 
-    raise NotImplementedError
+    if (it := event["Records"][0]["eventVersion"].split(".")[0]) != "2":
+        raise NotImplementedError(f"AWS have changed major event versions! {it}")
 
-    # FIXME
+    data = event["Records"][0]["s3"]
+
+    if (it := data["s3SchemaVersion"]) != "1.0":
+        raise NotImplementedError(f"AWS have changed S3 schema version! {it}")
+
+    bucket = data["bucket"]["name"]
+    key = data["object"]["key"]  # NOTE - could check size here
+
     return _new_session(
-        function=trigger["function"],
-        args=[mt.TlString(a) for a in trigger.get("args", [])],
-        check_period=trigger.get("check_period", 1),
-        wait_for_finish=trigger.get("wait_for_finish", False),
-        # timeout=???,
-        code_override=event.get("code", None),
+        function="on_upload",  # constant
+        args=[mt.TlString(bucket), mt.TlString(key)],
+        wait_for_finish=False,
+        check_period=None,
+        timeout=None,
+        code_override=None,
     )
 
 
@@ -178,14 +186,14 @@ def _new_session(
     """Create a new teal session"""
     session = db.new_session()
 
-    if not code:
+    if not code_override:
         exe = Executable.deserialise(session.executable)
 
     # NOTE: First, teal code is loaded from the base executable. This allows the
     # user to override that with custom code. This might not be a good idea...
     else:
         try:
-            exe = load.compile_text(code)
+            exe = load.compile_text(code_override)
         except Exception as exc:
             return fail(f"Error compiling code:\n{exc}")
 
