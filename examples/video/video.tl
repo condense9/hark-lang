@@ -11,12 +11,6 @@ import(correct_format, :python src.video)
 import(save_results, :python src.video)
 
 
-// Will be part of the std lib
-fn error(message) {
-  signal("error", message)
-}
-
-
 /**
  * The main transcode task
 **/
@@ -27,7 +21,7 @@ fn transcode_and_save(bucket, key, format, size) {
     save_results(result)
   }
   else {
-    error("transcoding failed")
+    signal("error", "transcoding failed")
   }
 }
 
@@ -55,6 +49,6 @@ fn on_upload(bucket, key, env) {
     }
   }
   else {
-    error("bad format")
+    signal("error", "bad format")
   }
 }
