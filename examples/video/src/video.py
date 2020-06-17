@@ -13,7 +13,7 @@ def transcode(bucket, key, video_format, size):
     if random.random() < 0.2:
         return None
     else:
-        return [key, "ok"]
+        return [f"{key}_{video_format}_{size}", "ok"]
 
 
 def correct_format(bucket, key) -> bool:
