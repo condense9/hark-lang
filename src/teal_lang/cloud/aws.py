@@ -109,7 +109,7 @@ class DataBucket:
         client = get_client(config, "s3")
         try:
             client.delete_bucket(Bucket=name)
-            LOG.info(f"deleted bucket {name}")
+            LOG.info(f"Deleted bucket {name}")
         except client.exceptions.NoSuchBucket:
             pass
 
@@ -189,7 +189,7 @@ class S3File:
         bucket = DataBucket.resource_name(config)
         try:
             client.delete_object(Bucket=bucket, Key=cls.key)
-            LOG.info(f"{cls.key} deleted from {bucket}")
+            LOG.info(f"Deleted {cls.key} from {bucket}")
         except (client.exceptions.NoSuchKey, client.exceptions.NoSuchBucket):
             pass
 
@@ -301,7 +301,7 @@ class DataTable:
 
         waiter = client.get_waiter("table_exists")
         waiter.wait(TableName=name)
-        LOG.info(f"Table {name} created")
+        LOG.info(f"Created Table {name}")
 
     @staticmethod
     def delete_if_exists(config):
@@ -311,7 +311,7 @@ class DataTable:
             client.delete_table(TableName=name)
             waiter = client.get_waiter("table_not_exists")
             waiter.wait(TableName=name)
-            LOG.info(f"Table {name} deleted")
+            LOG.info(f"Deleted Table {name}")
         except client.exceptions.ResourceNotFoundException:
             pass
 
@@ -364,7 +364,7 @@ class ExecutionRole:
             pass
 
         client.delete_role(RoleName=name)
-        LOG.info(f"deleted execution role {name}")
+        LOG.info(f"Deleted execution role {name}")
 
     @staticmethod
     def get_s3_access_policy(config) -> dict:
@@ -553,7 +553,7 @@ class SourceLayer:
             for v in versions["LayerVersions"]:
                 number = v["Version"]
                 client.delete_layer_version(LayerName=name, VersionNumber=number)
-                LOG.info(f"deleted layer {name} v{number}")
+                LOG.info(f"Deleted layer {name} v{number}")
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#client
@@ -707,7 +707,7 @@ class TealFunction:
         name = cls.resource_name(config)
         try:
             client.delete_function(FunctionName=name)
-            LOG.info(f"deleted function {name}")
+            LOG.info(f"Deleted function {name}")
         except client.exceptions.ResourceNotFoundException:
             pass
 
@@ -760,6 +760,7 @@ class FnS3UploadHandler(TealFunction):
     handler = "teal_lang.executors.awslambda.upload_handler"
     needs_src_layer = True
 
+    # FIXME this should be done in the BucketTrigger class.
     @classmethod
     def create_extra_permissions(cls, config):
         client = get_client(config, "lambda")
@@ -934,12 +935,18 @@ def deploy(config):
 
     LOG.info(f"Deploying: {config.service.deployment_id}")
 
+    # TODO - could make this faster by letting resource return a list of waiters
+    # which are waited on at the end.
+
     for res in CORE_RESOURCES:
+        LOG.info("Resource: %s", res)
         res.create_or_update(config)
 
     for bucket in config.service.managed_buckets:
         # TODO s3_access should be here too.
-        BucketTrigger(bucket).create_or_update_or_destroy(config)
+        res = BucketTrigger(bucket)
+        LOG.info("Resource: %s", res)
+        res.create_or_update_or_destroy(config)
 
 
 def destroy(config):
@@ -948,9 +955,8 @@ def destroy(config):
 
     # destroy in reverse order so dependencies go first
     for res in reversed(CORE_RESOURCES):
+        LOG.info("Resource: %s", res)
         res.delete_if_exists(config)
-
-    print(f"You can safely rm -rf {config.service.data_dir}")
 
 
 def show(config):

@@ -205,10 +205,14 @@ def _new_session(
             return fail("Error saving code")
 
     try:
+        fn_ptr = exe.bindings[function]
+    except KeyError as exc:
+        return fail(f"No such Teal function: `{function}`")
+
+    try:
         lock = db.SessionLocker(session)
         controller = ddb_controller.DataController(session, lock)
         invoker = Invoker(controller)
-        fn_ptr = exe.bindings[function]
         vmid = controller.new_machine(args, fn_ptr, is_top_level=True)
     except Exception as exc:
         return fail("Error initialising", exception=exc)

@@ -147,16 +147,23 @@ def _deploy(args):
     configure_logging(args["--verbose"], args["--vverbose"])
 
     cfg = load(
-        config_file=Path(args["--config"]),
-        load_deployment_id=True,
-        create_deployment_id=True,
+        config_file=Path(args["--config"]), require_dep_id=True, create_dep_id=True,
     )
 
     # Deploy the infrastructure (idempotent)
     aws.deploy(cfg)
+    LOG.info(f"Core infrastructure ready, checking version...")
+
     api = aws.get_api()
 
-    logs, response = api.version.invoke(cfg, {})
+    try:
+        logs, response = api.version.invoke(cfg, {})
+    except botocore.exceptions.KMSAccessDeniedException:
+        print(em("AWS is not ready. Try `teal deploy` again in a few minutes."))
+        print("If this persists, please let us know:")
+        print("https://github.com/condense9/teal-lang/issues/new")
+        return
+
     print("Teal:", response["body"])
 
     # Deploy the teal code
@@ -167,6 +174,7 @@ def _deploy(args):
     exe_payload = {"content": content}
     logs, response = api.set_exe.invoke(cfg, exe_payload)
     LOG.info(f"Uploaded {cfg.service.teal_file}")
+    print(em(f"Data stored in {cfg.service.data_dir}. `teal invoke` to run main()."))
 
 
 @timed
@@ -176,8 +184,9 @@ def _destroy(args):
 
     configure_logging(args["--verbose"], args["--vverbose"])
 
-    cfg = load(config_file=Path(args["--config"]), load_deployment_id=True)
+    cfg = load(config_file=Path(args["--config"]), require_dep_id=True)
     aws.destroy(cfg)
+    print(em(f"Done. you can safely `rm -rf {cfg.service.data_dir}`."))
 
 
 class InvokeError(Exception):
@@ -188,7 +197,7 @@ class InvokeError(Exception):
         self.traceback = traceback
 
     def __str__(self):
-        res = "\n\n" + str(self.err)
+        res = "\n\n" + em(str(self.err)) + "\n"
         if self.traceback:
             res += "\n" + "".join(self.traceback)
         return res
@@ -199,25 +208,28 @@ def _call_cloud_api(function, args, config_file, as_json=True):
     from ..config import load
 
     api = aws.get_api()
-    cfg = load(config_file=config_file)
+    cfg = load(config_file=config_file, require_dep_id=True)
 
     # See teal_lang/executors/awslambda.py
     LOG.debug("Calling Teal cloud: %s %s", function, args)
     logs, response = getattr(api, function).invoke(cfg, args)
     LOG.info(logs)
 
+    # This is when there's an unhandled exception in the Lambda.
     if "errorMessage" in response:
-        raise InvokeError(response["errorMessage"])
+        msg = (
+            "Teal Bug! Please report this! "
+            + "https://github.com/condense9/teal-lang/issues/new \n\n"
+            + response["errorMessage"]
+        )
+        raise InvokeError(msg, response["stackTrace"])
 
     code = response.get("statusCode", None)
     if code == 400:
+        # This is when there's a (handled) error
         print("Error! (statusCode: 400)\n")
         err = json.loads(response["body"])
-        if "traceback" in err:
-            raise InvokeError(err, err["traceback"])
-        else:
-            # FIXME this sometimes breaks unexpectedly.
-            raise InvokeError(err, err)
+        raise InvokeError(err.get("message", err), err.get("traceback", None))
 
     if code != 200:
         raise ValueError(f"Unexpected response code: {code}")

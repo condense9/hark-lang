@@ -87,8 +87,14 @@ def _create_deployment_id(service):
     return did
 
 
-def _get_deployment_id(service: dict, create_deployment_id: bool) -> str:
-    """Try to find a deployment ID"""
+def _get_deployment_id(service: dict, require: bool, create: bool) -> str:
+    """Try to find a deployment ID.
+
+    If it can't be found, and it's needed raise exception.
+
+    If allowed, create it.
+
+    """
     did_file = service["data_dir"] / DEPLOYMENT_ID_FILE
     if did_file.exists():
         with open(str(did_file), "r") as f:
@@ -97,14 +103,17 @@ def _get_deployment_id(service: dict, create_deployment_id: bool) -> str:
     if it := os.environ.get("TEAL_DEPLOYMENT_ID", None):
         return it
 
-    if create_deployment_id:
+    if not require:
+        return None
+
+    if create:
         return _create_deployment_id(service)
 
     raise ConfigError("Can't find a deployment ID")
 
 
 def load(
-    config_file: Path = None, *, load_deployment_id=False, create_deployment_id=False
+    config_file: Path = None, *, require_dep_id=False, create_dep_id=False
 ) -> Config:
     """Load the configuration, creating a new deployment ID if desired"""
     if not config_file:
@@ -139,10 +148,9 @@ def load(
         service["region"] = session.region_name
 
     # TODO get deployment_id from CLI arg?
-    if load_deployment_id:
-        service["deployment_id"] = _get_deployment_id(service, create_deployment_id)
-    else:
-        service["deployment_id"] = None
+    service["deployment_id"] = _get_deployment_id(
+        service, require_dep_id, create_dep_id
+    )
 
     service["upload_triggers"] = tuple(
         BucketTriggerConfig(*val) for val in service["upload_triggers"]
