@@ -173,7 +173,10 @@ class CompileToplevel:
     def _(self, n: nodes.N_Lambda):
         # Create a local binding to the function
         identifier = self.make_function(n)
-        stack = None  # TODO?! closures!
+        stack = None
+        # TODO?! closures! Need a mi.MakeClosure instruction that updates the
+        # top value (TlFunctionPtr) on the stack to reference the current
+        # activation record. The Call logic would be different too.
         return [mi.PushV(mt.TlFunctionPtr(identifier, stack))]
 
     @compile_expr.register
