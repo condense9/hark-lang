@@ -24,6 +24,7 @@ from .instruction import Instruction
 from .instructionset import *
 from .probe import Probe
 from .state import State
+from .controller import ActivationRecord
 
 LOG = logging.getLogger(__name__)
 
@@ -36,8 +37,16 @@ class TealRuntimeError(Exception):
     """Error while executing Teal code"""
 
 
-class TealUnhandledError(Exception):
+class UnhandledError(Exception):
     """Some Teal code signaled an error which was not handled"""
+
+
+class RunMachineError(Exception):
+    """An error occurred while running the machine"""
+
+
+class ForeignError(Exception):
+    pass
 
 
 def traverse(o, tree_types=(list, tuple)):
@@ -48,6 +57,18 @@ def traverse(o, tree_types=(list, tuple)):
                 yield subvalue
     else:
         yield o
+
+
+def get_stacktrace(thread, state, controller) -> list:
+    """Return the call-stack as a list of (thread, IP)"""
+    trace = [[thread, state.ip]]
+    arec_ptr = state.arec_ptr
+    # The top-level entrypoint activation record is None
+    while arec_ptr:
+        rec = controller.get_arec(arec_ptr)
+        trace.append([arec_ptr.thread, rec.return_ip - 1])
+        arec_ptr = rec.dynamic_chain
+    return trace
 
 
 def import_python_function(fnname, modname):
@@ -112,10 +133,10 @@ class TlMachine:
     def __init__(self, vmid, invoker):
         self.vmid = vmid
         self.invoker = invoker
-        self.data_controller = invoker.data_controller
-        self.state = self.data_controller.get_state(self.vmid)
-        self.probe = self.data_controller.get_probe(self.vmid)
-        self.exe = self.data_controller.executable
+        self.dc = invoker.data_controller
+        self.state = self.dc.get_state(self.vmid)
+        self.probe = self.dc.get_probe(self.vmid)
+        self.exe = self.dc.executable
         self._foreign = {
             name: import_python_function(val.identifier, val.module)
             for name, val in self.exe.bindings.items()
@@ -156,11 +177,37 @@ class TlMachine:
             self.state.stopped = True
 
     def run(self):
+        """Step through instructions until stopped, or an error occurs
+
+        ERRORS: If one occurs, then:
+        - store it in the data controller for analysis later
+        - stop execution
+        - raise it
+
+        There are two "expected" kinds of errors - a Foreign function error, and
+        a Rust "panic!" style error (general error).
+        """
         self.probe.on_run(self)
-        while not self.stopped:
-            self.step()
+        exc = None
+
+        while not self.state.stopped:
+            try:
+                self.step()
+            except ForeignError as exc:
+                self.dc.foreign_error(self.vmid, exc)
+                self.state.stopped = True
+            except UnhandledError as exc:
+                self.dc.teal_error(self.vmid, exc)
+                self.state.stopped = True
+            except Exception as exc:
+                self.dc.unexpected_error(self.vmid, exc)
+                self.state.stopped = True
+
         self.probe.on_stopped(self)
-        self.data_controller.stop(self.vmid, self.state, self.probe)
+        self.dc.stop(self.vmid, self.state, self.probe)
+        if exc:
+            # TODO assign to state.error
+            raise RunMachineError(exc) from exc
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -169,32 +216,37 @@ class TlMachine:
 
     @evali.register
     def _(self, i: Bind):
-        ptr = i.operands[0]
+        """Bind the top value on the data stack to a name"""
+        ptr = str(i.operands[0])
         try:
             val = self.state.ds_peek(0)
         except IndexError as exc:
-            self.error(exc, "Missing argument to function!")
-        self.state.set_bind(ptr, val)
+            # FIXME this should be a compile time check
+            self.error(exc, "Missing argument to Bind!")
+        if not isinstance(val, TlType):
+            raise TypeError(val)
+        self.state.bindings[ptr] = val
 
     @evali.register
     def _(self, i: PushB):
+        """Push the value bound to a name onto the data stack"""
         # The value on the stack must be a Symbol, which is used to find a
         # function to call. Binding precedence:
         #
-        # local value -> exe global bindings -> builtins
+        # local binding -> exe global bindings -> builtins
         sym = i.operands[0]
         if not isinstance(sym, mt.TlSymbol):
             raise ValueError(sym, type(sym))
 
         ptr = str(sym)
-        if ptr in self.state.bound_names:
-            val = self.state.get_bind(ptr)
+        if ptr in self.state.bindings:
+            val = self.state.bindings[ptr]
         elif ptr in self.exe.bindings:
             val = self.exe.bindings[ptr]
         elif ptr in TlMachine.builtins:
             val = mt.TlInstruction(ptr)
         else:
-            # TODO: runtime_error(self, i, ...)
+            # FIXME should be a compile time check
             raise NameError(f"'{ptr}' is not defined")
 
         self.state.ds_push(val)
@@ -223,19 +275,26 @@ class TlMachine:
 
     @evali.register
     def _(self, i: Return):
-        if self.state.can_return():
+        current_arec, new_arec = self.dc.pop_arec(self.state.current_arec_ptr)
+        # Entrypoint won't have a return IP
+        if current_arec.return_ip:
             self.probe.on_return(self)
-            self.state.es_return()
+            self.state.current_arec_ptr = current_arec.dynamic_chain  # the new AR
+            self.state.ip = current_arec.return_ip
+            self.state.bindings = new_arec.bindings
         else:
             self.state.stopped = True
             value = self.state.ds_peek(0)
             LOG.info(f"{self.vmid} Returning value: {value}")
-            value, continuations = self.data_controller.finish(self.vmid, value)
+            value, continuations = self.dc.finish(self.vmid, value)
             for machine in continuations:
                 self.probe.log(
                     f"{self.vmid}: setting machine {machine} value to {value}"
                 )
-                self.data_controller.set_future_value(machine, 0, value)
+                self.dc.set_future_value(machine, 0, value)
+                # FIXME - invoke all of the machines except the last one. That
+                # one, just run in this context. Save one invocation. Caution:
+                # tricky with Lambda timeouts.
                 self.invoker.invoke(machine)
 
     @evali.register
@@ -247,7 +306,15 @@ class TlMachine:
         self.probe.on_enter(self, str(fn))
 
         if isinstance(fn, mt.TlFunctionPtr):
-            self.state.es_enter(self.exe.locations[fn.identifier])
+            self.state.bindings = {}
+            arec = ActivationRecord(
+                dynamic_chain=self.state.current_arec_ptr,
+                return_ip=self.state.ip,
+                bindings=self.state.bindings,
+                ref_count=1,
+            )
+            self.state.current_arec_ptr = self.dc.push_arec(self.vmid, arec)
+            self.state.ip = self.exe.locations[fn.identifier]
 
         elif isinstance(fn, mt.TlForeignPtr):
             foreign_f = self._foreign[fn.identifier]
@@ -262,11 +329,13 @@ class TlMachine:
             sys.stdout = capstdout = StringIO()
             try:
                 py_result = foreign_f(*py_args)
+            except Exception as e:
+                raise ForeignError(e)
             finally:
                 sys.stdout = sys.__stdout__
 
             out = capstdout.getvalue()
-            self.data_controller.write_stdout(out)
+            self.dc.write_stdout(out)
 
             result = mt.to_teal_type(py_result)
             self.state.ds_push(result)
@@ -276,6 +345,7 @@ class TlMachine:
             self.evali(instr)
 
         else:
+            # FIXME this should be a compile time check
             self.error(None, f"Don't know how to call {fn} ({type(fn)})")
 
     @evali.register
@@ -289,10 +359,11 @@ class TlMachine:
             raise ValueError(fn_ptr)
 
         if fn_ptr.identifier not in self.exe.locations:
+            # FIXME this should be a compile time check
             self.error(None, f"Function `{fn_ptr}` doesn't exist")
 
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
-        machine = self.data_controller.new_machine(args, fn_ptr)
+        machine = self.dc.new_machine(args, fn_ptr, self.state.current_arec_ptr)
         self.invoker.invoke(machine)
         future = mt.TlFuturePtr(machine)
 
@@ -305,9 +376,7 @@ class TlMachine:
         val = self.state.ds_peek(offset)
 
         if isinstance(val, mt.TlFuturePtr):
-            resolved, result = self.data_controller.get_or_wait(
-                self.vmid, val, self.state
-            )
+            resolved, result = self.dc.get_or_wait(self.vmid, val, self.state)
             if resolved:
                 LOG.info(f"{self.vmid} Finished waiting for {val}, got {result}")
                 self.state.ds_set(offset, result)
@@ -446,16 +515,16 @@ class TlMachine:
         val = self.state.ds_peek(0)
         # This should take a vmid - data stored is a tuple (vmid, str)
         # Could also store a timestamp...
-        self.data_controller.write_stdout(str(val) + "\n")
+        self.dc.write_stdout(str(val) + "\n")
 
     @evali.register
     def _(self, i: Signal):
-        obj = self.state.ds_peek(0)
+        msg = self.state.ds_peek(0)
         val = self.state.ds_peek(1)
-        # TODO make traceback nicer
+        self.dc.write_stdout(f"\n{val.upper()}: {msg}\n")
         if str(val) == "error":
-            raise TealUnhandledError(obj)
-        # TODO How to handle others?
+            raise UnhandledError(msg)
+        # other kinds of signals don't need special handling
 
     def __repr__(self):
         return f"<Machine {id(self)}>"

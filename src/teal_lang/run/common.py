@@ -22,6 +22,8 @@ def wait_for_finish(check_period, timeout, data_controller, invoker):
     """
     start_time = time.time()
     try:
+        # FIXME this logic. If all threads are stopped, then we're done. That
+        # doesn't necessarily mean we "finished" successfully.
         while not data_controller.finished:
             time.sleep(check_period)
             if timeout and time.time() - start_time > timeout:
