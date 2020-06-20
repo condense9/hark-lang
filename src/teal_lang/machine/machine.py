@@ -158,23 +158,17 @@ class TlMachine:
         return self.state.stopped
 
     @property
-    def terminated(self):
-        """Run out of instructions to execute"""
-        return self.state.ip == len(self.exe.code)
-
-    @property
     def instruction(self):
         return self.exe.code[self.state.ip]
 
     def step(self):
         """Execute the current instruction and increment the IP"""
-        assert self.state.ip < len(self.exe.code)
+        if self.state.ip >= len(self.exe.code):
+            self.error(None, "Instruction Pointer out of bounds")
         self.probe.on_step(self)
         instr = self.exe.code[self.state.ip]
         self.state.ip += 1
         self.evali(instr)
-        if self.terminated:
-            self.state.stopped = True
 
     def run(self):
         """Step through instructions until stopped, or an error occurs
@@ -223,7 +217,7 @@ class TlMachine:
         except IndexError as exc:
             # FIXME this should be a compile time check
             self.error(exc, "Missing argument to Bind!")
-        if not isinstance(val, TlType):
+        if not isinstance(val, mt.TlType):
             raise TypeError(val)
         self.state.bindings[ptr] = val
 

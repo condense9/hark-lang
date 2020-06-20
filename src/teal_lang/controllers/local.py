@@ -58,13 +58,12 @@ class DataController(Controller):
         with self.lock:
             if self._arecs[ptr].ref_count == 1:
                 rec = self._arecs.pop(ptr)
-                if rec.dynamic_chain:
-                    return rec, self._arecs[rec.dynamic_chain]
-                else:
-                    return rec, None
             else:
-                self._arecs[ptr].ref_count -= 1
-                return self._arecs[ptr], self._arecs[rec.dynamic_chain]
+                rec = self._arecs[ptr]
+                rec.ref_count -= 1
+
+            parent = self._arecs[rec.dynamic_chain] if rec.dynamic_chain else None
+            return rec, parent
 
     def set_executable(self, exe):
         self.executable = exe
@@ -98,6 +97,7 @@ class DataController(Controller):
         ptr = self.push_arec(vmid, arec)
         state = State(args)
         state.current_arec_ptr = ptr
+        state.ip = entrypoint_ip
         self._machine_state[vmid] = state
         future = fut.Future()
         self._machine_future[vmid] = future
@@ -172,4 +172,7 @@ class DataController(Controller):
         # don't use isinstance - it must be an actual str
         if type(value) != str:
             raise ValueError(f"{value} ({type(value)}) is not str")
+        # Print to real stdout at the same time. TODO maybe make this behaviour
+        # configurable.
+        sys.stdout.write(value)
         self.stdout.append(value)

@@ -88,7 +88,8 @@ def _run(args):
 
         # NOTE: we use the "lambda" timeout even for local invocations. Maybe
         # there should be a more general timeout
-        run_local(filename, fn, fn_args, cfg.service.lambda_timeout)
+        result = run_local(filename, fn, fn_args, cfg.service.lambda_timeout)
+        print(result)
 
     elif args["--storage"] == "dynamodb":
         from ..run.dynamodb import run_ddb_local, run_ddb_processes

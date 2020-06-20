@@ -73,6 +73,3 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
     finally:
         for p in controller.probes:
             LOG.info(f"probe {p}:\n" + "\n".join(p.logs))
-
-        for item in controller.stdout:
-            sys.stdout.write(item)

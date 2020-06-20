@@ -11,3 +11,7 @@ fn hello() { "hello world"; /* inline comment */ }
 fn ident(x) {
   x;
 }
+
+fn main() {
+  hello()
+}

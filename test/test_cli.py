@@ -32,4 +32,4 @@ def test_run():
     path = EXAMPLES_SUBDIR / "hello_world.tl"
     stdout, stderr, code = teal_cli(path)
     assert not code
-    assert stdout == "Hello World!\n"
+    assert stdout == "Hello World!\nHello World!\n"

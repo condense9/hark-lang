@@ -26,5 +26,6 @@ fn chain1(x) {
 
 fn main() {
   // Wait for both futures, return value will be 4
+  print("The answer should be 4...")
   await chain1(1)
 }

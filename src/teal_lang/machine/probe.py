@@ -63,7 +63,6 @@ class Probe:
             m.state.stopped = True
 
     def on_stopped(self, m):
-        kind = "Terminated" if m.terminated else "Stopped"
         self.event("stop")
-        self.logs.append(f"*** <{self._name}> {kind} after {self.steps} steps. ***")
+        self.logs.append(f"*** <{self._name}> Stopped after {self.steps} steps. ***")
         self.logs.append(m.state.to_table())
