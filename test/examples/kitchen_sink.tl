@@ -13,5 +13,12 @@ fn ident(x) {
 }
 
 fn main() {
-  hello()
+  x = async bad()
+  await x
+}
+
+
+fn bad() {
+  print("hi")
+  signal("error", "badness")
 }

@@ -59,18 +59,6 @@ def traverse(o, tree_types=(list, tuple)):
         yield o
 
 
-def get_stacktrace(thread, state, controller) -> list:
-    """Return the call-stack as a list of (thread, IP)"""
-    trace = [[thread, state.ip]]
-    arec_ptr = state.arec_ptr
-    # The top-level entrypoint activation record is None
-    while arec_ptr:
-        rec = controller.get_arec(arec_ptr)
-        trace.append([arec_ptr.thread, rec.return_ip - 1])
-        arec_ptr = rec.dynamic_chain
-    return trace
-
-
 def import_python_function(fnname, modname):
     """Load function
 
@@ -270,11 +258,11 @@ class TlMachine:
     @evali.register
     def _(self, i: Return):
         current_arec, new_arec = self.dc.pop_arec(self.state.current_arec_ptr)
-        # Entrypoint won't have a return IP
-        if current_arec.return_ip:
+        # Only return in the same thread
+        if current_arec.vmid == self.vmid:
             self.probe.on_return(self)
             self.state.current_arec_ptr = current_arec.dynamic_chain  # the new AR
-            self.state.ip = current_arec.return_ip
+            self.state.ip = current_arec.call_site + 1
             self.state.bindings = new_arec.bindings
         else:
             self.state.stopped = True
@@ -302,8 +290,10 @@ class TlMachine:
         if isinstance(fn, mt.TlFunctionPtr):
             self.state.bindings = {}
             arec = ActivationRecord(
+                function=fn,
+                vmid=self.vmid,
                 dynamic_chain=self.state.current_arec_ptr,
-                return_ip=self.state.ip,
+                call_site=self.state.ip - 1,
                 bindings=self.state.bindings,
                 ref_count=1,
             )
@@ -357,7 +347,9 @@ class TlMachine:
             self.error(None, f"Function `{fn_ptr}` doesn't exist")
 
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
-        machine = self.dc.new_machine(args, fn_ptr, self.state.current_arec_ptr)
+        machine = self.dc.thread_machine(
+            self.state.current_arec_ptr, self.state.ip, fn_ptr, args
+        )
         self.invoker.invoke(machine)
         future = mt.TlFuturePtr(machine)
 

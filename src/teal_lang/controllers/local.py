@@ -47,7 +47,7 @@ class DataController(Controller):
 
     def push_arec(self, vmid, arec) -> ARecPtr:
         with self.lock:
-            ptr = (vmid, self._arec_idx)
+            ptr = ARecPtr(vmid, self._arec_idx)
             self._arecs[ptr] = arec
             self._arec_idx += 1
         return ptr
@@ -65,37 +65,22 @@ class DataController(Controller):
             parent = self._arecs[rec.dynamic_chain] if rec.dynamic_chain else None
             return rec, parent
 
+    def increment_arec_ref(self, ptr):
+        with self.lock:
+            self._arecs[ptr].ref_count += 1
+
     def set_executable(self, exe):
         self.executable = exe
 
-    def new_machine(self, args, fn_ptr, caller_arec=None, is_top_level=False):
-        """Set up everything for a new machine, returning the vmid"""
-        entrypoint_ip = self.executable.locations[fn_ptr.identifier]
+    def _next_vmid(self):
         vmid = self._machine_idx
         self._machine_idx += 1
+        return vmid
 
-        if is_top_level:
-            if self._top_level_vmid:
-                raise ValueError("Already got a top level!")
-            self._top_level_vmid = vmid
-
-        if caller_arec:
-            if is_top_level:
-                raise ValueError("Top level machine can't have a caller!")
-            # TODO increment the ref_count of the caller_arec.
-            self._arecs[caller_arec].ref_count += 1
-        else:
-            if not is_top_level:
-                raise ValueError(
-                    "Need a caller_arec for machines that aren't top level!"
-                )
-            caller_arec = None
-
-        arec = ActivationRecord(
-            dynamic_chain=caller_arec, return_ip=None, bindings={}, ref_count=1,
-        )
-        ptr = self.push_arec(vmid, arec)
+    def init_machine(self, vmid, fn_ptr, args, arec):
         state = State(args)
+        entrypoint_ip = self.executable.locations[fn_ptr.identifier]
+        ptr = self.push_arec(vmid, arec)
         state.current_arec_ptr = ptr
         state.ip = entrypoint_ip
         self._machine_state[vmid] = state
@@ -103,6 +88,37 @@ class DataController(Controller):
         self._machine_future[vmid] = future
         probe = Probe()
         self._machine_probe[vmid] = probe
+        return vmid
+
+    def toplevel_machine(self, fn_ptr, args):
+        vmid = self._next_vmid()
+        if self._top_level_vmid:
+            raise ValueError("Already got a top level!")
+
+        arec = ActivationRecord(
+            function=fn_ptr,
+            dynamic_chain=None,
+            vmid=vmid,
+            call_site=None,
+            bindings={},
+            ref_count=1,
+        )
+        self.init_machine(vmid, fn_ptr, args, arec)
+        self._top_level_vmid = vmid
+        return vmid
+
+    def thread_machine(self, caller_arec_ptr, caller_ip, fn_ptr, args):
+        vmid = self._next_vmid()
+        self.increment_arec_ref(caller_arec_ptr)
+        arec = ActivationRecord(
+            function=fn_ptr,
+            dynamic_chain=caller_arec_ptr,
+            vmid=vmid,
+            call_site=caller_ip - 1,
+            bindings={},
+            ref_count=1,
+        )
+        self.init_machine(vmid, fn_ptr, args, arec)
         return vmid
 
     def is_top_level(self, vmid):
@@ -118,13 +134,38 @@ class DataController(Controller):
         """Handle a machine error"""
         raise NotImplementedError
 
+    def _traceback(self, vmid):
+        state = self._machine_state[vmid]
+        arec_ptr = state.current_arec_ptr
+        arec = self._arecs[arec_ptr]
+
+        # minus 1: IP is pre-advanced
+        trace = [[vmid, state.ip - 1, arec.function.identifier]]
+        while True:
+            arec = self._arecs[arec_ptr]
+            if arec.dynamic_chain:
+                parent = self._arecs[arec.dynamic_chain]
+                trace.append(
+                    [arec_ptr.thread, arec.call_site, parent.function.identifier]
+                )
+            else:
+                break
+            arec_ptr = arec.dynamic_chain
+
+        print("Trace:")
+        for vmid, ip, fn in reversed(trace):
+            print(f"~ ({vmid}) {ip} - {fn}")
+
     def unexpected_error(self, vmid, exc):
+        self._traceback(vmid)
         raise exc
 
     def teal_error(self, vmid, exc):
+        self._traceback(vmid)
         raise exc
 
     def foreign_error(self, vmid, exc):
+        self._traceback(vmid)
         raise exc
 
     def get_future(self, val):

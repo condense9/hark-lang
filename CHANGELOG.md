@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Removed the project name in config - it doesn't help anything, and adds extra
   state to keep track of (deployment ID is enough).
 - Add colouring to logs output and clean them up a little
+- Local run prints result at the end
+- Local run prints stdout in real-time, instead in one go at the end
 
 ### Fixed
 

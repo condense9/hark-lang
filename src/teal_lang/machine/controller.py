@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
-from .types import TlType
+from .types import TlType, TlFunctionPtr
 
 
 @dataclass(frozen=True)
@@ -31,8 +31,10 @@ class ActivationRecord:
 
     """
 
+    function: TlFunctionPtr  # ....... Owner function
     dynamic_chain: ARecPtr  # ........ Pointer to caller activation record
-    return_ip: int  # ................ IP to return to
+    vmid: int  # ......................
+    call_site: int  # .................
     # parameters: List[TlType]  # ...... Function parameters
     bindings: Dict[str, TlType]  # ... Local bindings
     # result: TlType  # ................ Function return value

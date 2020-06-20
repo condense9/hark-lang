@@ -66,7 +66,7 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
         raise ValueError(f"Function `{function}' does not exist!")
 
     try:
-        m = controller.new_machine(args, fn_ptr, is_top_level=True)
+        m = controller.toplevel_machine(fn_ptr, args)
         invoker.invoke(m, run_async=False)
         waiter(controller, invoker)
 
