@@ -45,29 +45,39 @@ class DataController(Controller):
         self.finished = False
         self.lock = threading.RLock()
 
-    def push_arec(self, vmid, arec) -> ARecPtr:
+    def push_arec(self, vmid, rec) -> ARecPtr:
         with self.lock:
             ptr = ARecPtr(vmid, self._arec_idx)
-            self._arecs[ptr] = arec
+            self._arecs[ptr] = rec
             self._arec_idx += 1
+            if rec.dynamic_chain:
+                self._arecs[rec.dynamic_chain].ref_count += 1
         return ptr
 
     def pop_arec(self, ptr) -> Tuple[ActivationRecord, ActivationRecord]:
         # If the given ptr has no more references, remove it from storage.
         # Otherwise, just decrement the references.
         with self.lock:
-            if self._arecs[ptr].ref_count == 1:
-                rec = self._arecs.pop(ptr)
-            else:
-                rec = self._arecs[ptr]
-                rec.ref_count -= 1
+            rec = self._arecs[ptr]
+            rec.ref_count -= 1
+            if rec.ref_count == 0:
+                self._arecs.pop(ptr)
 
-            parent = self._arecs[rec.dynamic_chain] if rec.dynamic_chain else None
-            return rec, parent
+                # Pop parent records until one is still being used
+                while rec.dynamic_chain:
+                    parent = self._arecs[rec.dynamic_chain]
+                    parent.ref_count -= 1
+                    if parent.ref_count > 0:
+                        break
+                    rec = self._arecs.pop(rec.dynamic_chain)
 
-    def increment_arec_ref(self, ptr):
-        with self.lock:
-            self._arecs[ptr].ref_count += 1
+        return rec
+
+    def get_arec(self, ptr):
+        if ptr:
+            return self._arecs[ptr]
+        else:
+            return None
 
     def set_executable(self, exe):
         self.executable = exe
@@ -109,7 +119,6 @@ class DataController(Controller):
 
     def thread_machine(self, caller_arec_ptr, caller_ip, fn_ptr, args):
         vmid = self._next_vmid()
-        self.increment_arec_ref(caller_arec_ptr)
         arec = ActivationRecord(
             function=fn_ptr,
             dynamic_chain=caller_arec_ptr,
@@ -157,6 +166,7 @@ class DataController(Controller):
             print(f"~ ({vmid}) {ip} - {fn}")
 
     def unexpected_error(self, vmid, exc):
+        # TODO this should be in machine, not controller
         self._traceback(vmid)
         raise exc
 

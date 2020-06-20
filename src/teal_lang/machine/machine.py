@@ -257,9 +257,10 @@ class TlMachine:
 
     @evali.register
     def _(self, i: Return):
-        current_arec, new_arec = self.dc.pop_arec(self.state.current_arec_ptr)
-        # Only return in the same thread
-        if current_arec.vmid == self.vmid and current_arec.call_site:
+        current_arec = self.dc.pop_arec(self.state.current_arec_ptr)
+        new_arec = self.dc.get_arec(current_arec.dynamic_chain)
+        # Only return if we can, and it's in the same thread
+        if current_arec.dynamic_chain and new_arec.vmid == self.vmid:
             self.probe.on_return(self)
             self.state.current_arec_ptr = current_arec.dynamic_chain  # the new AR
             self.state.ip = current_arec.call_site + 1
