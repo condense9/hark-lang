@@ -152,7 +152,7 @@ class DataController(Controller):
                 break
             arec_ptr = arec.dynamic_chain
 
-        print("Trace:")
+        print("Teal Traceback (most recent call last):")
         for vmid, ip, fn in reversed(trace):
             print(f"~ ({vmid}) {ip} - {fn}")
 
