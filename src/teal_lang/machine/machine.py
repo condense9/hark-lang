@@ -46,7 +46,7 @@ class RunMachineError(Exception):
 
 
 class ForeignError(Exception):
-    pass
+    """An error occured in a foreign call"""
 
 
 def traverse(o, tree_types=(list, tuple)):
@@ -314,7 +314,7 @@ class TlMachine:
             try:
                 py_result = foreign_f(*py_args)
             except Exception as e:
-                raise ForeignError(e)
+                raise ForeignError(e) from e
             finally:
                 sys.stdout = sys.__stdout__
 
