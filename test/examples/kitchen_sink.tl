@@ -14,7 +14,6 @@ fn ident(x) {
 
 fn main() {
   x = async bad()
-  await x
 }
 
 

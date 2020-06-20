@@ -259,7 +259,7 @@ class TlMachine:
     def _(self, i: Return):
         current_arec, new_arec = self.dc.pop_arec(self.state.current_arec_ptr)
         # Only return in the same thread
-        if current_arec.vmid == self.vmid:
+        if current_arec.vmid == self.vmid and current_arec.call_site:
             self.probe.on_return(self)
             self.state.current_arec_ptr = current_arec.dynamic_chain  # the new AR
             self.state.ip = current_arec.call_site + 1
