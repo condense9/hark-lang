@@ -3,6 +3,9 @@
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
 from .types import TlType, TlFunctionPtr
+from .state import State
+from .future import Future
+from .probe import Probe
 
 
 @dataclass(frozen=True)
@@ -12,7 +15,19 @@ class ErrorInfo:
 
 # TODO implement interface
 class Controller:
-    pass
+    def init_machine(self, vmid, fn_ptr, args, arec):
+        state = State(args)
+        entrypoint_ip = self.executable.locations[fn_ptr.identifier]
+        ptr = self.push_arec(vmid, arec)
+        state.current_arec_ptr = ptr
+        state.ip = entrypoint_ip
+        self.set_state(vmid, state)
+        future = Future()
+        self.set_future(vmid, future)
+        probe = Probe()
+        self.set_probe(vmid, probe)
+        self.set_stopped(vmid, False)
+        return vmid
 
 
 @dataclass(frozen=True)

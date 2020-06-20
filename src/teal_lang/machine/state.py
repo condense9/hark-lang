@@ -14,6 +14,7 @@ class State:
         self.stopped = False
         self.bindings = {}
         self.error = None
+        self.traceback = None
         self.current_arec_ptr = None
 
     def ds_push(self, val):

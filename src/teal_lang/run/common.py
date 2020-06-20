@@ -22,9 +22,7 @@ def wait_for_finish(check_period, timeout, data_controller, invoker):
     """
     start_time = time.time()
     try:
-        # FIXME this logic. If all threads are stopped, then we're done. That
-        # doesn't necessarily mean we "finished" successfully.
-        while not data_controller.finished:
+        while not data_controller.stopped:
             time.sleep(check_period)
             if timeout and time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for finish")
@@ -33,6 +31,8 @@ def wait_for_finish(check_period, timeout, data_controller, invoker):
                 if probe.early_stop:
                     raise ThreadDied(f"{probe} forcibly stopped (steps: {probe.steps})")
 
+            # This should never happen - we catch runtime errors and print them
+            # nicely in machine
             if invoker.exception:
                 raise ThreadDied from invoker.exception.exc_value
 

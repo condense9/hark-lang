@@ -40,6 +40,12 @@ class TealRuntimeError(Exception):
 class UnhandledError(Exception):
     """Some Teal code signaled an error which was not handled"""
 
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return f'error("{self.msg}")'
+
 
 class RunMachineError(Exception):
     """An error occurred while running the machine"""
@@ -79,6 +85,13 @@ def import_python_function(fnname, modname):
     fn = getattr(m, fnname)
     LOG.debug("Loaded %s", fn)
     return fn
+
+
+# @dataclass
+# class TealTraceback:
+#     error_vmid: int
+#     error_ip: int
+#     records: List[ActivationRecords]
 
 
 class TlMachine:
@@ -141,6 +154,25 @@ class TlMachine:
         else:
             raise TealRuntimeError(msg)
 
+    def get_traceback(self):
+        arec_ptr = self.state.current_arec_ptr
+        arec = self.dc.get_arec(arec_ptr)
+
+        # minus 1: IP is pre-advanced
+        trace = [[self.vmid, self.state.ip - 1, arec.function.identifier]]
+        while True:
+            arec = self.dc.get_arec(arec_ptr)
+            if arec.dynamic_chain:
+                parent = self.dc.get_arec(arec.dynamic_chain)
+                trace.append(
+                    [arec_ptr.thread, arec.call_site, parent.function.identifier]
+                )
+            else:
+                break
+            arec_ptr = arec.dynamic_chain
+
+        return trace
+
     @property
     def stopped(self):
         return self.state.stopped
@@ -170,26 +202,21 @@ class TlMachine:
         a Rust "panic!" style error (general error).
         """
         self.probe.on_run(self)
-        exc = None
+        to_raise = None
 
         while not self.state.stopped:
             try:
                 self.step()
-            except ForeignError as exc:
-                self.dc.foreign_error(self.vmid, exc)
-                self.state.stopped = True
-            except UnhandledError as exc:
-                self.dc.teal_error(self.vmid, exc)
-                self.state.stopped = True
             except Exception as exc:
-                self.dc.unexpected_error(self.vmid, exc)
                 self.state.stopped = True
+                self.state.error = exc
+                self.state.traceback = self.get_traceback()
+                to_raise = exc
 
         self.probe.on_stopped(self)
         self.dc.stop(self.vmid, self.state, self.probe)
-        if exc:
-            # TODO assign to state.error
-            raise RunMachineError(exc) from exc
+        if to_raise:
+            raise RunMachineError from to_raise
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -508,7 +535,7 @@ class TlMachine:
     def _(self, i: Signal):
         msg = self.state.ds_peek(0)
         val = self.state.ds_peek(1)
-        self.dc.write_stdout(f"\n{val.upper()}: {msg}\n")
+        self.dc.write_stdout(f"\n[signal {val}]: {msg}\n")
         if str(val) == "error":
             raise UnhandledError(msg)
         # other kinds of signals don't need special handling

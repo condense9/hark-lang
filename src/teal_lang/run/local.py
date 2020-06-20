@@ -14,5 +14,18 @@ def run_local(filename, function, args, timeout_s=10):
     invoker = teal_thread.Invoker(controller)
     check_period = 0.1
     waiter = partial(wait_for_finish, check_period, timeout_s)
+
     run_and_wait(controller, invoker, waiter, filename, function, args)
-    return controller.result
+
+    if not controller.broken:
+        return controller.result
+
+    # It broke - print traceback
+    for vmid in controller.machines:
+        state = controller.get_state(vmid)
+        err = state.error
+        if err:
+            print(f"\nError [Thread {vmid}]: {err}")
+            print("Teal Traceback (most recent call last):")
+            for vmid, ip, fn in reversed(state.traceback):
+                print(f"~ ({vmid}) {ip} - {fn}")
