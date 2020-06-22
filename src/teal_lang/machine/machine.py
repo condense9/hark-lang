@@ -305,6 +305,7 @@ class TlMachine:
             # FIXME - invoke all of the machines except the last one. That
             # one, just run in this context. Save one invocation. Caution:
             # tricky with Lambda timeouts.
+            self.dc.set_stopped(machine, False)
             self.invoker.invoke(machine)
 
     @evali.register

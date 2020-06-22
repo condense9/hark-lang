@@ -46,29 +46,26 @@ class State:
         )
 
     def serialise(self):
-        all_bindings = list(self._bs) + [self.bindings]
         return dict(
             ip=self.ip,
             stopped=self.stopped,
             ds=[value.serialise() for value in self._ds],
-            all_bindings=[
-                {name: value.serialise() for name, value in frame.items()}
-                for frame in all_bindings
-            ],
+            bindings={name: value.serialise() for name, value in self.bindings},
+            error=self.error,
+            current_arec_ptr=self.current_arec_ptr,
+            traceback=self.traceback,
         )
 
     @classmethod
     def deserialise(cls, data: dict):
-        bindings = [
-            {name: TlType.deserialise(val) for name, val in frame.items()}
-            for frame in data["all_bindings"]
-        ]
-        s = cls()
+        s = cls([])
         s.ip = data["ip"]
-        s._stopped = data["stopped"]
-        s._ds = deque(TlType.deserialise(obj) for obj in data["ds"])
-        s._bs = deque(bindings[:-1])
-        s.bindings = bindings[-1]
+        s.stopped = data["stopped"]
+        s._ds = [TlType.deserialise(obj) for obj in data["ds"]]
+        s.bindings = {name: TlType.deserialise(val) for name, val in data["bindings"]}
+        s.error = data["error"]
+        s.current_arec_ptr = data["current_arec_ptr"]
+        s.traceback = data["traceback"]
         return s
 
     def __eq__(self, other):

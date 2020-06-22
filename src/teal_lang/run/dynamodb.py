@@ -5,14 +5,14 @@ from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..executors import multiprocess as mp
 from ..executors import thread as teal_thread
-from .common import LOG, run_and_wait, wait_for_finish
+from .common import run_and_wait, wait_for_finish
 
 
 def run_ddb_local(filename, function, args):
+    """Run with dynamodb and python threading"""
     db.init_base_session()
     session = db.new_session()
-    lock = db.SessionLocker(session)
-    controller = ddb_controller.DataController(session, lock)
+    controller = ddb_controller.DataController(session)
     invoker = teal_thread.Invoker(controller)
     waiter = partial(wait_for_finish, 1, 10)
     run_and_wait(controller, invoker, waiter, filename, function, args)
@@ -20,10 +20,10 @@ def run_ddb_local(filename, function, args):
 
 
 def run_ddb_processes(filename, function, args):
+    """Run with dynamodb and python multiprocessing"""
     db.init_base_session()
     session = db.new_session()
-    lock = db.SessionLocker(session)
-    controller = ddb_controller.DataController(session, lock)
+    controller = ddb_controller.DataController(session)
     invoker = mp.Invoker(controller)
     waiter = partial(wait_for_finish, 1, 10)
     run_and_wait(controller, invoker, waiter, filename, function, args)

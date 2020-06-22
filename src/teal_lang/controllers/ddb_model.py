@@ -1,6 +1,7 @@
 """DB interaction layer for AWS"""
 
 import base64
+import dataclasses
 import logging
 import os
 import threading
@@ -20,7 +21,6 @@ from pynamodb.attributes import (
     NumberAttribute,
     UnicodeAttribute,
     UTCDateTimeAttribute,
-    VersionAttribute,
 )
 from pynamodb.constants import BINARY, DEFAULT_ENCODING
 from pynamodb.exceptions import UpdateError
@@ -86,10 +86,6 @@ class Session(Model):
     # could be optimised later
     locked = BooleanAttribute(default=False)
 
-    # To double-check the lock logic...
-    # https://pynamodb.readthedocs.io/en/latest/optimistic_locking.html
-    version = VersionAttribute()
-
     expires_on = NumberAttribute()
 
     # Naming: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.NamingRules
@@ -104,9 +100,11 @@ class Session(Model):
     # saves a reference. So don't use a literal "[]"!
     # futures = ListAttribute(of=FutureAttribute, default=list)
     machines = ListAttribute(of=MachineMap, default=list)
-    top_level_vmid = NumberAttribute(null=True)
     executable = MapAttribute(null=True)
     stdout = ListAttribute(default=list)
+    thread_stopped = ListAttribute(default=list)
+    arecs = ListAttribute(default=list)
+    num_arecs = NumberAttribute(default=0)
 
 
 BASE_SESSION_ID = "base"
@@ -150,13 +148,14 @@ def new_session() -> Session:
         updated_at=datetime.now(),
         expires_on=expiry,
         executable=base_session.executable,
+        num_machines=0,
     )
     s.save()
     return s
 
 
-def new_machine(session, args, top_level=False) -> MachineMap:
-    state = State(*args)
+def new_machine(session, args) -> MachineMap:
+    state = State(args)
     vmid = session.num_machines
     future = fut.Future()
     session.num_machines += 1
@@ -165,10 +164,8 @@ def new_machine(session, args, top_level=False) -> MachineMap:
         state=state,
         future=future,
     )
-    if top_level:
-        session.top_level_vmid = vmid
     session.machines.append(m)
-    # session.futures.append(future)
+    session.thread_stopped.append(False)
     assert len(session.machines) == session.num_machines
     LOG.info("New machine: %d", vmid)
     return vmid

@@ -36,7 +36,7 @@ def test_new_machine():
     sid = s.session_id
     count = s.num_machines
     assert count == 0
-    m = new_machine(s, [], top_level=True)
+    m = new_machine(s, [])
     assert isinstance(m, int)
     state = s.machines[m].state
     s.save()

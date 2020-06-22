@@ -11,7 +11,8 @@ LOG = logging.getLogger(__name__)
 
 
 class Controller:
-    # def __init__(self, session_id)
+    def __init__(self):
+        raise NotImplementedError("Must be subclassed")
 
     def toplevel_machine(self, fn_ptr, args):
         """Create a top-level machine"""
@@ -40,6 +41,22 @@ class Controller:
         )
         self._init_thread(vmid, fn_ptr, args, arec)
         return vmid
+
+    def _init_thread(self, vmid, fn_ptr, args, arec):
+        state = State(args)
+        entrypoint_ip = self.executable.locations[fn_ptr.identifier]
+        ptr = self.push_arec(vmid, arec)
+        state.current_arec_ptr = ptr
+        state.ip = entrypoint_ip
+        self.set_state(vmid, state)
+        future = Future()
+        self.set_future(vmid, future)
+        probe = Probe()
+        self.set_probe(vmid, probe)
+        self.set_stopped(vmid, False)
+        return vmid
+
+    ##
 
     def push_arec(self, vmid, rec):
         ptr = self.new_arec()
@@ -72,19 +89,7 @@ class Controller:
 
         return rec
 
-    def _init_thread(self, vmid, fn_ptr, args, arec):
-        state = State(args)
-        entrypoint_ip = self.executable.locations[fn_ptr.identifier]
-        ptr = self.push_arec(vmid, arec)
-        state.current_arec_ptr = ptr
-        state.ip = entrypoint_ip
-        self.set_state(vmid, state)
-        future = Future()
-        self.set_future(vmid, future)
-        probe = Probe()
-        self.set_probe(vmid, probe)
-        self.set_stopped(vmid, False)
-        return vmid
+    ##
 
     def resolve_future(self, vmid, value):
         """Resolve a machine future, and any dependent futures"""
@@ -156,6 +161,8 @@ class Controller:
                 LOG.info("%d waiting on %s", vmid, future_ptr)
 
         return future.resolved, value
+
+    ##
 
     def stop(self, vmid, finished_ok):
         """Signal that a machine has stopped running"""
