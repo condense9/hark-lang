@@ -48,18 +48,17 @@ class Controller:
         return vmid
 
     def push_arec(self, vmid, rec):
-        with self.lock:
-            ptr = self.new_arec()
-            self.set_arec(ptr, rec)
-            if rec.dynamic_chain is not None:
-                self.increment_ref(rec.dynamic_chain)
+        ptr = self.new_arec()
+        self.set_arec(ptr, rec)
+        if rec.dynamic_chain is not None:
+            self.increment_ref(rec.dynamic_chain)
         return ptr
 
     def pop_arec(self, ptr):
         # If the given ptr has no more references, remove it from storage.
         # Otherwise, just decrement the references.
         collect_garbage = False
-        with self.lock:  # ie save
+        with self.lock_arec(ptr):
             new_count = self.decrement_ref(ptr)
             rec = self.get_arec(ptr)
             if new_count == 0:
@@ -69,7 +68,7 @@ class Controller:
         # Pop parent records until one is still being used
         if collect_garbage:
             while rec.dynamic_chain:
-                with self.lock:
+                with self.lock_arec(ptr):
                     new_count = self.decrement_ref(rec.dynamic_chain)
                     if new_count > 0:
                         break
@@ -95,7 +94,8 @@ class Controller:
 
     def resolve_future(self, vmid, value):
         """Resolve a machine future, and any dependent futures"""
-        assert not isinstance(value, mt.TlFuturePtr)
+        if isinstance(value, mt.TlFuturePtr):
+            raise TypeError(value)
         future = self.get_future(vmid)
 
         future.resolved = True
@@ -120,11 +120,14 @@ class Controller:
         if not isinstance(value, mt.TlFuturePtr):
             return value, self.resolve_future(vmid, value)
 
+        if type(vmid) is not int:
+            raise TypeError(vmid)
+
         # Otherwise, VALUE is another future, and we can only resolve this machine's
         # future if VALUE has also resolved. If VALUE hasn't resolved, we "chain"
         # this machine's future to it.
         with self.lock_future(value):
-            next_future = self.get_future(value)
+            next_future = self.get_future(value.vmid)
             if next_future.resolved:
                 return (
                     next_future.value,
@@ -148,24 +151,28 @@ class Controller:
         if type(vmid) is not int:
             raise TypeError(vmid)
 
-        future = self.get_future(future_ptr)
-
-        if future.resolved:
-            value = future.value
-            LOG.info("%s has resolved: %s", future_ptr, value)
-        else:
-            LOG.info("%d waiting on %s", vmid, future_ptr)
-            future.continuations.append(vmid)
-            value = None
+        with self.lock_future(future_ptr):
+            future = self.get_future(future_ptr.vmid)
+            if future.resolved:
+                value = future.value
+                LOG.info("%s has resolved: %s", future_ptr, value)
+            else:
+                value = None
+                self.add_continuation(future_ptr, vmid)
+                LOG.info("%d waiting on %s", vmid, future_ptr)
 
         return future.resolved, value
 
+    def stop(self, vmid, finished_ok):
+        """Signal that a machine has stopped running"""
+        if not finished_ok:
+            self.broken = True
+        self.set_stopped(vmid, True)
+        if self.all_stopped():
+            self.stopped = True
 
-@dataclass(frozen=True)
-class ARecPtr:
-    """Pointer to an activation record"""
 
-    arec_idx: int
+ARecPtr = int
 
 
 @dataclass

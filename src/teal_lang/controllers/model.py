@@ -182,14 +182,15 @@ class Storage:
     def get_future(thread_id) -> Future
     def lock_future(thread_id)  # context mgr
     def set_future(thread_id, future)
+    def add_continuation(thread_id, waiter_id)
 
     def new_arec() -> int
     def get_arec(arec_id) -> ActivationRecord
     def lock_arec(arec_id)  # context mgr
     def set_arec(arec_id)
     def delete_arec(arec_id)
-    def increment_ref(arec_id)
-    def decrement_ref(arec_id)
+    def increment_ref(arec_id)  # must guarantee increment
+    def decrement_ref(arec_id) -> int  # must guarantee decrement
 
     def get_stdout() -> List
     # ...

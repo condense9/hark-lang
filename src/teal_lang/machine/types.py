@@ -105,6 +105,7 @@ class TlFuturePtr(TlLiteral):
         if type(value) is not int:
             raise TypeError(value)
         super().__init__(value)
+        self.vmid = value
 
 
 ### Complex types

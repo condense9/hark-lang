@@ -36,15 +36,7 @@ class DataController(Controller):
         self.result = None
         self.broken = False
         self.stopped = False
-        self.lock = threading.RLock()
-
-    def increment_ref(self, ptr):
-        self._arecs[ptr].ref_count += 1
-        return self._arecs[ptr].ref_count
-
-    def decrement_ref(self, ptr):
-        self._arecs[ptr].ref_count -= 1
-        return self._arecs[ptr].ref_count
+        self._lock = threading.RLock()
 
     def new_arec(self):
         ptr = self._arec_idx
@@ -54,6 +46,14 @@ class DataController(Controller):
     def set_arec(self, ptr, rec):
         self._arecs[ptr] = rec
 
+    def increment_ref(self, ptr):
+        self._arecs[ptr].ref_count += 1
+        return self._arecs[ptr].ref_count
+
+    def decrement_ref(self, ptr):
+        self._arecs[ptr].ref_count -= 1
+        return self._arecs[ptr].ref_count
+
     def delete_arec(self, ptr):
         self._arecs.pop(ptr)
 
@@ -62,6 +62,9 @@ class DataController(Controller):
             return self._arecs[ptr]
         except KeyError:
             return None
+
+    def lock_arec(self, _):
+        return self._lock
 
     def set_executable(self, exe):
         self.executable = exe
@@ -89,36 +92,22 @@ class DataController(Controller):
     def set_stopped(self, vmid, stopped: bool):
         self._machine_stopped[vmid] = stopped
 
+    def all_stopped(self):
+        return all(self._machine_stopped.values())
+
     def get_future(self, val):
-        # TODO - clean up. This should only take one type. There's some wrong
-        # abstraction somewhere.
-        if isinstance(val, mt.TlFuturePtr):
-            return self._machine_future[val.value]
-        else:
-            assert type(val) is int
-            return self._machine_future[val]
+        if not isinstance(val, int):
+            raise TypeError(val)
+        return self._machine_future[val]
 
     def set_future(self, vmid, future: fut.Future):
         self._machine_future[vmid] = future
 
-    def lock_future(self, vmid):
-        return self.lock
+    def add_continuation(self, fut_ptr, vmid):
+        self.get_future(fut_ptr.vmid).continuations.append(vmid)
 
-    def get_or_wait(self, vmid, future_ptr, state):
-        """Get the value of a future in the stack, or add a continuation"""
-        with self.lock:
-            # TODO fix race condition? Relevant for local?
-            resolved, value = super().get_or_wait(vmid, future_ptr)
-            return resolved, value
-
-    def stop(self, vmid, state, probe):
-        if not state.stopped:
-            raise Exception("Machine isn't stopped after call to `stop`!")
-        if state.error:
-            self.broken = True
-        self.set_stopped(vmid, True)
-        if all(self._machine_stopped.values()):
-            self.stopped = True
+    def lock_future(self, _):
+        return self._lock
 
     @property
     def machines(self):

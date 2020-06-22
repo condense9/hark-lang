@@ -1,9 +1,5 @@
 """Machine futures"""
 
-import logging
-
-LOG = logging.getLogger(__name__)
-
 
 class Future:
     """A future - holds results of function calls"""

@@ -213,7 +213,9 @@ class TlMachine:
                 to_raise = exc
 
         self.probe.on_stopped(self)
-        self.dc.stop(self.vmid, self.state, self.probe)
+        self.dc.stop(self.vmid, finished_ok=to_raise is None)
+        self.dc.set_state(self.vmid, self.state)
+        self.dc.set_probe(self.vmid, self.probe)
         if to_raise:
             raise RunMachineError(to_raise) from to_raise
 
@@ -384,7 +386,7 @@ class TlMachine:
         val = self.state.ds_peek(0)
 
         if isinstance(val, mt.TlFuturePtr):
-            resolved, result = self.dc.get_or_wait(self.vmid, val, self.state)
+            resolved, result = self.dc.get_or_wait(self.vmid, val)
             if resolved:
                 LOG.info(f"{self.vmid} Finished waiting for {val}, got {result}")
                 self.state.ds_set(0, result)
