@@ -22,7 +22,7 @@ def wait_for_finish(check_period, timeout, data_controller, invoker):
     """
     start_time = time.time()
     try:
-        while not data_controller.stopped:
+        while not data_controller.all_stopped():
             time.sleep(check_period)
             if timeout and time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for finish")
