@@ -31,13 +31,19 @@ class ActivationRecord:
     def serialise(self):
         d = self.to_dict()
         d["function"] = d["function"].serialise()
+        d["bindings"] = {
+            name: value.serialise() for name, value in d["bindings"].items()
+        }
         return d
 
-    def deserialise(self, a):
-        a = self.from_dict(a)
-        a.function = mt.TlType.deserialise(a["function"])
-        print("HII", type(a))
-        return a
+    @classmethod
+    def deserialise(cls, d):
+        rec = cls.from_dict(d)
+        rec.function = mt.TlType.deserialise(d["function"])
+        rec.bindings = {
+            name: mt.TlType.deserialise(value) for name, value in d["bindings"].items()
+        }
+        return rec
 
     @classmethod
     def sample(cls):
@@ -46,6 +52,6 @@ class ActivationRecord:
             ARecPtr(0),
             0,
             0,
-            {"foo", mt.TlString("hello")},
+            {"foo": mt.TlString("hello")},
             0,
         )
