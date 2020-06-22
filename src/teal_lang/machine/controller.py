@@ -1,19 +1,13 @@
 """Placeholder for the controller class"""
 
-from dataclasses import dataclass
 import logging
-from typing import List, Dict, Tuple
 from . import types as mt
 from .state import State
 from .future import Future
 from .probe import Probe
+from .arec import ActivationRecord
 
 LOG = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class ErrorInfo:
-    traceback: list
 
 
 class Controller:
@@ -170,24 +164,3 @@ class Controller:
         self.set_stopped(vmid, True)
         if self.all_stopped():
             self.stopped = True
-
-
-ARecPtr = int
-
-
-@dataclass
-class ActivationRecord:
-    """Like a stack frame, but more general.
-
-    NOTE static_chain: ARecPtr: Not needed - we don't have nested lexical scopes
-
-    """
-
-    function: mt.TlFunctionPtr  # ....... Owner function
-    dynamic_chain: ARecPtr  # ........ Pointer to caller activation record
-    vmid: int  # ......................
-    call_site: int  # .................
-    # parameters: List[mt.TlType]  # ...... Function parameters
-    bindings: Dict[str, mt.TlType]  # ... Local bindings
-    # result: mt.TlType  # ................ Function return value
-    ref_count: int  # ................ Number of places this AR is used

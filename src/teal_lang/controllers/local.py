@@ -1,22 +1,11 @@
 """Local Implementation"""
-import concurrent.futures
-import importlib
 import logging
 import sys
 import threading
-import time
-import traceback
-import warnings
 from functools import singledispatchmethod
 
-from ..machine import instructionset as mi
-from ..machine import types as mt
-from ..machine.controller import Controller, ActivationRecord, ARecPtr
 from ..machine import future as fut
-from ..machine.instruction import Instruction
-from ..machine.probe import Probe
-from ..machine.state import State
-from typing import Tuple
+from ..machine.controller import Controller
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
 LOG = logging.getLogger(__name__)
@@ -30,7 +19,7 @@ class DataController(Controller):
         self._machine_stopped = {}
         self._machine_idx = 0  # always increasing machine counter
         self._arec_idx = 0  # always increasing arec counter
-        self._arecs: Dict[ARecPtr, ActivationRecord] = {}
+        self._arecs = {}
         self.stdout = []  # shared standard output
         self.executable = None
         self.result = None
@@ -38,10 +27,32 @@ class DataController(Controller):
         self.stopped = False
         self._lock = threading.RLock()
 
+    def set_executable(self, exe):
+        self.executable = exe
+
+    def new_thread(self):
+        vmid = self._machine_idx
+        self._machine_idx += 1
+        return vmid
+
+    def is_top_level(self, vmid):
+        return vmid == 0
+
+    def all_stopped(self):
+        return all(self._machine_stopped.values())
+
+    ##
+
     def new_arec(self):
         ptr = self._arec_idx
         self._arec_idx += 1
         return ptr
+
+    def get_arec(self, ptr):
+        try:
+            return self._arecs[ptr]
+        except KeyError:
+            return None
 
     def set_arec(self, ptr, rec):
         self._arecs[ptr] = rec
@@ -57,25 +68,10 @@ class DataController(Controller):
     def delete_arec(self, ptr):
         self._arecs.pop(ptr)
 
-    def get_arec(self, ptr):
-        try:
-            return self._arecs[ptr]
-        except KeyError:
-            return None
-
     def lock_arec(self, _):
         return self._lock
 
-    def set_executable(self, exe):
-        self.executable = exe
-
-    def new_thread(self):
-        vmid = self._machine_idx
-        self._machine_idx += 1
-        return vmid
-
-    def is_top_level(self, vmid):
-        return vmid == 0
+    ##
 
     def get_state(self, vmid):
         return self._machine_state[vmid]
@@ -92,8 +88,7 @@ class DataController(Controller):
     def set_stopped(self, vmid, stopped: bool):
         self._machine_stopped[vmid] = stopped
 
-    def all_stopped(self):
-        return all(self._machine_stopped.values())
+    ##
 
     def get_future(self, val):
         if not isinstance(val, int):
@@ -108,6 +103,8 @@ class DataController(Controller):
 
     def lock_future(self, _):
         return self._lock
+
+    ##
 
     @property
     def machines(self):

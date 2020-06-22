@@ -18,13 +18,13 @@ from io import StringIO
 from typing import Any, Dict, List
 
 from . import types as mt
+from .arec import ActivationRecord
 from .controller import Controller
 from .executable import Executable
 from .instruction import Instruction
 from .instructionset import *
 from .probe import Probe
 from .state import State
-from .controller import ActivationRecord
 
 LOG = logging.getLogger(__name__)
 
