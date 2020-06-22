@@ -150,14 +150,14 @@ class Controller:
         if type(vmid) is not int:
             raise TypeError(vmid)
 
-        with self.lock_future(future_ptr):
+        with self.lock_future(future_ptr.vmid):
             future = self.get_future(future_ptr.vmid)
             if future.resolved:
                 value = future.value
                 LOG.info("%s has resolved: %s", future_ptr, value)
             else:
                 value = None
-                self.add_continuation(future_ptr, vmid)
+                self.add_continuation(future_ptr.vmid, vmid)
                 LOG.info("%d waiting on %s", vmid, future_ptr)
 
         return future.resolved, value

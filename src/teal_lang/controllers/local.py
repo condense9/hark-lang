@@ -24,7 +24,6 @@ class DataController(Controller):
         self.executable = None
         self.stdout = []  # shared standard output
         self.broken = False
-        self.stopped = False
         self.result = None
 
     def set_executable(self, exe):
@@ -87,16 +86,16 @@ class DataController(Controller):
 
     ##
 
+    def set_future(self, vmid, future: fut.Future):
+        self._machine_future[vmid] = future
+
     def get_future(self, val):
         if not isinstance(val, int):
             raise TypeError(val)
         return self._machine_future[val]
 
-    def set_future(self, vmid, future: fut.Future):
-        self._machine_future[vmid] = future
-
     def add_continuation(self, fut_ptr, vmid):
-        self.get_future(fut_ptr.vmid).continuations.append(vmid)
+        self._machine_future[fut_ptr].continuations.append(vmid)
 
     def lock_future(self, _):
         return self._lock
