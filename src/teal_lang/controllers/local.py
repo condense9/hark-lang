@@ -20,12 +20,12 @@ class DataController(Controller):
         self._machine_idx = 0  # always increasing machine counter
         self._arec_idx = 0  # always increasing arec counter
         self._arecs = {}
-        self.stdout = []  # shared standard output
+        self._lock = threading.RLock()
         self.executable = None
-        self.result = None
+        self.stdout = []  # shared standard output
         self.broken = False
         self.stopped = False
-        self._lock = threading.RLock()
+        self.result = None
 
     def set_executable(self, exe):
         self.executable = exe
@@ -41,21 +41,18 @@ class DataController(Controller):
     def all_stopped(self):
         return all(self._machine_stopped.values())
 
-    ##
+    ## arecs
 
     def new_arec(self):
         ptr = self._arec_idx
         self._arec_idx += 1
         return ptr
 
-    def get_arec(self, ptr):
-        try:
-            return self._arecs[ptr]
-        except KeyError:
-            return None
-
     def set_arec(self, ptr, rec):
         self._arecs[ptr] = rec
+
+    def get_arec(self, ptr):
+        return self._arecs[ptr]
 
     def increment_ref(self, ptr):
         self._arecs[ptr].ref_count += 1
@@ -71,7 +68,7 @@ class DataController(Controller):
     def lock_arec(self, _):
         return self._lock
 
-    ##
+    ## thread
 
     def get_state(self, vmid):
         return self._machine_state[vmid]

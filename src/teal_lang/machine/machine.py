@@ -285,24 +285,27 @@ class TlMachine:
 
     @evali.register
     def _(self, i: Return):
+        # Only return if there's somewhere to go to, and it's in the same thread
         current_arec = self.dc.pop_arec(self.state.current_arec_ptr)
-        new_arec = self.dc.get_arec(current_arec.dynamic_chain)
-        # Only return if we can, and it's in the same thread
-        if current_arec.dynamic_chain is not None and new_arec.vmid == self.vmid:
-            self.probe.on_return(self)
-            self.state.current_arec_ptr = current_arec.dynamic_chain  # the new AR
-            self.state.ip = current_arec.call_site + 1
-            self.state.bindings = new_arec.bindings
-        else:
-            self.state.stopped = True
-            value = self.state.ds_peek(0)
-            LOG.info(f"{self.vmid} Returning value: {value}")
-            value, continuations = self.dc.finish(self.vmid, value)
-            for machine in continuations:
-                # FIXME - invoke all of the machines except the last one. That
-                # one, just run in this context. Save one invocation. Caution:
-                # tricky with Lambda timeouts.
-                self.invoker.invoke(machine)
+        if current_arec.dynamic_chain is not None:
+            new_arec = self.dc.get_arec(current_arec.dynamic_chain)
+            if new_arec.vmid == self.vmid:
+                self.probe.on_return(self)
+                self.state.current_arec_ptr = current_arec.dynamic_chain  # the new AR
+                self.state.ip = current_arec.call_site + 1
+                self.state.bindings = new_arec.bindings
+                return
+
+        # Otherwise, this thread has finished!
+        self.state.stopped = True
+        value = self.state.ds_peek(0)
+        LOG.info(f"{self.vmid} Returning value: {value}")
+        value, continuations = self.dc.finish(self.vmid, value)
+        for machine in continuations:
+            # FIXME - invoke all of the machines except the last one. That
+            # one, just run in this context. Save one invocation. Caution:
+            # tricky with Lambda timeouts.
+            self.invoker.invoke(machine)
 
     @evali.register
     def _(self, i: Call):
