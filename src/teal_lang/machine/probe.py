@@ -24,9 +24,10 @@ class Probe:
         self.early_stop = False
 
     @classmethod
-    def with_logs(cls, logs):
+    def with_logs(cls, logs, events=None):
         probe = cls()
         probe.logs = logs
+        probe.events = events if events else []
         return probe
 
     @property
