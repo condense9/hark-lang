@@ -114,10 +114,6 @@ class DataController(Controller):
     def machines(self):
         return list(self._machine_future.keys())
 
-    @property
-    def probes(self):
-        return [self.get_probe(m) for m in self.machines]
-
     def write_stdout(self, vmid, value: str):
         # don't use isinstance - it must be an actual str
         if type(value) != str:

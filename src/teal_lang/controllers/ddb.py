@@ -17,16 +17,16 @@ Data exchange points:
 - machine stops (upload the State)
 - machine continues (download the State)
 """
-
 import logging
+import sys
 import time
 
 from ..machine import future as fut
 from ..machine.controller import Controller
 from ..machine.executable import Executable
-from . import ddb_model as db
 from ..machine.probe import Probe
 from ..machine.state import State
+from . import ddb_model as db
 
 LOG = logging.getLogger(__name__)
 
@@ -206,7 +206,8 @@ class DataController(Controller):
 
     @property
     def machines(self):
-        return list(self.session.machines)
+        s = self.qry("meta")
+        return list(range(s.meta.num_threads))
 
     @property
     def stdout(self):
@@ -220,6 +221,7 @@ class DataController(Controller):
 
         # Avoid empty strings (they break dynamodb)
         if value:
+            sys.stdout.write(value)
             s = self.qry("stdout")
             out = db.Stdout(thread=vmid, time=time.time(), log=value)
             s.update(actions=[SI.stdout.set(SI.stdout.append([out]))])

@@ -83,10 +83,9 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
 
     # It broke - print traceback
     for vmid in controller.machines:
-        print("ERROR")
         state = controller.get_state(vmid)
         err = state.error
-        if err:
+        if err is not None:
             print(f"\nError [Thread {vmid}]: {err}")
             print("Teal Traceback (most recent call last):")
             for vmid, ip, fn in reversed(state.traceback):

@@ -22,3 +22,7 @@ def random_sleep(min_ms=10, max_ms=1000):
 def coin():
     """Randomly return True or False"""
     return random.random() > 0.5
+
+
+def bad_fn():
+    raise Exception("Something broke!")

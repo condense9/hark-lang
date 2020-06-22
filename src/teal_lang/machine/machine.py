@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 import time
+import traceback
 from functools import singledispatchmethod
 from io import StringIO
 from typing import Any, Dict, List
@@ -53,6 +54,13 @@ class RunMachineError(Exception):
 
 class ForeignError(Exception):
     """An error occured in a foreign call"""
+
+    def __init__(self, exc):
+        self.exc = exc
+
+    def __str__(self):
+        data = "".join(traceback.format_exception(*self.exc))
+        return f"Python Error:\n\n{data}"
 
 
 def traverse(o, tree_types=(list, tuple)):
@@ -213,11 +221,11 @@ class TlMachine:
                 to_raise = exc
 
         self.probe.on_stopped(self)
-        self.dc.stop(self.vmid, finished_ok=to_raise is None)
         self.dc.set_state(self.vmid, self.state)
         self.dc.set_probe(self.vmid, self.probe)
-        if to_raise:
-            raise RunMachineError(to_raise) from to_raise
+        # This order is important. dc.stop must come last to avoid race
+        # conditions in us setting/the user reading the state and probe data
+        self.dc.stop(self.vmid, finished_ok=to_raise is None)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -343,7 +351,7 @@ class TlMachine:
             try:
                 py_result = foreign_f(*py_args)
             except Exception as e:
-                raise ForeignError(e) from e
+                raise ForeignError(sys.exc_info()) from e
             finally:
                 sys.stdout = sys.__stdout__
 

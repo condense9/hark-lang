@@ -12,12 +12,3 @@ fn ident(x) {
   x;
 }
 
-fn main() {
-  x = async bad()
-}
-
-
-fn bad() {
-  print("hi")
-  signal("error", "badness")
-}

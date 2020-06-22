@@ -51,7 +51,7 @@ class State:
             stopped=self.stopped,
             ds=[value.serialise() for value in self._ds],
             bindings={name: value.serialise() for name, value in self.bindings.items()},
-            error=self.error,
+            error=str(self.error) if self.error else None,
             current_arec_ptr=self.current_arec_ptr,
             traceback=self.traceback,
         )
