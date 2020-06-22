@@ -2,7 +2,7 @@
 
 from typing import Dict, List
 
-from .types import TlFuturePtr, TlList, TlType
+from .types import TlFuturePtr, TlList, TlType, TlString, TlInt
 
 
 class State:
@@ -50,7 +50,7 @@ class State:
             ip=self.ip,
             stopped=self.stopped,
             ds=[value.serialise() for value in self._ds],
-            bindings={name: value.serialise() for name, value in self.bindings},
+            bindings={name: value.serialise() for name, value in self.bindings.items()},
             error=self.error,
             current_arec_ptr=self.current_arec_ptr,
             traceback=self.traceback,
@@ -62,7 +62,9 @@ class State:
         s.ip = data["ip"]
         s.stopped = data["stopped"]
         s._ds = [TlType.deserialise(obj) for obj in data["ds"]]
-        s.bindings = {name: TlType.deserialise(val) for name, val in data["bindings"]}
+        s.bindings = {
+            name: TlType.deserialise(val) for name, val in data["bindings"].items()
+        }
         s.error = data["error"]
         s.current_arec_ptr = data["current_arec_ptr"]
         s.traceback = data["traceback"]
@@ -71,5 +73,9 @@ class State:
     def __eq__(self, other):
         return self.serialise() == other.serialise()
 
-    def __repr__(self):
+    def __str__(self):
         return f"<State {id(self)} ip={self.ip}>"
+
+    @classmethod
+    def sample(cls):
+        return cls([TlString("foo"), TlInt(2)])
