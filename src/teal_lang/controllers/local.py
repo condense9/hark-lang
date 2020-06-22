@@ -33,86 +33,46 @@ class DataController(Controller):
         self._arecs: Dict[ARecPtr, ActivationRecord] = {}
         self.stdout = []  # shared standard output
         self.executable = None
-        self._top_level_vmid = None
         self.result = None
         self.broken = False
         self.stopped = False
         self.lock = threading.RLock()
 
-    def push_arec(self, vmid, rec) -> ARecPtr:
-        with self.lock:
-            ptr = ARecPtr(vmid, self._arec_idx)
-            self._arecs[ptr] = rec
-            self._arec_idx += 1
-            if rec.dynamic_chain:
-                self._arecs[rec.dynamic_chain].ref_count += 1
+    def increment_ref(self, ptr):
+        self._arecs[ptr].ref_count += 1
+        return self._arecs[ptr].ref_count
+
+    def decrement_ref(self, ptr):
+        self._arecs[ptr].ref_count -= 1
+        return self._arecs[ptr].ref_count
+
+    def new_arec(self):
+        ptr = self._arec_idx
+        self._arec_idx += 1
         return ptr
 
-    def pop_arec(self, ptr) -> Tuple[ActivationRecord, ActivationRecord]:
-        # If the given ptr has no more references, remove it from storage.
-        # Otherwise, just decrement the references.
-        with self.lock:
-            rec = self._arecs[ptr]
-            rec.ref_count -= 1
-            if rec.ref_count == 0:
-                self._arecs.pop(ptr)
+    def set_arec(self, ptr, rec):
+        self._arecs[ptr] = rec
 
-                # Pop parent records until one is still being used
-                while rec.dynamic_chain:
-                    parent = self._arecs[rec.dynamic_chain]
-                    parent.ref_count -= 1
-                    if parent.ref_count > 0:
-                        break
-                    rec = self._arecs.pop(rec.dynamic_chain)
+    def delete_arec(self, ptr):
+        self._arecs.pop(ptr)
 
-        return rec
-
-    def get_arec(self, ptr: ARecPtr):
-        if ptr:
+    def get_arec(self, ptr):
+        try:
             return self._arecs[ptr]
-        else:
+        except KeyError:
             return None
 
     def set_executable(self, exe):
         self.executable = exe
 
-    def _next_vmid(self):
+    def new_thread(self):
         vmid = self._machine_idx
         self._machine_idx += 1
         return vmid
 
-    def toplevel_machine(self, fn_ptr, args):
-        vmid = self._next_vmid()
-        if self._top_level_vmid:
-            raise ValueError("Already got a top level!")
-
-        arec = ActivationRecord(
-            function=fn_ptr,
-            dynamic_chain=None,
-            vmid=vmid,
-            call_site=None,
-            bindings={},
-            ref_count=1,
-        )
-        self.init_machine(vmid, fn_ptr, args, arec)
-        self._top_level_vmid = vmid
-        return vmid
-
-    def thread_machine(self, caller_arec_ptr, caller_ip, fn_ptr, args):
-        vmid = self._next_vmid()
-        arec = ActivationRecord(
-            function=fn_ptr,
-            dynamic_chain=caller_arec_ptr,
-            vmid=vmid,
-            call_site=caller_ip - 1,
-            bindings={},
-            ref_count=1,
-        )
-        self.init_machine(vmid, fn_ptr, args, arec)
-        return vmid
-
     def is_top_level(self, vmid):
-        return vmid == self._top_level_vmid
+        return vmid == 0
 
     def get_state(self, vmid):
         return self._machine_state[vmid]
@@ -129,10 +89,6 @@ class DataController(Controller):
     def set_stopped(self, vmid, stopped: bool):
         self._machine_stopped[vmid] = stopped
 
-    def error(self, vmid, exc):
-        """Handle a machine error"""
-        raise NotImplementedError
-
     def get_future(self, val):
         # TODO - clean up. This should only take one type. There's some wrong
         # abstraction somewhere.
@@ -145,24 +101,14 @@ class DataController(Controller):
     def set_future(self, vmid, future: fut.Future):
         self._machine_future[vmid] = future
 
-    def set_future_value(self, vmid, offset, value):
-        """Set the value of a future in the stack"""
-        state = self.get_state(vmid)
-        state.ds_set(offset, value)
-        state.stopped = False
-
-    def finish(self, vmid, value) -> list:
-        """Finish a machine, and return continuations (other waiting machines)"""
-        with self.lock:
-            return fut.finish(self, vmid, value)
+    def lock_future(self, vmid):
+        return self.lock
 
     def get_or_wait(self, vmid, future_ptr, state):
         """Get the value of a future in the stack, or add a continuation"""
         with self.lock:
             # TODO fix race condition? Relevant for local?
-            resolved, value = fut.get_or_wait(self, vmid, future_ptr)
-            if not resolved:
-                state.stopped = True
+            resolved, value = super().get_or_wait(vmid, future_ptr)
             return resolved, value
 
     def stop(self, vmid, state, probe):

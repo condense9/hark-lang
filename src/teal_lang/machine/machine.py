@@ -164,9 +164,7 @@ class TlMachine:
             arec = self.dc.get_arec(arec_ptr)
             if arec.dynamic_chain:
                 parent = self.dc.get_arec(arec.dynamic_chain)
-                trace.append(
-                    [arec_ptr.thread, arec.call_site, parent.function.identifier]
-                )
+                trace.append([arec.vmid, arec.call_site, parent.function.identifier])
             else:
                 break
             arec_ptr = arec.dynamic_chain
@@ -204,10 +202,11 @@ class TlMachine:
         self.probe.on_run(self)
         to_raise = None
 
+        self.state.stopped = False
         while not self.state.stopped:
             try:
                 self.step()
-            except Exception as exc:
+            except (UnhandledError, TealRuntimeError, ForeignError) as exc:
                 self.state.stopped = True
                 self.state.error = exc
                 self.state.traceback = self.get_traceback()
@@ -216,7 +215,7 @@ class TlMachine:
         self.probe.on_stopped(self)
         self.dc.stop(self.vmid, self.state, self.probe)
         if to_raise:
-            raise RunMachineError from to_raise
+            raise RunMachineError(to_raise) from to_raise
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -287,7 +286,7 @@ class TlMachine:
         current_arec = self.dc.pop_arec(self.state.current_arec_ptr)
         new_arec = self.dc.get_arec(current_arec.dynamic_chain)
         # Only return if we can, and it's in the same thread
-        if current_arec.dynamic_chain and new_arec.vmid == self.vmid:
+        if current_arec.dynamic_chain is not None and new_arec.vmid == self.vmid:
             self.probe.on_return(self)
             self.state.current_arec_ptr = current_arec.dynamic_chain  # the new AR
             self.state.ip = current_arec.call_site + 1
@@ -298,10 +297,6 @@ class TlMachine:
             LOG.info(f"{self.vmid} Returning value: {value}")
             value, continuations = self.dc.finish(self.vmid, value)
             for machine in continuations:
-                self.probe.log(
-                    f"{self.vmid}: setting machine {machine} value to {value}"
-                )
-                self.dc.set_future_value(machine, 0, value)
                 # FIXME - invoke all of the machines except the last one. That
                 # one, just run in this context. Save one invocation. Caution:
                 # tricky with Lambda timeouts.
@@ -386,17 +381,17 @@ class TlMachine:
 
     @evali.register
     def _(self, i: Wait):
-        offset = 0  # TODO cleanup - no more offset!
-        val = self.state.ds_peek(offset)
+        val = self.state.ds_peek(0)
 
         if isinstance(val, mt.TlFuturePtr):
             resolved, result = self.dc.get_or_wait(self.vmid, val, self.state)
             if resolved:
                 LOG.info(f"{self.vmid} Finished waiting for {val}, got {result}")
-                self.state.ds_set(offset, result)
+                self.state.ds_set(0, result)
             else:
                 LOG.info(f"{self.vmid} waiting for {val}")
-                assert self.state.stopped
+                self.state.ip -= 1  # i.e., repeat the Wait instruction again
+                self.state.stopped = True
 
         elif isinstance(val, list) and any(
             isinstance(elt, mt.TlFuturePtr) for elt in traverse(val)
