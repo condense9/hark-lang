@@ -1,7 +1,7 @@
 """Activation Records"""
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Union
 
 from dataclasses_json import dataclass_json
 
@@ -20,13 +20,13 @@ class ActivationRecord:
     """
 
     function: mt.TlFunctionPtr  # ....... Owner function
-    dynamic_chain: ARecPtr  # ........ Pointer to caller activation record
     vmid: int  # ......................
-    call_site: int  # .................
     # parameters: List[mt.TlType]  # ...... Function parameters
     bindings: Dict[str, mt.TlType]  # ... Local bindings
     # result: mt.TlType  # ................ Function return value
     ref_count: int  # ................ Number of places this AR is used
+    dynamic_chain: Union[ARecPtr, None] = None  # caller activation record
+    call_site: Union[int, None] = None
 
     def serialise(self):
         d = self.to_dict()
@@ -48,10 +48,10 @@ class ActivationRecord:
     @classmethod
     def sample(cls):
         return cls(
-            mt.TlFunctionPtr("foo", None),
-            ARecPtr(0),
-            0,
-            0,
-            {"foo": mt.TlString("hello")},
-            0,
+            function=mt.TlFunctionPtr("foo", None),
+            dynamic_chain=ARecPtr(0),
+            vmid=0,
+            ref_count=0,
+            call_site=0,
+            bindings={"foo": mt.TlString("hello")},
         )

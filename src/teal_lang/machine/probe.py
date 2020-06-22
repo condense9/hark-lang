@@ -66,5 +66,5 @@ class Probe:
 
     def on_stopped(self, m):
         self.event("stop")
-        self.logs.append(f"*** <{self._name}> Stopped after {self.steps} steps. ***")
-        self.logs.append(m.state.to_table())
+        self.log(f"Stopped after {self.steps} steps.")
+        self.log(m.state.to_table())

@@ -27,10 +27,6 @@ def wait_for_finish(check_period, timeout, data_controller, invoker):
             if timeout and time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for finish")
 
-            for probe in data_controller.probes:
-                if probe.early_stop:
-                    raise ThreadDied(f"{probe} forcibly stopped (steps: {probe.steps})")
-
             # This should never happen - we catch runtime errors and print them
             # nicely in machine
             if invoker.exception:
@@ -71,5 +67,27 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
         waiter(controller, invoker)
 
     finally:
-        for p in controller.probes:
-            LOG.info(f"probe {p}:\n" + "\n".join(p.logs))
+        for p in sorted(controller.get_probe_logs(), key=lambda p: p["thread"]):
+            thread = p["thread"]
+            log = p["log"]
+            LOG.info(f"*** [{thread}] {log}")
+
+    LOG.info(
+        "DONE (broken? %s) [%s]: %s",
+        controller.broken,
+        type(controller.result),
+        controller.result,
+    )
+    if not controller.broken:
+        return controller.result
+
+    # It broke - print traceback
+    for vmid in controller.machines:
+        print("ERROR")
+        state = controller.get_state(vmid)
+        err = state.error
+        if err:
+            print(f"\nError [Thread {vmid}]: {err}")
+            print("Teal Traceback (most recent call last):")
+            for vmid, ip, fn in reversed(state.traceback):
+                print(f"~ ({vmid}) {ip} - {fn}")

@@ -19,6 +19,7 @@ Data exchange points:
 """
 
 import logging
+import time
 
 from ..machine import future as fut
 from ..machine.controller import Controller
@@ -37,7 +38,7 @@ class DataController(Controller):
         self.sid = session_meta.session_id
         self._locks = {}
         if session_meta.meta.exe:
-            self.executable = Executable.deserialise(session_meta.meta.exe.data)
+            self.executable = Executable.deserialise(session_meta.meta.exe)
 
     def qry(self, group, item_id=None):
         _key = f"{group}:{item_id}" if item_id is not None else group
@@ -62,6 +63,7 @@ class DataController(Controller):
             vmid = s.meta.num_threads
             s.meta.num_threads += 1
             s.meta.stopped.append(False)
+            s.save()
 
         db.new_session_item(self.sid, f"state:{vmid}", state=State([])).save()
         db.new_session_item(self.sid, f"future:{vmid}", future=fut.Future()).save()
@@ -78,8 +80,20 @@ class DataController(Controller):
         with self.lock_item("meta"):
             s = self.qry("meta")
             s.meta.stopped[vmid] = stopped
+            s.save()
 
     ##
+
+    @property
+    def broken(self):
+        s = self.qry("meta")
+        return s.meta.broken
+
+    @broken.setter
+    def broken(self, value):
+        s = self.qry("meta")
+        s.meta.broken = True
+        s.save()
 
     @property
     def result(self):
@@ -89,7 +103,7 @@ class DataController(Controller):
     @result.setter
     def result(self, value):
         s = self.qry("meta")
-        s.meta.result = str(value)
+        s.meta.result = value
         s.save()
 
     ## arecs
@@ -99,6 +113,7 @@ class DataController(Controller):
             s = self.qry("meta")
             ptr = s.meta.num_arecs
             s.meta.num_arecs += 1
+            s.save()
         return ptr
 
     def set_arec(self, ptr, rec):
@@ -115,16 +130,15 @@ class DataController(Controller):
     def increment_ref(self, ptr):
         s = self.qry("arec", ptr)
         s.update(actions=[SI.arec.ref_count.set(SI.arec.ref_count + 1)])
-        return s.arec.ref_count
 
     def decrement_ref(self, ptr):
         s = self.qry("arec", ptr)
         s.update(actions=[SI.arec.ref_count.set(SI.arec.ref_count - 1)])
-        return s.arec.ref_count
+        return s.arec
 
     def delete_arec(self, ptr):
         s = self.qry("arec", ptr)
-        s.delete()
+        s.arec.deleted = True
 
     def lock_arec(self, ptr):
         return self.lock_item("arec", ptr)
@@ -180,7 +194,10 @@ class DataController(Controller):
                 SI.future.continuations.set(SI.future.continuations.append([vmid]))
             ]
         )
-        s.save()
+
+    def set_future_chain(self, fut_ptr, chain):
+        s = self.qry("future", fut_ptr)
+        s.update(actions=[SI.future.chain.set(chain)])
 
     def lock_future(self, ptr):
         return self.lock_item("future", ptr)
@@ -192,15 +209,11 @@ class DataController(Controller):
         return list(self.session.machines)
 
     @property
-    def probes(self):
-        return [Probe.with_logs(m.probe_logs) for m in self.session.machines]
-
-    @property
     def stdout(self):
         s = self.qry("stdout")
         return s.stdout
 
-    def write_stdout(self, value: str):
+    def write_stdout(self, vmid, value: str):
         # don't use isinstance - it must be an actual str
         if type(value) != str:
             raise ValueError(f"{value} ({type(value)}) is not str")
@@ -208,4 +221,5 @@ class DataController(Controller):
         # Avoid empty strings (they break dynamodb)
         if value:
             s = self.qry("stdout")
-            s.update(actions=[SI.stdout.set(SI.stdout.append(value))])
+            out = db.Stdout(thread=vmid, time=time.time(), log=value)
+            s.update(actions=[SI.stdout.set(SI.stdout.append([out]))])

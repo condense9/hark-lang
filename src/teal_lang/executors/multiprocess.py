@@ -18,7 +18,7 @@ class Invoker:
     def invoke(self, vmid, run_async=True):
         event = dict(
             # --
-            session_id=self.data_controller.session.session_id,
+            session_id=self.data_controller.sid,
             vmid=vmid,
         )
         p = multiprocessing.Process(target=resume_handler, args=(event,))
@@ -26,11 +26,11 @@ class Invoker:
 
 
 def resume_handler(event):
+    # TODO catch exceptions and send them back!
     session_id = event["session_id"]
     vmid = event["vmid"]
-    session = db.Session.get(session_id)
-    lock = db.SessionLocker(session)
-    controller = ddb_controller.DataController(session, lock)
+    session = db.SessionItem.get(session_id, "meta")
+    controller = ddb_controller.DataController(session)
     invoker = Invoker(controller)
 
     machine = TlMachine(vmid, invoker)

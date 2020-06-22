@@ -8,6 +8,8 @@ See https://docs.python.org/3/library/json.html#py-to-json-table
 from typing import Optional
 from collections import UserList, UserDict
 
+# TODO Convert these to dataclasses
+
 
 class TlType:
     """Base class"""

@@ -69,6 +69,7 @@ class ARecAttribute(MapAttribute):
     vmid = NumberAttribute(null=True)
     call_site = NumberAttribute(null=True)
     bindings = MapAttribute(default=dict)
+    deleted = BooleanAttribute(default=False)
 
     def serialize(self, value):
         return super().serialize(value.serialise())
@@ -101,7 +102,8 @@ class MetaAttribute(MapAttribute):
     num_arecs = NumberAttribute(default=0)
     stopped = ListAttribute(default=list)
     exe = MapAttribute(null=True)
-    result = UnicodeAttribute(null=True)
+    result = JSONAttribute(null=True)
+    broken = BooleanAttribute(default=False)
 
 
 class SessionItem(Model):
@@ -186,6 +188,7 @@ def new_session() -> SessionItem:
     s.save()
     new_session_item(sid, "plogs", plogs=[]).save()
     new_session_item(sid, "pevents", pevents=[]).save()
+    new_session_item(sid, "stdout", stdout=[]).save()
     return s
 
 
@@ -242,6 +245,7 @@ class SessionLocker(AbstractContextManager):
         if self._thread_lock.locked() and self.count.get(tid, 0) > 0:
             t = time.time() % 1000.0
             self.count[tid] += 1
+            LOG.debug(f"{t:.3f} :: acquire re-entrant %d", self.count[tid])
             return
 
         start = time.time()
@@ -255,7 +259,7 @@ class SessionLocker(AbstractContextManager):
         self.count[tid] = 1
 
         t = time.time() % 1000.0
-        LOG.debug(f"{t:.3f} :: Thread {tid} Locked")
+        LOG.debug(f"{t:.3f} :: Thread {tid} Locked %s", self.session)
 
     def __exit__(self, *exc):
         t = time.time() % 1000.0
@@ -263,16 +267,16 @@ class SessionLocker(AbstractContextManager):
 
         if self._thread_lock.locked() and self.count.get(tid, 0) > 1:
             self.count[tid] -= 1
+            LOG.debug(f"{t:.3f} :: release re-entrant %d", self.count[tid])
             return
 
         self.count[tid] -= 1
         assert self.count[tid] == 0
 
-        LOG.debug(f"{t:.3f} :: Releasing %s", self.session)
+        LOG.debug(f"{t:.3f} :: Releasing %s...", self.session)
         self.session.update(
             [SessionItem.locked.set(False)], condition=(SessionItem.locked == True)
         )
         self._thread_lock.release()
 
         t = time.time() % 1000.0
-        LOG.debug(f"{t:.3f} :: Thread {tid} Released")

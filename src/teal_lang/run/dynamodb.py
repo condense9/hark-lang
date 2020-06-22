@@ -15,8 +15,7 @@ def run_ddb_local(filename, function, args):
     controller = ddb_controller.DataController(session)
     invoker = teal_thread.Invoker(controller)
     waiter = partial(wait_for_finish, 1, 10)
-    run_and_wait(controller, invoker, waiter, filename, function, args)
-    return controller.result
+    return run_and_wait(controller, invoker, waiter, filename, function, args)
 
 
 def run_ddb_processes(filename, function, args):
@@ -26,5 +25,4 @@ def run_ddb_processes(filename, function, args):
     controller = ddb_controller.DataController(session)
     invoker = mp.Invoker(controller)
     waiter = partial(wait_for_finish, 1, 10)
-    run_and_wait(controller, invoker, waiter, filename, function, args)
-    return controller.result
+    return run_and_wait(controller, invoker, waiter, filename, function, args)

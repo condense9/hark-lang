@@ -1,5 +1,7 @@
 """Machine futures"""
 
+from . import types as mt
+
 
 class Future:
     """A future - holds results of function calls"""

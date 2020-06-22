@@ -1,6 +1,7 @@
 """Local Implementation"""
 import logging
 import sys
+import time
 import threading
 from functools import singledispatchmethod
 
@@ -63,7 +64,7 @@ class DataController(Controller):
 
     def decrement_ref(self, ptr):
         self._arecs[ptr].ref_count -= 1
-        return self._arecs[ptr].ref_count
+        return self._arecs[ptr]
 
     def delete_arec(self, ptr):
         self._arecs.pop(ptr)
@@ -101,6 +102,9 @@ class DataController(Controller):
     def add_continuation(self, fut_ptr, vmid):
         self._machine_future[fut_ptr].continuations.append(vmid)
 
+    def set_future_chain(self, fut_ptr, chain):
+        self._machine_future[fut_ptr].chain = chain
+
     def lock_future(self, _):
         return self._lock
 
@@ -114,14 +118,14 @@ class DataController(Controller):
     def probes(self):
         return [self.get_probe(m) for m in self.machines]
 
-    def write_stdout(self, value: str):
+    def write_stdout(self, vmid, value: str):
         # don't use isinstance - it must be an actual str
         if type(value) != str:
             raise ValueError(f"{value} ({type(value)}) is not str")
         # Print to real stdout at the same time. TODO maybe make this behaviour
         # configurable.
         sys.stdout.write(value)
-        self.stdout.append(value)
+        self.stdout.append(dict(thread=vmid, time=time.time(), log=value))
 
     def get_probe_logs(self):
         return self._probe_logs

@@ -70,9 +70,8 @@ class Controller:
         # Otherwise, just decrement the references.
         collect_garbage = False
         with self.lock_arec(ptr):
-            new_count = self.decrement_ref(ptr)
-            rec = self.get_arec(ptr)
-            if new_count == 0:
+            rec = self.decrement_ref(ptr)
+            if rec.ref_count == 0:
                 self.delete_arec(ptr)
                 collect_garbage = True
 
@@ -80,10 +79,9 @@ class Controller:
         if collect_garbage:
             while rec.dynamic_chain:
                 with self.lock_arec(ptr):
-                    new_count = self.decrement_ref(rec.dynamic_chain)
-                    if new_count > 0:
+                    parent = self.decrement_ref(rec.dynamic_chain)
+                    if parent.ref_count > 0:
                         break
-                parent = self.get_arec(rec.dynamic_chain)
                 self.delete_arec(rec.dynamic_chain)
                 rec = parent
 
@@ -95,13 +93,14 @@ class Controller:
         """Resolve a machine future, and any dependent futures"""
         if isinstance(value, mt.TlFuturePtr):
             raise TypeError(value)
-        future = self.get_future(vmid)
 
+        future = self.get_future(vmid)
         future.resolved = True
         future.value = value
+        self.set_future(vmid, future)
+
         if self.is_top_level(vmid):
             self.result = mt.to_py_type(value)
-            self.finished = True
 
         continuations = future.continuations
         if future.chain:
@@ -125,7 +124,7 @@ class Controller:
         # Otherwise, VALUE is another future, and we can only resolve this machine's
         # future if VALUE has also resolved. If VALUE hasn't resolved, we "chain"
         # this machine's future to it.
-        with self.lock_future(value):
+        with self.lock_future(value.vmid):
             next_future = self.get_future(value.vmid)
             if next_future.resolved:
                 return (
@@ -134,7 +133,7 @@ class Controller:
                 )
             else:
                 LOG.info("Chaining %s to %s", vmid, value)
-                next_future.chain = vmid
+                self.set_future_chain(value.vmid, vmid)
                 return None, []
 
     def get_or_wait(self, vmid, future_ptr):
@@ -159,6 +158,7 @@ class Controller:
                 value = None
                 self.add_continuation(future_ptr.vmid, vmid)
                 LOG.info("%d waiting on %s", vmid, future_ptr)
+                future = self.get_future(future_ptr.vmid)
 
         return future.resolved, value
 

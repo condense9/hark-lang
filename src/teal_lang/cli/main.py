@@ -89,8 +89,6 @@ def _run(args):
         # NOTE: we use the "lambda" timeout even for local invocations. Maybe
         # there should be a more general timeout
         result = run_local(filename, fn, fn_args, cfg.service.lambda_timeout)
-        if result:
-            print(result)
 
     elif args["--storage"] == "dynamodb":
         from ..run.dynamodb import run_ddb_local, run_ddb_processes
@@ -98,12 +96,15 @@ def _run(args):
         configure_logging(args["--verbose"], args["--vverbose"])
 
         if args["--concurrency"] == "processes":
-            run_ddb_processes(filename, fn, fn_args)
+            result = run_ddb_processes(filename, fn, fn_args)
         else:
-            run_ddb_local(filename, fn, fn_args)
+            result = run_ddb_local(filename, fn, fn_args)
 
     else:
         raise ValueError(args["--storage"])
+
+    if result:
+        print(result)
 
 
 def _ast(args):

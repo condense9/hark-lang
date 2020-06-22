@@ -348,7 +348,7 @@ class TlMachine:
                 sys.stdout = sys.__stdout__
 
             out = capstdout.getvalue()
-            self.dc.write_stdout(out)
+            self.dc.write_stdout(self.vmid, out)
 
             result = mt.to_teal_type(py_result)
             self.state.ds_push(result)
@@ -395,7 +395,6 @@ class TlMachine:
                 LOG.info(f"{self.vmid} Finished waiting for {val}, got {result}")
                 self.state.ds_set(0, result)
             else:
-                LOG.info(f"{self.vmid} waiting for {val}")
                 self.state.ip -= 1  # i.e., repeat the Wait instruction again
                 self.state.stopped = True
 
@@ -530,13 +529,13 @@ class TlMachine:
         val = self.state.ds_peek(0)
         # This should take a vmid - data stored is a tuple (vmid, str)
         # Could also store a timestamp...
-        self.dc.write_stdout(str(val) + "\n")
+        self.dc.write_stdout(self.vmid, str(val) + "\n")
 
     @evali.register
     def _(self, i: Signal):
         msg = self.state.ds_peek(0)
         val = self.state.ds_peek(1)
-        self.dc.write_stdout(f"\n[signal {val}]: {msg}\n")
+        self.dc.write_stdout(self.vmid, f"\n[signal {val}]: {msg}\n")
         if str(val) == "error":
             raise UnhandledError(msg)
         # other kinds of signals don't need special handling
