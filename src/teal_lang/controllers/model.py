@@ -147,13 +147,13 @@ class:
 
 # per session:
 # meta        | one, HASH                      | session:ID:meta
-# stdout      | many, HASH (append only)       | session:ID:stdout:ID
-# probe_log   | many, HASH (append only)       | session:ID:plog:ID
-# probe_event | many, HASH (append only)       | session:ID:pevent:ID
+# executable  | one, HASH                      | session:ID:exe
+# stdout      | one, LIST (append only)        | session:ID:stdout
+# probe_log   | one, HASH (append only)        | session:ID:plogs
+# probe_event | one, HASH (append only)        | session:ID:pevents
 # arec        | many, HASH (add/remove/update) | session:ID:arec:ID
 # future      | many, HASH (update)            | session:ID:future:THREAD_ID
 # state       | many, HASH (update).           | session:ID:state:THREAD_ID
-# error       | many, HASH (add/update).       | session:ID:state:THREAD_ID
 
 
 # Meta (book-keeping):

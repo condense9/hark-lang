@@ -5,6 +5,7 @@ import threading
 from functools import singledispatchmethod
 
 from ..machine import future as fut
+from ..machine.probe import Probe
 from ..machine.controller import Controller
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
@@ -15,10 +16,10 @@ class DataController(Controller):
     def __init__(self):
         self._machine_future = {}
         self._machine_state = {}
-        self._machine_probe = {}
         self._machine_stopped = {}
         self._machine_idx = 0  # always increasing machine counter
         self._arec_idx = 0  # always increasing arec counter
+        self._probe_logs = []
         self._arecs = {}
         self._lock = threading.RLock()
         self.executable = None
@@ -39,6 +40,9 @@ class DataController(Controller):
 
     def all_stopped(self):
         return all(self._machine_stopped.values())
+
+    def set_stopped(self, vmid, stopped: bool):
+        self._machine_stopped[vmid] = stopped
 
     ## arecs
 
@@ -76,13 +80,13 @@ class DataController(Controller):
         self._machine_state[vmid] = state
 
     def get_probe(self, vmid):
-        return self._machine_probe[vmid]
+        return Probe()
 
     def set_probe(self, vmid, probe):
-        self._machine_probe[vmid] = probe
-
-    def set_stopped(self, vmid, stopped: bool):
-        self._machine_stopped[vmid] = stopped
+        self._probe_logs.extend(
+            dict(thread=vmid, time=l["time"], log=l["log"]) for l in probe.logs
+        )
+        # TODO probe events
 
     ##
 
@@ -118,3 +122,6 @@ class DataController(Controller):
         # configurable.
         sys.stdout.write(value)
         self.stdout.append(value)
+
+    def get_probe_logs(self):
+        return self._probe_logs

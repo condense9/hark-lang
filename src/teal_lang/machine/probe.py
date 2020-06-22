@@ -38,12 +38,13 @@ class Probe:
         now = time.time()
         self.events.append(dict(time=now, event=etype, data=data))
 
+    def log(self, text):
+        now = time.time()
+        self.logs.append(dict(time=now, log=text))
+
     def on_run(self, m):
         self.event("run")
         self.log(f"! {m.vmid} Starting")
-
-    def log(self, text):
-        self.logs.append(f"*** <{self._name}> {text}")
 
     def on_enter(self, m, fn_name: str):
         self.event("call", fn_name=fn_name)

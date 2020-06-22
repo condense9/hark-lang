@@ -14,9 +14,11 @@ pytestmark = pytest.mark.ddblocal
 
 
 def setup_module(module):
-    if db.Session.exists():
-        db.Session.delete_table()
-    db.Session.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
+    if db.SessionItem.exists():
+        db.SessionItem.delete_table()
+    db.SessionItem.create_table(
+        read_capacity_units=1, write_capacity_units=1, wait=True
+    )
     db.init_base_session()
 
 
@@ -90,8 +92,9 @@ def test_probe(Controller):
     probe.log("foobar")
 
     ctrl.set_probe(t, probe)
-    p2 = ctrl.get_probe(t)
-    assert probe.logs == p2.logs
+    logs = ctrl.get_probe_logs()
+    assert len(logs) == 1
+    assert "foobar" in logs[0]["log"]
 
 
 @pytest.mark.parametrize("Controller", CONTROLLERS)

@@ -21,6 +21,7 @@ from pynamodb.attributes import (
     NumberAttribute,
     UnicodeAttribute,
     UTCDateTimeAttribute,
+    VersionAttribute,
 )
 from pynamodb.constants import BINARY, DEFAULT_ENCODING
 from pynamodb.exceptions import UpdateError
@@ -28,15 +29,23 @@ from pynamodb.models import Model
 
 from ..machine import future as fut
 from ..machine.state import State
+from ..machine.arec import ActivationRecord
 
 LOG = logging.getLogger(__name__)
 
 
+# Make it harder to accidentally use real AWS resources:
+if "DYNAMODB_ENDPOINT" not in os.environ and "USE_LIVE_AWS" not in os.environ:
+    raise RuntimeError("One of DYNAMODB_ENDPOINT or USE_LIVE_AWS must be set!")
+
+BASE_SESSION_ID = "base"
+
+
 class FutureAttribute(MapAttribute):
-    resolved = BooleanAttribute()
-    continuations = ListAttribute()
-    chain = NumberAttribute()
-    value = JSONAttribute()
+    resolved = BooleanAttribute(default=False)
+    continuations = ListAttribute(default=list)
+    chain = NumberAttribute(null=True)
+    value = JSONAttribute(null=True)
 
     def serialize(self, value):
         return super().serialize(value.serialise())
@@ -53,122 +62,134 @@ class StateAttribute(JSONAttribute):
         return State.deserialise(super().deserialize(value))
 
 
+class ARecAttribute(MapAttribute):
+    ref_count = NumberAttribute()
+    function = ListAttribute(null=True)
+    dynamic_chain = NumberAttribute(null=True)
+    vmid = NumberAttribute(null=True)
+    call_site = NumberAttribute(null=True)
+    bindings = MapAttribute(default=dict)
+
+    def serialize(self, value):
+        return super().serialize(value.serialise())
+
+    def deserialize(self, value):
+        return ActivationRecord.deserialise(super().deserialize(value).as_dict())
+
+
 class ProbeEvent(MapAttribute):
+    thread = NumberAttribute()
     time = NumberAttribute()
     event = UnicodeAttribute()
     data = MapAttribute(null=True)
 
 
-class MachineMap(MapAttribute):
-    state = StateAttribute()
-    probe_logs = ListAttribute(default=list)
-    probe_events = ListAttribute(of=ProbeEvent, default=list)
-    future = FutureAttribute()
-    exception = UnicodeAttribute(default=None)
+class ProbeLog(MapAttribute):
+    thread = NumberAttribute()
+    time = NumberAttribute()
+    log = UnicodeAttribute()
 
 
-# Make it harder to accidentally use real AWS resources:
-if "DYNAMODB_ENDPOINT" not in os.environ and "USE_LIVE_AWS" not in os.environ:
-    raise RuntimeError("One of DYNAMODB_ENDPOINT or USE_LIVE_AWS must be set!")
+class Stdout(MapAttribute):
+    thread = NumberAttribute()
+    time = NumberAttribute()
+    log = UnicodeAttribute()
 
 
-class Session(Model):
-    """
-    A handler session
-    """
+class MetaAttribute(MapAttribute):
+    num_threads = NumberAttribute(default=0)
+    num_arecs = NumberAttribute(default=0)
+    stopped = ListAttribute(default=list)
+    exe = MapAttribute(null=True)
+    result = UnicodeAttribute(null=True)
 
+
+class SessionItem(Model):
     class Meta:
         table_name = os.environ.get("DYNAMODB_TABLE", "TealSessions")
         host = os.environ.get("DYNAMODB_ENDPOINT", None)
         region = os.environ.get("TL_REGION", None)
 
-    # Very simple, SINGLE-ENTRY, global lock for the whole session. Brutal -
-    # could be optimised later
-    locked = BooleanAttribute(default=False)
-
-    expires_on = NumberAttribute()
-
-    # Naming: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.NamingRules
-    # Types: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes
     session_id = UnicodeAttribute(hash_key=True)
-    finished = BooleanAttribute(default=False)
+    item_id = UnicodeAttribute(range_key=True)
+    locked = BooleanAttribute(default=False)
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
-    result = JSONAttribute(null=True)
-    num_machines = NumberAttribute(default=0)
-    # NOTE!! Big gotcha - be careful what you pass in as default; pynamodb
-    # saves a reference. So don't use a literal "[]"!
-    # futures = ListAttribute(of=FutureAttribute, default=list)
-    machines = ListAttribute(of=MachineMap, default=list)
-    executable = MapAttribute(null=True)
-    stdout = ListAttribute(default=list)
-    thread_stopped = ListAttribute(default=list)
-    arecs = ListAttribute(default=list)
-    num_arecs = NumberAttribute(default=0)
+    expires_on = NumberAttribute()
+
+    ##
+
+    meta = MetaAttribute(null=True)
+    stdout = ListAttribute(of=Stdout, null=True)
+    plogs = ListAttribute(of=ProbeLog, null=True)
+    pevents = ListAttribute(of=ProbeEvent, null=True)
+    arec = ARecAttribute(null=True)
+    future = FutureAttribute(null=True)
+    state = StateAttribute(null=True)
 
 
-BASE_SESSION_ID = "base"
+###
 
 
 def init_base_session():
-    LOG.info("DB %s (%s)", Session.Meta.host, Session.Meta.region)
-    LOG.info("DB table %s", Session.Meta.table_name)
+    LOG.info("DB %s (%s)", SessionItem.Meta.host, SessionItem.Meta.region)
+    LOG.info("DB table %s", SessionItem.Meta.table_name)
     try:
-        Session.get(BASE_SESSION_ID)
-    except Session.DoesNotExist as exc:
+        SessionItem.get(BASE_SESSION_ID, "meta")
+    except SessionItem.DoesNotExist as exc:
         LOG.info("Creating base session")
-        s = Session(
+        s = SessionItem(
             BASE_SESSION_ID,
+            "meta",
             created_at=datetime.now(),
             updated_at=datetime.now(),
             expires_on=0,  # ie, don't expire
+            meta=MetaAttribute(),
         )
         s.save()
 
 
 def set_base_exe(exe):
-    base_session = Session.get(BASE_SESSION_ID)
-    base_session.executable = exe.serialise()
+    base_session = SessionItem.get(BASE_SESSION_ID, "meta")
+    base_session.meta.exe = exe.serialise()
     base_session.save()
 
 
-def new_session() -> Session:
-    base_session = Session.get(BASE_SESSION_ID)
-    sid = str(uuid.uuid4())
+ITEM_TTL = os.getenv("TEAL_SESSION_TTL", None)
 
-    ttl = os.getenv("TEAL_SESSION_TTL", None)
-    if ttl:
+
+def new_session_item(sid, item_id, **extra):
+    """Helper"""
+    ttl = ITEM_TTL
+    if ttl is not None:
         expiry = int(int(ttl) + time.time())
     else:
         expiry = 0  # ie, don't expire if no TEAL_SESSION_TTL specified
 
-    s = Session(
-        sid,
+    return SessionItem(
+        session_id=sid,
+        item_id=item_id,
         created_at=datetime.now(),
         updated_at=datetime.now(),
         expires_on=expiry,
-        executable=base_session.executable,
-        num_machines=0,
+        **extra,
+    )
+
+
+def new_session() -> SessionItem:
+    base_session = SessionItem.get(BASE_SESSION_ID, "meta")
+    sid = str(uuid.uuid4())
+
+    s = new_session_item(
+        sid, "meta", meta=MetaAttribute(exe=base_session.meta.exe, stopped=[]),
     )
     s.save()
+    new_session_item(sid, "plogs", plogs=[]).save()
+    new_session_item(sid, "pevents", pevents=[]).save()
     return s
 
 
-def new_machine(session, args) -> MachineMap:
-    state = State(args)
-    vmid = session.num_machines
-    future = fut.Future()
-    session.num_machines += 1
-    m = MachineMap(
-        # --
-        state=state,
-        future=future,
-    )
-    session.machines.append(m)
-    session.thread_stopped.append(False)
-    assert len(session.machines) == session.num_machines
-    LOG.info("New machine: %d", vmid)
-    return vmid
+###
 
 
 def try_lock(session, thread_lock) -> bool:
@@ -177,8 +198,9 @@ def try_lock(session, thread_lock) -> bool:
         return False
 
     try:
-        session.refresh()
-        session.update([Session.locked.set(True)], condition=(Session.locked == False))
+        session.update(
+            [SessionItem.locked.set(True)], condition=(SessionItem.locked == False)
+        )
         return True
 
     except UpdateError as e:
@@ -211,10 +233,16 @@ class SessionLocker(AbstractContextManager):
         self.session = session
         self.timeout = timeout
         self._thread_lock = threading.Lock()
+        self.count = {}
 
     def __enter__(self):
-        t = time.time() % 1000.0
         tid = threading.get_native_id()
+
+        # re-lock if this thread has already got one lock
+        if self._thread_lock.locked() and self.count.get(tid, 0) > 0:
+            t = time.time() % 1000.0
+            self.count[tid] += 1
+            return
 
         start = time.time()
         while not try_lock(self.session, self._thread_lock):
@@ -224,17 +252,27 @@ class SessionLocker(AbstractContextManager):
                 LOG.debug(f"{t:.3f} :: Timeout getting lock")
                 raise LockTimeout
 
+        self.count[tid] = 1
+
         t = time.time() % 1000.0
-        LOG.info(f"{t:.3f} :: Thread {tid} Locked")
+        LOG.debug(f"{t:.3f} :: Thread {tid} Locked")
 
     def __exit__(self, *exc):
         t = time.time() % 1000.0
+        tid = threading.get_native_id()
 
-        self.session.locked = False
-        LOG.debug(f"{t:.3f} :: Saving %s", self.session)
-        self.session.save()
+        if self._thread_lock.locked() and self.count.get(tid, 0) > 1:
+            self.count[tid] -= 1
+            return
+
+        self.count[tid] -= 1
+        assert self.count[tid] == 0
+
+        LOG.debug(f"{t:.3f} :: Releasing %s", self.session)
+        self.session.update(
+            [SessionItem.locked.set(False)], condition=(SessionItem.locked == True)
+        )
         self._thread_lock.release()
 
         t = time.time() % 1000.0
-        tid = threading.get_native_id()
-        LOG.info(f"{t:.3f} :: Thread {tid} Released")
+        LOG.debug(f"{t:.3f} :: Thread {tid} Released")
