@@ -9,6 +9,12 @@ from sly.lex import Token
 from . import nodes
 
 
+class TealSyntaxError(Exception):
+    def __init__(self, token, msg):
+        self.token = token
+        self.msg = msg
+
+
 class TealLexer(Lexer):
     tokens = {
         ATTRIBUTE,
@@ -95,10 +101,7 @@ class TealLexer(Lexer):
     TERM = r";+"
 
     def error(self, t):
-        print(
-            f"{self.lineno}: * Illegal character", repr(self.text[self.index]),
-        )
-        self.index += 1
+        raise TealSyntaxError(t, f"Illegal character `{t.value[0]}`")
 
 
 def post_lex(toks):
@@ -330,9 +333,7 @@ class TealParser(Parser):
         return nodes.N_Literal(literal_eval(p.STRING))
 
     def error(self, p):
-        print(
-            f'{getattr(p,"lineno","")}: ' f'Syntax error at {getattr(p,"value","EOC")}'
-        )
+        raise TealSyntaxError(p, f"Unexpected token `{p.value}`")
 
 
 ###
