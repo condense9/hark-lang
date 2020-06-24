@@ -93,4 +93,4 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
             print(f"\nError [Thread {vmid}]: {err}")
             print("Teal Traceback (most recent call last):")
             for thread, ip, fn in reversed(controller.get_stacktrace(vmid)):
-                print(f"~ ({thread}) {ip} - {fn}")
+                print(f"~ [{thread}] {ip} - {fn}")

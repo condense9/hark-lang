@@ -184,9 +184,9 @@ class Controller:
         trace = [[vmid, state.ip - 1, arec.function.identifier]]
         while True:
             arec = self.get_arec(arec_ptr)
-            if arec.dynamic_chain:
+            if arec.dynamic_chain is not None:
                 parent = self.get_arec(arec.dynamic_chain)
-                trace.append([arec.vmid, arec.call_site, parent.function.identifier])
+                trace.append([parent.vmid, arec.call_site, parent.function.identifier])
             else:
                 break
             arec_ptr = arec.dynamic_chain
