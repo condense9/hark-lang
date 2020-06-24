@@ -132,7 +132,7 @@ def timed(fn):
         fn(args, **kwargs)
         end = time.time()
         if not args["--quiet"]:
-            print(dim(f"\n-- {int(end-start)}s elapsed."))
+            sys.stderr.write(str(dim(f"\n-- {int(end-start)}s elapsed.\n")))
 
     return _wrapped
 
@@ -275,16 +275,23 @@ def _invoke(args):
 
 @timed
 def _events(args):
-    with yaspin(Spinners.dots, text=f"Getting events"):
+    if args["--json"]:
+        # Don't show the spinner in JSON mode
         data = _call_cloud_api(
             "get_events", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
         )
-    if args["--unified"]:
-        interface.print_events_unified(data)
-    elif args["--json"]:
         print(json.dumps(data, indent=2))
     else:
-        interface.print_events_by_machine(data)
+        with yaspin(Spinners.dots, text=f"Getting events"):
+            data = _call_cloud_api(
+                "get_events",
+                {"session_id": args["SESSION_ID"]},
+                Path(args["--config"]),
+            )
+        if args["--unified"]:
+            interface.print_events_unified(data)
+        else:
+            interface.print_events_by_machine(data)
 
 
 @timed
