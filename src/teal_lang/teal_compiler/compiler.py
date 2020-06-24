@@ -37,15 +37,15 @@ def optimise_block(n: nodes.N_Definition, block: nodes.N_Progn):
     if isinstance(last, nodes.N_Call) and last.fn.name == n.name:
         # recursive call, optimise it! Replace the N_Call with direct evaluation
         # of the arguments and a jump back to the start
-        new_last_items = list(last.args) + [nodes.N_Goto(START_LABEL)]
+        new_last_items = list(last.args) + [nodes.N_Goto(None, START_LABEL)]
         return_values = nodes.N_MultipleValues(new_last_items)
-        return nodes.N_Progn(block.exprs[:-1] + [return_values])
+        return nodes.N_Progn(None, block.exprs[:-1] + [return_values])
 
     elif isinstance(last, nodes.N_If):
         new_cond = nodes.N_If(
-            last.cond, optimise_block(n, last.then), optimise_block(n, last.els)
+            None, last.cond, optimise_block(n, last.then), optimise_block(n, last.els)
         )
-        return nodes.N_Progn(block.exprs[:-1] + [new_cond])
+        return nodes.N_Progn(None, block.exprs[:-1] + [new_cond])
 
     else:
         # Nothing to optimise
@@ -96,7 +96,7 @@ class CompileToplevel:
         """Make a new executable function object with a unique name, and save it"""
         count = len(self.functions)
         identifier = f"#{count}:{name}"
-        start_label = nodes.N_Label(START_LABEL)
+        start_label = nodes.N_Label(None, START_LABEL)
         code = self.compile_function(optimise_tailcall(n))
         fn_code = replace_gotos([start_label] + code)
         self.functions[identifier] = fn_code
@@ -204,7 +204,11 @@ class CompileToplevel:
         # arbitrary expressions, so no need to check the type of n.fn
         arg_code = flatten(self.compile_expr(arg) for arg in n.args)
         instr = mi.ACall if is_async else mi.Call
-        return arg_code + self.compile_expr(n.fn) + [instr(mt.TlInt(len(n.args)))]
+        return (
+            arg_code
+            + self.compile_expr(n.fn)
+            + [instr(mt.TlInt(len(n.args)), source=n.index)]
+        )
 
     @compile_expr.register
     def _(self, n: nodes.N_Call):

@@ -18,8 +18,9 @@ class Instruction:
     op_types = None
     check_op_types = True
 
-    def __init__(self, *operands):
+    def __init__(self, *operands, source=None):
         self.name = type(self).__name__
+        self.source = source
 
         # All operands *must* be TlType so that the instruction can be
         # serialised
@@ -42,7 +43,7 @@ class Instruction:
     def serialise(self):
         """Serialise"""
         operands = [o.serialise() for o in self.operands]
-        return [self.name, operands]
+        return [self.name, operands, self.source]
 
     @classmethod
     def deserialise(cls, obj, instruction_set):
@@ -52,7 +53,8 @@ class Instruction:
         """
         name = obj[0]
         operands = [TlType.deserialise(o) for o in obj[1]]
-        return getattr(instruction_set, name)(*operands)
+        source = obj[2]
+        return getattr(instruction_set, name)(*operands, source=source)
 
     def __repr__(self):
         ops = ", ".join(map(str, self.operands))

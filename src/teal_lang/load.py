@@ -4,7 +4,7 @@ from pathlib import Path
 
 from .machine.executable import Executable
 from .teal_compiler import tl_compile
-from .teal_parser.parser import tl_parse, TealSyntaxError
+from .teal_parser.parser import tl_parse, TealSyntaxError, token_column
 from .cli.interface import bad, neutral
 
 
@@ -13,22 +13,12 @@ def compile_text(text: str) -> Executable:
     return tl_compile(tl_parse(text))
 
 
-# Compute column.
-#     input is the input text string
-#     token is a token instance
-def find_column(text, token):
-    last_cr = text.rfind("\n", 0, token.index)
-    if last_cr < 0:
-        last_cr = 0
-    column = (token.index - last_cr) + 1
-    return column
-
-
-def msg(text, exc, filename):
+def error_msg(text, exc, filename) -> str:
+    """Get an error message explaining why compilation failed"""
     msg = bad(f"{filename}:{exc.token.lineno} ~ {exc.msg}")
     line = text.split("\n")[exc.token.lineno - 1]
     msg += neutral(f"\n\n {line}\n")
-    msg += " " * (find_column(text, exc.token) - 1) + "^"
+    msg += " " * (token_column(text, exc.token.index) - 1) + "^"
     return msg
 
 
@@ -40,7 +30,7 @@ def compile_file(filename: Path) -> Executable:
     try:
         return compile_text(text)
     except TealSyntaxError as exc:
-        print(msg(text, exc, filename))
+        print(error_msg(text, exc, filename))
         sys.exit(1)
 
 

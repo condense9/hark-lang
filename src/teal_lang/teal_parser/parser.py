@@ -160,7 +160,7 @@ class TealParser(Parser):
         if not p.expressions:
             # TODO parser error framework
             raise Exception("Empty block expression")
-        return nodes.N_Progn(p.expressions)
+        return nodes.N_Progn(p.index, p.expressions)
 
     @_("terminated_expr more_expressions")
     def expressions(self, p):
@@ -196,7 +196,9 @@ class TealParser(Parser):
 
     @_("maybe_attribute FN ID '(' paramlist ')' block_expr")
     def expr(self, p):
-        return nodes.N_Definition(p.ID, p.paramlist, p.block_expr, p.maybe_attribute)
+        return nodes.N_Definition(
+            p.index, p.ID, p.paramlist, p.block_expr, p.maybe_attribute
+        )
 
     @_("nothing")
     def maybe_attribute(self, p):
@@ -208,7 +210,7 @@ class TealParser(Parser):
 
     @_("LAMBDA '(' paramlist ')' block_expr")
     def expr(self, p):
-        return nodes.N_Lambda(p.paramlist, p.block_expr)
+        return nodes.N_Lambda(p.index, p.paramlist, p.block_expr)
 
     @_("nothing")
     def paramlist(self, p):
@@ -232,7 +234,7 @@ class TealParser(Parser):
     # NOTE:
     @_("ID '(' arglist ')'")
     def expr(self, p):
-        return nodes.N_Call(nodes.N_Id(p.ID), p.arglist)
+        return nodes.N_Call(p.index, nodes.N_Id(p.index, p.ID), p.arglist)
 
     @_("nothing")
     def arglist(self, p):
@@ -248,12 +250,12 @@ class TealParser(Parser):
 
     @_("expr")
     def arg_item(self, p):
-        return nodes.N_Argument(None, p.expr)
+        return nodes.N_Argument(None, None, p.expr)
 
     @_("SYMBOL expr")
     def arg_item(self, p):
         # A bit icky - conflicts with SYMBOL
-        return nodes.N_Argument(nodes.N_Symbol(p.SYMBOL), p.expr)
+        return nodes.N_Argument(p.index, nodes.N_Symbol(p.index, p.SYMBOL), p.expr)
 
     # sub
 
@@ -265,11 +267,11 @@ class TealParser(Parser):
 
     @_("IF expr block_expr TERM rest_if")
     def expr(self, p):
-        return nodes.N_If(p.expr, p.block_expr, p.rest_if)
+        return nodes.N_If(p.index, p.expr, p.block_expr, p.rest_if)
 
     @_("ELIF expr block_expr TERM rest_if")
     def rest_if(self, p):
-        return nodes.N_If(p.expr, p.block_expr, p.rest_if)
+        return nodes.N_If(p.index, p.expr, p.block_expr, p.rest_if)
 
     @_("ELSE block_expr")
     def rest_if(self, p):
@@ -279,11 +281,11 @@ class TealParser(Parser):
 
     @_("ASYNC expr")
     def expr(self, p):
-        return nodes.N_Async(p.expr)
+        return nodes.N_Async(p.index, p.expr)
 
     @_("AWAIT expr")
     def expr(self, p):
-        return nodes.N_Await(p.expr)
+        return nodes.N_Await(p.index, p.expr)
 
     # binops
 
@@ -300,43 +302,52 @@ class TealParser(Parser):
         "expr SET expr",
     )
     def expr(self, p):
-        return nodes.N_Binop(p[0], p[1], p[2])
+        return nodes.N_Binop(p.index, p[0], p[1], p[2])
 
     # literals
 
     @_("ID")
     def expr(self, p):
-        return nodes.N_Id(p.ID)
+        return nodes.N_Id(p.index, p.ID)
 
     @_("SYMBOL")
     def expr(self, p):
-        return nodes.N_Symbol(p.SYMBOL)
+        return nodes.N_Symbol(p.index, p.SYMBOL)
 
     @_("TRUE")
     def expr(self, p):
-        return nodes.N_Literal(True)
+        return nodes.N_Literal(p.index, True)
 
     @_("FALSE")
     def expr(self, p):
-        return nodes.N_Literal(False)
+        return nodes.N_Literal(p.index, False)
 
     @_("NULL")
     def expr(self, p):
-        return nodes.N_Literal(None)
+        return nodes.N_Literal(p.index, None)
 
     @_("NUMBER")
     def expr(self, p):
-        return nodes.N_Literal(literal_eval(p.NUMBER))
+        return nodes.N_Literal(p.index, literal_eval(p.NUMBER))
 
     @_("STRING")
     def expr(self, p):
-        return nodes.N_Literal(literal_eval(p.STRING))
+        return nodes.N_Literal(p.index, literal_eval(p.STRING))
 
     def error(self, p):
         raise TealSyntaxError(p, f"Unexpected token `{p.value}`")
 
 
 ###
+
+
+def token_column(text, index):
+    """Compute column position of token in text"""
+    last_cr = text.rfind("\n", 0, index)
+    if last_cr < 0:
+        last_cr = 0
+    column = (index - last_cr) + 1
+    return column
 
 
 def tl_parse(text, debug_lex=False):

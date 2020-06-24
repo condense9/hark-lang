@@ -6,6 +6,7 @@ from typing import List
 
 from .. import load
 from ..machine import types as mt
+from ..cli import interface as ui
 
 LOG = logging.getLogger(__name__)
 
@@ -85,12 +86,25 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
     if not controller.broken:
         return controller.result
 
+    with open(filename, "r") as f:
+        text = f.read()
+        lines = text.split("\n")
+
     # It broke - print traceback
     for vmid in controller.get_thread_ids():
         state = controller.get_state(vmid)
         err = state.error_msg
         if err is not None:
-            print(f"\nError [Thread {vmid}]: {err}")
+            print(ui.bad(f"\nError [Thread {vmid}]: {err}\n"))
             print("Teal Traceback (most recent call last):")
             for thread, ip, fn in reversed(controller.get_stacktrace(vmid)):
-                print(f"~ [{thread}] {ip} - {fn}")
+                instr = exe.code[ip]
+                if instr.source is not None:
+                    idx = text[: instr.source].count("\n")
+                    line = lines[idx]
+                else:
+                    line = "<unknown line>"
+
+                prefix = f"[{thread}] in {fn}, line {idx}:"
+                print(f"~ {prefix:<25} {line}")
+            print("")
