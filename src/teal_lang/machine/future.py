@@ -2,6 +2,9 @@
 
 from . import types as mt
 
+# Alias
+_SerialisedFuture = dict
+
 
 class Future:
     """A future - holds results of function calls"""
@@ -12,7 +15,7 @@ class Future:
         self.resolved = resolved
         self.value = value
 
-    def serialise(self):
+    def serialise(self) -> _SerialisedFuture:
         value = self.value.serialise() if self.value else None
         return dict(
             continuations=self.continuations,
@@ -22,7 +25,7 @@ class Future:
         )
 
     @classmethod
-    def deserialise(cls, data):
+    def deserialise(cls, data: _SerialisedFuture):
         if data.get("value", None):
             data["value"] = mt.TlType.deserialise(data["value"])
         return cls(**data)

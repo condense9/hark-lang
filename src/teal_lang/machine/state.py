@@ -4,6 +4,8 @@ from typing import Dict, List
 
 from .types import TlFuturePtr, TlList, TlType, TlString, TlInt
 
+# TODO convert to TealSerialisable
+
 
 class State:
     """Data local/specific to a particular thread"""
@@ -45,6 +47,12 @@ class State:
             + f"\nData: {self._ds}"
         )
 
+    def __eq__(self, other):
+        return self.serialise() == other.serialise()
+
+    def __str__(self):
+        return f"<State {id(self)} ip={self.ip}>"
+
     def serialise(self):
         return dict(
             ip=self.ip,
@@ -69,13 +77,3 @@ class State:
         s.current_arec_ptr = data["current_arec_ptr"]
         s.traceback = data["traceback"]
         return s
-
-    def __eq__(self, other):
-        return self.serialise() == other.serialise()
-
-    def __str__(self):
-        return f"<State {id(self)} ip={self.ip}>"
-
-    @classmethod
-    def sample(cls):
-        return cls([TlString("foo"), TlInt(2)])

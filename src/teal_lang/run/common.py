@@ -59,7 +59,8 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
     try:
         fn_ptr = exe.bindings[function]
     except KeyError:
-        raise ValueError(f"Function `{function}' does not exist!")
+        print(f"ERROR: Function `{function}` does not exist in {filename}!")
+        return None
 
     try:
         m = controller.toplevel_machine(fn_ptr, args)
@@ -78,11 +79,12 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
         type(controller.result),
         controller.result,
     )
+
     if not controller.broken:
         return controller.result
 
     # It broke - print traceback
-    for vmid in controller.machines:
+    for vmid in controller.get_thread_ids():
         state = controller.get_state(vmid)
         err = state.error
         if err is not None:

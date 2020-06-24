@@ -26,6 +26,7 @@ from .instruction import Instruction
 from .instructionset import *
 from .probe import Probe
 from .state import State
+from .stdout_item import StdoutItem
 
 LOG = logging.getLogger(__name__)
 
@@ -95,13 +96,6 @@ def import_python_function(fnname, modname):
     return fn
 
 
-# @dataclass
-# class TealTraceback:
-#     error_vmid: int
-#     error_ip: int
-#     records: List[ActivationRecords]
-
-
 class TlMachine:
     """Virtual Machine to execute Teal bytecode.
 
@@ -140,11 +134,12 @@ class TlMachine:
     }
 
     def __init__(self, vmid, invoker):
+        self._steps = 0
         self.vmid = vmid
         self.invoker = invoker
         self.dc = invoker.data_controller
         self.state = self.dc.get_state(self.vmid)
-        self.probe = self.dc.get_probe(self.vmid)
+        self.probe = Probe(self.vmid)
         self.exe = self.dc.executable
         self._foreign = {
             name: import_python_function(val.identifier, val.module)
@@ -191,10 +186,11 @@ class TlMachine:
         """Execute the current instruction and increment the IP"""
         if self.state.ip >= len(self.exe.code):
             self.error(None, "Instruction Pointer out of bounds")
-        self.probe.on_step(self)
         instr = self.exe.code[self.state.ip]
-        self.state.ip += 1
+        self.probe.event("step", ip=self.state.ip, instr=str(instr))
+        self.state.ip += 1  # NOTE - IP incremented before evaluation
         self.evali(instr)
+        self._steps += 1  # Counts successfully completed steps
 
     def run(self):
         """Step through instructions until stopped, or an error occurs
@@ -207,8 +203,8 @@ class TlMachine:
         There are two "expected" kinds of errors - a Foreign function error, and
         a Rust "panic!" style error (general error).
         """
-        self.probe.on_run(self)
-        to_raise = None
+        self.probe.event("run")
+        broken = False
 
         self.state.stopped = False
         while not self.state.stopped:
@@ -217,15 +213,19 @@ class TlMachine:
             except (UnhandledError, TealRuntimeError, ForeignError) as exc:
                 self.state.stopped = True
                 self.state.error = exc
+                # TODO - just save the current activation record and IP. The
+                # user interface can then rebuild the traceback. Make sure the
+                # "core" is dumped though.
                 self.state.traceback = self.get_traceback()
-                to_raise = exc
+                broken = True
+                break
 
-        self.probe.on_stopped(self)
+        self.probe.event("stop", steps=self._steps)
         self.dc.set_state(self.vmid, self.state)
-        self.dc.set_probe(self.vmid, self.probe)
+        self.dc.set_probe_data(self.vmid, self.probe)
         # This order is important. dc.stop must come last to avoid race
         # conditions in us setting/the user reading the state and probe data
-        self.dc.stop(self.vmid, finished_ok=to_raise is None)
+        self.dc.stop(self.vmid, finished_ok=not broken)
 
     @singledispatchmethod
     def evali(self, i: Instruction):
@@ -298,7 +298,7 @@ class TlMachine:
         if current_arec.dynamic_chain is not None:
             new_arec = self.dc.get_arec(current_arec.dynamic_chain)
             if new_arec.vmid == self.vmid:
-                self.probe.on_return(self)
+                self.probe.event("return")
                 self.state.current_arec_ptr = current_arec.dynamic_chain  # the new AR
                 self.state.ip = current_arec.call_site + 1
                 self.state.bindings = new_arec.bindings
@@ -310,10 +310,10 @@ class TlMachine:
         LOG.info(f"{self.vmid} Returning value: {value}")
         value, continuations = self.dc.finish(self.vmid, value)
         for machine in continuations:
+            self.dc.set_stopped(machine, False)
             # FIXME - invoke all of the machines except the last one. That
             # one, just run in this context. Save one invocation. Caution:
             # tricky with Lambda timeouts.
-            self.dc.set_stopped(machine, False)
             self.invoker.invoke(machine)
 
     @evali.register
@@ -322,9 +322,9 @@ class TlMachine:
         num_args = i.operands[0]
         # The value to call will have been retrieved earlier by PushB.
         fn = self.state.ds_pop()
-        self.probe.on_enter(self, str(fn))
 
         if isinstance(fn, mt.TlFunctionPtr):
+            self.probe.event("call", function=str(fn))
             self.state.bindings = {}
             arec = ActivationRecord(
                 function=fn,
@@ -338,9 +338,9 @@ class TlMachine:
             self.state.ip = self.exe.locations[fn.identifier]
 
         elif isinstance(fn, mt.TlForeignPtr):
+            self.probe.event("call_foreign", function=str(fn))
             foreign_f = self._foreign[fn.identifier]
             args = tuple(reversed([self.state.ds_pop() for _ in range(num_args)]))
-            self.probe.log(f"{self.vmid}--> {foreign_f} {args}")
             # TODO automatically wait for the args? Somehow mark which one we're
             # waiting for in the continuation
 
@@ -356,12 +356,13 @@ class TlMachine:
                 sys.stdout = sys.__stdout__
 
             out = capstdout.getvalue()
-            self.dc.write_stdout(self.vmid, out)
+            self.dc.write_stdout(StdoutItem(self.vmid, out))
 
             result = mt.to_teal_type(py_result)
             self.state.ds_push(result)
 
         elif isinstance(fn, mt.TlInstruction):
+            self.probe.event("call_builtin", function=str(fn))
             instr = TlMachine.builtins[fn](num_args)
             self.evali(instr)
 
@@ -390,7 +391,7 @@ class TlMachine:
         self.invoker.invoke(machine)
         future = mt.TlFuturePtr(machine)
 
-        self.probe.log(f"Fork {self} => {future}")
+        self.probe.event("fork", to_function=fn_ptr.identifier, to_thread=self.vmid)
         self.state.ds_push(future)
 
     @evali.register
@@ -537,13 +538,13 @@ class TlMachine:
         val = self.state.ds_peek(0)
         # This should take a vmid - data stored is a tuple (vmid, str)
         # Could also store a timestamp...
-        self.dc.write_stdout(self.vmid, str(val) + "\n")
+        self.dc.write_stdout(StdoutItem(self.vmid, str(val) + "\n"))
 
     @evali.register
     def _(self, i: Signal):
         msg = self.state.ds_peek(0)
         val = self.state.ds_peek(1)
-        self.dc.write_stdout(self.vmid, f"\n[signal {val}]: {msg}\n")
+        self.dc.write_stdout(StdoutItem(self.vmid, f"\n[signal {val}]: {msg}\n"))
         if str(val) == "error":
             raise UnhandledError(msg)
         # other kinds of signals don't need special handling

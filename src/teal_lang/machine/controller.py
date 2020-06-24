@@ -10,6 +10,10 @@ from .arec import ActivationRecord
 LOG = logging.getLogger(__name__)
 
 
+class ControllerError(Exception):
+    """A general controller error"""
+
+
 class Controller:
     def __init__(self):
         raise NotImplementedError("Must be subclassed")
@@ -51,8 +55,6 @@ class Controller:
         self.set_state(vmid, state)
         future = Future()
         self.set_future(vmid, future)
-        probe = Probe()
-        self.set_probe(vmid, probe)
         self.set_stopped(vmid, False)
         return vmid
 
@@ -169,5 +171,3 @@ class Controller:
         if not finished_ok:
             self.broken = True
         self.set_stopped(vmid, True)
-        if self.all_stopped():
-            self.stopped = True

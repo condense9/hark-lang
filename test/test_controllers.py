@@ -1,14 +1,13 @@
 """Test Controller features"""
 import pytest
-
 import teal_lang.controllers.ddb_model as db
+import teal_lang.machine.types as mt
 from teal_lang.controllers.ddb import DataController as DdbController
 from teal_lang.controllers.local import DataController as LocalController
-
 from teal_lang.machine.arec import ActivationRecord
 from teal_lang.machine.future import Future
-from teal_lang.machine.state import State
 from teal_lang.machine.probe import Probe
+from teal_lang.machine.state import State
 
 pytestmark = pytest.mark.ddblocal
 
@@ -54,7 +53,14 @@ def test_arec(Controller):
     r = ctrl.new_arec()
     assert r is not None
 
-    rec = ActivationRecord.sample()
+    rec = ActivationRecord(
+        function=mt.TlFunctionPtr("foo", None),
+        dynamic_chain=0,
+        vmid=0,
+        ref_count=0,
+        call_site=0,
+        bindings={"foo": mt.TlString("hello")},
+    )
     ctrl.set_arec(r, rec)
     rec2 = ctrl.get_arec(r)
     assert rec == rec2
@@ -73,7 +79,7 @@ def test_arec(Controller):
 def test_state(Controller):
     ctrl = Controller()
     t = ctrl.new_thread()
-    state = State.sample()
+    state = State([mt.TlString("foo"), mt.TlInt(2)])
     ctrl.set_state(t, state)
 
     state2 = ctrl.get_state(t)
@@ -88,13 +94,13 @@ def test_state(Controller):
 def test_probe(Controller):
     ctrl = Controller()
     t = ctrl.new_thread()
-    probe = Probe()
+    probe = Probe(0)
     probe.log("foobar")
 
-    ctrl.set_probe(t, probe)
+    ctrl.set_probe_data(t, probe)
     logs = ctrl.get_probe_logs()
     assert len(logs) == 1
-    assert "foobar" in logs[0]["log"]
+    assert logs[0].text == "foobar"
 
 
 @pytest.mark.parametrize("Controller", CONTROLLERS)

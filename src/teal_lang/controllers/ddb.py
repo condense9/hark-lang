@@ -20,12 +20,14 @@ Data exchange points:
 import logging
 import sys
 import time
+from typing import List
 
 from ..machine import future as fut
-from ..machine.controller import Controller
+from ..machine.controller import Controller, ControllerError
 from ..machine.executable import Executable
-from ..machine.probe import Probe
+from ..machine.probe import ProbeEvent, ProbeLog
 from ..machine.state import State
+from ..machine.stdout_item import StdoutItem
 from . import ddb_model as db
 
 LOG = logging.getLogger(__name__)
@@ -41,32 +43,51 @@ class DataController(Controller):
         db.init_base_session()
         return cls(db.new_session())
 
-    def __init__(self, session_meta: str):
+    @classmethod
+    def with_session_id(cls, session_id: str):
+        try:
+            session = SI.get(session_id, "meta")
+        except SI.DoesNotExist as exc:
+            raise ControllerError("Session does not exist") from exc
+        return cls(session)
+
+    def __init__(self, session_meta):
         self.sid = session_meta.session_id
         self._locks = {}
         if session_meta.meta.exe:
             self.executable = Executable.deserialise(session_meta.meta.exe)
+        else:
+            self.executable = None
 
-    def qry(self, group, item_id=None):
+    def _qry(self, group, item_id=None):
+        """Retrieve the specified group:item_id"""
         _key = f"{group}:{item_id}" if item_id is not None else group
         return SI.get(self.sid, _key)
 
-    def lock_item(self, group, item_id=None):
+    def _lock_item(self, group, item_id=None):
+        """Get a context manager that locks the specified group:item_id"""
         lock_key = (group, item_id)
         if lock_key not in self._locks:
-            item = self.qry(group, item_id)
+            item = self._qry(group, item_id)
             self._locks[lock_key] = db.SessionLocker(item)
         return self._locks[lock_key]
 
     def set_executable(self, exe):
         self.executable = exe
-        s = self.qry("meta")
+        s = self._qry("meta")
         s.meta.exe = exe.serialise()
-        s.save()
+        try:
+            s.save()
+        except SI.UpdateError as exc:
+            raise ControllerError("Could not update session executable") from exc
+        LOG.info("Updated session code")
 
-    def new_thread(self):
-        with self.lock_item("meta"):
-            s = self.qry("meta")
+    ## Threads
+
+    def new_thread(self) -> int:
+        """Create a new thread, returning the thead ID"""
+        with self._lock_item("meta"):
+            s = self._qry("meta")
             vmid = s.meta.num_threads
             s.meta.num_threads += 1
             s.meta.stopped.append(False)
@@ -76,48 +97,62 @@ class DataController(Controller):
         db.new_session_item(self.sid, f"future:{vmid}", future=fut.Future()).save()
         return vmid
 
+    def get_thread_ids(self) -> List[int]:
+        """Get a list of thread IDs in this session"""
+        s = self.qry("meta")
+        return list(range(s.meta.num_threads))
+
     def is_top_level(self, vmid):
         return vmid == 0
 
     def all_stopped(self):
-        s = self.qry("meta")
+        s = self._qry("meta")
         return all(s.meta.stopped)
 
     def set_stopped(self, vmid, stopped: bool):
-        with self.lock_item("meta"):
-            s = self.qry("meta")
+        with self._lock_item("meta"):
+            s = self._qry("meta")
             s.meta.stopped[vmid] = stopped
             s.save()
 
-    ##
+    def set_state(self, vmid, state):
+        # NOTE: no locking required, no inter-thread state access allowed
+        s = self._qry("state", vmid)
+        s.state = state
+        s.save()
+
+    def get_state(self, vmid):
+        return self._qry("state", vmid).state
+
+    ## controller properties
 
     @property
     def broken(self):
-        s = self.qry("meta")
+        s = self._qry("meta")
         return s.meta.broken
 
     @broken.setter
     def broken(self, value):
-        s = self.qry("meta")
+        s = self._qry("meta")
         s.meta.broken = True
         s.save()
 
     @property
     def result(self):
-        s = self.qry("meta")
+        s = self._qry("meta")
         return s.meta.result
 
     @result.setter
     def result(self, value):
-        s = self.qry("meta")
+        s = self._qry("meta")
         s.meta.result = value
         s.save()
 
     ## arecs
 
     def new_arec(self):
-        with self.lock_item("meta"):
-            s = self.qry("meta")
+        with self._lock_item("meta"):
+            s = self._qry("meta")
             ptr = s.meta.num_arecs
             s.meta.num_arecs += 1
             s.save()
@@ -125,77 +160,63 @@ class DataController(Controller):
 
     def set_arec(self, ptr, rec):
         try:
-            s = self.qry("arec", ptr)
+            s = self._qry("arec", ptr)
             s.arec = rec
         except SI.DoesNotExist:
             s = db.new_session_item(self.sid, f"arec:{ptr}", arec=rec)
         s.save()
 
     def get_arec(self, ptr):
-        return self.qry("arec", ptr).arec
+        return self._qry("arec", ptr).arec
 
     def increment_ref(self, ptr):
-        s = self.qry("arec", ptr)
+        s = self._qry("arec", ptr)
         s.update(actions=[SI.arec.ref_count.set(SI.arec.ref_count + 1)])
 
     def decrement_ref(self, ptr):
-        s = self.qry("arec", ptr)
+        s = self._qry("arec", ptr)
         s.update(actions=[SI.arec.ref_count.set(SI.arec.ref_count - 1)])
         return s.arec
 
     def delete_arec(self, ptr):
-        s = self.qry("arec", ptr)
+        s = self._qry("arec", ptr)
         s.arec.deleted = True
 
     def lock_arec(self, ptr):
-        return self.lock_item("arec", ptr)
+        return self._lock_item("arec", ptr)
 
-    ## thread
+    ## probes
 
-    def set_state(self, vmid, state):
-        s = self.qry("state", vmid)
-        s.state = state
-        s.save()
-
-    def get_state(self, vmid):
-        return self.qry("state", vmid).state
-
-    def get_probe(self, vmid):
-        return Probe()
-
-    def set_probe(self, vmid, probe):
-        events = [
-            db.ProbeEvent(
-                thread=vmid, time=e["time"], event=e["event"], data=e["data"],
-            )
-            for e in probe.serialised_events
-        ]
-        s = self.qry("pevents")
+    def set_probe_data(self, vmid, probe):
+        events = [item.serialise() for item in probe.events]
+        s = self._qry("pevents")
         s.update(actions=[SI.pevents.set(SI.pevents.append(events))])
 
-        logs = [
-            db.ProbeLog(thread=vmid, time=l["time"], log=l["log"]) for l in probe.logs
-        ]
-        s = self.qry("plogs")
+        logs = [item.serialise() for item in probe.logs]
+        s = self._qry("plogs")
         s.update(actions=[SI.plogs.set(SI.plogs.append(logs))])
 
     def get_probe_logs(self):
-        s = self.qry("plogs")
-        return s.plogs
+        s = self._qry("plogs")
+        return [ProbeLog.deserialise(item) for item in s.plogs]
 
-    ##
+    def get_probe_events(self):
+        s = self._qry("pevents")
+        return [ProbeEvent.deserialise(item) for item in s.pevents]
+
+    ## futures
 
     def get_future(self, vmid):
-        s = self.qry("future", vmid)
+        s = self._qry("future", vmid)
         return s.future
 
     def set_future(self, vmid, future: fut.Future):
-        s = self.qry("future", vmid)
+        s = self._qry("future", vmid)
         s.future = future
         s.save()
 
     def add_continuation(self, fut_ptr, vmid):
-        s = self.qry("future", fut_ptr)
+        s = self._qry("future", fut_ptr)
         s.update(
             actions=[
                 SI.future.continuations.set(SI.future.continuations.append([vmid]))
@@ -203,32 +224,25 @@ class DataController(Controller):
         )
 
     def set_future_chain(self, fut_ptr, chain):
-        s = self.qry("future", fut_ptr)
+        s = self._qry("future", fut_ptr)
         s.update(actions=[SI.future.chain.set(chain)])
 
     def lock_future(self, ptr):
-        return self.lock_item("future", ptr)
+        return self._lock_item("future", ptr)
 
-    ## misc
+    ## stdout
 
-    @property
-    def machines(self):
-        s = self.qry("meta")
-        return list(range(s.meta.num_threads))
+    def get_stdout(self):
+        s = self._qry("stdout")
+        return [StdoutItem.deserialise(item) for item in s.stdout]
 
-    @property
+    def write_stdout(self, item):
+        # Avoid empty strings (DynamoDB can't handle them)
+        if item.text:
+            sys.stdout.write(item.text)
+            s = self._qry("stdout")
+            s.update(actions=[SI.stdout.set(SI.stdout.append([item.serialise()]))])
+
+    @property  # Legacy. TODO: remove
     def stdout(self):
-        s = self.qry("stdout")
-        return s.stdout
-
-    def write_stdout(self, vmid, value: str):
-        # don't use isinstance - it must be an actual str
-        if type(value) != str:
-            raise ValueError(f"{value} ({type(value)}) is not str")
-
-        # Avoid empty strings (they break dynamodb)
-        if value:
-            sys.stdout.write(value)
-            s = self.qry("stdout")
-            out = db.Stdout(thread=vmid, time=time.time(), log=value)
-            s.update(actions=[SI.stdout.set(SI.stdout.append([out]))])
+        return self.get_stdout()

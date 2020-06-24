@@ -4,9 +4,10 @@ import sys
 import time
 import threading
 from functools import singledispatchmethod
+from typing import List
 
 from ..machine import future as fut
-from ..machine.probe import Probe
+from ..machine.arec import ARecPtr
 from ..machine.controller import Controller
 
 # https://docs.python.org/3/library/logging.html#logging.basicConfig
@@ -21,6 +22,7 @@ class DataController(Controller):
         self._machine_idx = 0  # always increasing machine counter
         self._arec_idx = 0  # always increasing arec counter
         self._probe_logs = []
+        self._probe_events = []
         self._arecs = {}
         self._lock = threading.RLock()
         self.executable = None
@@ -31,10 +33,15 @@ class DataController(Controller):
     def set_executable(self, exe):
         self.executable = exe
 
+    ## Threads
+
     def new_thread(self):
         vmid = self._machine_idx
         self._machine_idx += 1
         return vmid
+
+    def get_thread_ids(self) -> List[int]:
+        return list(range(self._machine_idx))
 
     def is_top_level(self, vmid):
         return vmid == 0
@@ -45,10 +52,16 @@ class DataController(Controller):
     def set_stopped(self, vmid, stopped: bool):
         self._machine_stopped[vmid] = stopped
 
+    def get_state(self, vmid):
+        return self._machine_state[vmid]
+
+    def set_state(self, vmid, state):
+        self._machine_state[vmid] = state
+
     ## arecs
 
-    def new_arec(self):
-        ptr = self._arec_idx
+    def new_arec(self) -> ARecPtr:
+        ptr = ARecPtr(self._arec_idx)
         self._arec_idx += 1
         return ptr
 
@@ -67,37 +80,32 @@ class DataController(Controller):
         return self._arecs[ptr]
 
     def delete_arec(self, ptr):
-        self._arecs.pop(ptr)
+        self._arecs[ptr].deleted = True
 
     def lock_arec(self, _):
         return self._lock
 
-    ## thread
+    ## probes
 
-    def get_state(self, vmid):
-        return self._machine_state[vmid]
+    def set_probe_data(self, vmid, probe):
+        self._probe_logs.extend(probe.logs)
+        self._probe_events.extend(probe.events)
 
-    def set_state(self, vmid, state):
-        self._machine_state[vmid] = state
+    def get_probe_logs(self):
+        return list(self._probe_logs)
 
-    def get_probe(self, vmid):
-        return Probe()
+    def get_probe_events(self):
+        return list(self._probe_events)
 
-    def set_probe(self, vmid, probe):
-        self._probe_logs.extend(
-            dict(thread=vmid, time=l["time"], log=l["log"]) for l in probe.logs
-        )
-        # TODO probe events
-
-    ##
-
-    def set_future(self, vmid, future: fut.Future):
-        self._machine_future[vmid] = future
+    ## futures
 
     def get_future(self, val):
         if not isinstance(val, int):
             raise TypeError(val)
         return self._machine_future[val]
+
+    def set_future(self, vmid, future: fut.Future):
+        self._machine_future[vmid] = future
 
     def add_continuation(self, fut_ptr, vmid):
         self._machine_future[fut_ptr].continuations.append(vmid)
@@ -106,22 +114,16 @@ class DataController(Controller):
         self._machine_future[fut_ptr].chain = chain
 
     def lock_future(self, _):
+        # Shared thread lock
         return self._lock
 
-    ##
+    ## stdout
 
-    @property
-    def machines(self):
-        return list(self._machine_future.keys())
+    def get_stdout(self):
+        return list(self.stdout)
 
-    def write_stdout(self, vmid, value: str):
-        # don't use isinstance - it must be an actual str
-        if type(value) != str:
-            raise ValueError(f"{value} ({type(value)}) is not str")
+    def write_stdout(self, item):
         # Print to real stdout at the same time. TODO maybe make this behaviour
         # configurable.
-        sys.stdout.write(value)
-        self.stdout.append(dict(thread=vmid, time=time.time(), log=value))
-
-    def get_probe_logs(self):
-        return self._probe_logs
+        sys.stdout.write(item.text)
+        self.stdout.append(item)
