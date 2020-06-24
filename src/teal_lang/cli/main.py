@@ -163,7 +163,7 @@ def _deploy(args):
                 print(
                     bad("AWS is not ready. Try `teal deploy` again in a few minutes.")
                 )
-                let_us_know()
+                interface.let_us_know()
                 sys.exit(1)
             raise
 
