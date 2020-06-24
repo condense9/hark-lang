@@ -52,7 +52,7 @@ class DataController(Controller):
         return cls(session)
 
     def __init__(self, session_meta):
-        self.sid = session_meta.session_id
+        self.session_id = session_meta.session_id
         self._locks = {}
         if session_meta.meta.exe:
             self.executable = Executable.deserialise(session_meta.meta.exe)
@@ -62,7 +62,7 @@ class DataController(Controller):
     def _qry(self, group, item_id=None):
         """Retrieve the specified group:item_id"""
         _key = f"{group}:{item_id}" if item_id is not None else group
-        return SI.get(self.sid, _key)
+        return SI.get(self.session_id, _key)
 
     def _lock_item(self, group, item_id=None):
         """Get a context manager that locks the specified group:item_id"""
@@ -93,13 +93,15 @@ class DataController(Controller):
             s.meta.stopped.append(False)
             s.save()
 
-        db.new_session_item(self.sid, f"state:{vmid}", state=State([])).save()
-        db.new_session_item(self.sid, f"future:{vmid}", future=fut.Future()).save()
+        db.new_session_item(self.session_id, f"state:{vmid}", state=State([])).save()
+        db.new_session_item(
+            self.session_id, f"future:{vmid}", future=fut.Future()
+        ).save()
         return vmid
 
     def get_thread_ids(self) -> List[int]:
         """Get a list of thread IDs in this session"""
-        s = self.qry("meta")
+        s = self._qry("meta")
         return list(range(s.meta.num_threads))
 
     def is_top_level(self, vmid):
@@ -163,7 +165,7 @@ class DataController(Controller):
             s = self._qry("arec", ptr)
             s.arec = rec
         except SI.DoesNotExist:
-            s = db.new_session_item(self.sid, f"arec:{ptr}", arec=rec)
+            s = db.new_session_item(self.session_id, f"arec:{ptr}", arec=rec)
         s.save()
 
     def get_arec(self, ptr):

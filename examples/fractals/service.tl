@@ -45,9 +45,13 @@ fn map(func, items) {
 }
 
 
+fn wait(item) {
+  await item
+}
+
 /**
  * `map_wait` is a version of `map` which first maps `func` over some items, and
- * then does the equivalent of `await` on each element.
+ * then does `await` on each element.
  *
  * Use `map_wait` when `func` returns a Future.
 **/
@@ -78,7 +82,7 @@ fn build_fractal_async(fractal_spec) {
  * Entrypoint. Get some random fractal specs, and then render them in parallel.
 **/
 fn main() {
-  fractal_specs = random_fractals(3)
+  fractal_specs = random_fractals(2)
   results = map_wait(build_fractal_async, fractal_specs)
   print("Done")
   results

@@ -15,8 +15,7 @@ class State:
         self._ds = list(data)
         self.stopped = False
         self.bindings = {}
-        self.error = None
-        self.traceback = None
+        self.error_msg = None
         self.current_arec_ptr = None
 
     def ds_push(self, val):
@@ -59,9 +58,8 @@ class State:
             stopped=self.stopped,
             ds=[value.serialise() for value in self._ds],
             bindings={name: value.serialise() for name, value in self.bindings.items()},
-            error=str(self.error) if self.error else None,
+            error_msg=self.error_msg,
             current_arec_ptr=self.current_arec_ptr,
-            traceback=self.traceback,
         )
 
     @classmethod
@@ -73,7 +71,6 @@ class State:
         s.bindings = {
             name: TlType.deserialise(val) for name, val in data["bindings"].items()
         }
-        s.error = data["error"]
+        s.error_msg = data["error_msg"]
         s.current_arec_ptr = data["current_arec_ptr"]
-        s.traceback = data["traceback"]
         return s

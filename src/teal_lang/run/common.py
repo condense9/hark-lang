@@ -68,10 +68,12 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
         waiter(controller, invoker)
 
     finally:
-        for p in sorted(controller.get_probe_logs(), key=lambda p: p["thread"]):
-            thread = p["thread"]
-            log = p["log"]
-            LOG.info(f"*** [{thread}] {log}")
+        items = controller.get_probe_events() + controller.get_probe_logs()
+        for p in sorted(items, key=lambda p: p.thread):
+            if hasattr(p, "event"):
+                LOG.info(f"*** [{p.thread}] {p.event} {p.data}")
+            else:
+                LOG.info(f"> [{p.thread}] {p.text}")
 
     LOG.info(
         "DONE (broken? %s) [%s]: %s",
@@ -86,9 +88,9 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
     # It broke - print traceback
     for vmid in controller.get_thread_ids():
         state = controller.get_state(vmid)
-        err = state.error
+        err = state.error_msg
         if err is not None:
             print(f"\nError [Thread {vmid}]: {err}")
             print("Teal Traceback (most recent call last):")
-            for vmid, ip, fn in reversed(state.traceback):
-                print(f"~ ({vmid}) {ip} - {fn}")
+            for thread, ip, fn in reversed(controller.get_stacktrace(vmid)):
+                print(f"~ ({thread}) {ip} - {fn}")

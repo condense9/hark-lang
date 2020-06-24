@@ -43,4 +43,4 @@ popd >/dev/null
 
 cp "${WORKDIR}/${FILENAME}" "${DEST}"
 
-printf "Success: %s\n" "${FILENAME}"
+printf "Built Teal Lambda zip: %s\n" "${FILENAME}"

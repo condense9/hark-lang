@@ -3,9 +3,9 @@ import sys
 from pathlib import Path
 
 from .machine.executable import Executable
-from .cli.styling import em
 from .teal_compiler import tl_compile
 from .teal_parser.parser import tl_parse, TealSyntaxError
+from .cli.interface import bad, neutral
 
 
 def compile_text(text: str) -> Executable:
@@ -25,9 +25,9 @@ def find_column(text, token):
 
 
 def msg(text, exc, filename):
-    msg = f"{filename}:{exc.token.lineno} ~ {exc.msg}"
+    msg = bad(f"{filename}:{exc.token.lineno} ~ {exc.msg}")
     line = text.split("\n")[exc.token.lineno - 1]
-    msg += em(f"\n\n {line}\n")
+    msg += neutral(f"\n\n {line}\n")
     msg += " " * (find_column(text, exc.token) - 1) + "^"
     return msg
 

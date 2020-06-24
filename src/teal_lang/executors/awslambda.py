@@ -13,10 +13,10 @@ import botocore
 from operator import itemgetter
 
 from .. import __version__, load
-from ..cli.styling import dim, em
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..machine import TlMachine
+from ..machine.controller import ControllerError
 from ..machine import types as mt
 from ..machine.executable import Executable
 
@@ -45,7 +45,7 @@ class Invoker:
         client = get_lambda_client()
         event = dict(
             # --
-            session_id=self.data_controller.session.session_id,
+            session_id=self.data_controller.session_id,
             vmid=vmid,
         )
         res = client.invoke(
@@ -60,8 +60,7 @@ class Invoker:
             raise Exception(f"Invoke lambda {self.resume_fn_name} failed {err}")
 
 
-# These are Lambda handlers, and maybe should be somewhere else:
-
+## TODO These are Lambda handlers, and maybe should be somewhere else:
 
 def version(event, context):
     return success(version=__version__)
@@ -102,36 +101,28 @@ def fail(msg, code=400, exception=None, **body_data):
     )
 
 
-def try_run(session, vmid, invoker):
-    """Try to run a machine, saving a session exception if it fails"""
-    machine = TlMachine(vmid, invoker)
-    try:
-        machine.run()
-    except Exception as exc:
-        session.refresh()
-        session.machines[vmid].exception = traceback.format_exc()
-        session.save()
-        raise
-
-
 def resume(event, context):
     """Handle the AWS lambda event for an existing session"""
     session_id = event["session_id"]
-    vmid = event["vmid"]
+    vmid = int(event["vmid"])
 
-    session = db.Session.get(session_id)
-    lock = db.SessionLocker(session)
-    controller = ddb_controller.DataController(session, lock)
-    invoker = Invoker(controller)
+    controller = ddb_controller.DataController.with_session_id(session_id)
 
-    try_run(session, vmid, invoker)
+    # Error handling is trick in `resume`, because there's nothing to "return" a
+    # result to. So all exceptions must appear in the AWS console.
+    #
+    # However, any waiting machines need to find out about this.
 
-    return success(
-        session_id=session_id,
-        vmid=vmid,
-        finished=controller.finished,
-        result=controller.result,
-    )
+    try:
+        invoker = Invoker(controller)
+        machine = TlMachine(vmid, invoker)
+        machine.run()
+    except Exception as exc:
+        state = controller.get_state(vmid)
+        state.error_msg = "".join(traceback.format_exception(*sys.exc_info()))
+        controller.set_state(vmid, state)
+        controller.stop(vmid, finished_ok=False)
+        raise
 
 
 def new(event, context):
@@ -181,10 +172,10 @@ def _new_session(
     function, args, check_period, wait_for_finish, timeout, code_override=None
 ):
     """Create a new teal session"""
-    session = db.new_session()
+    controller = ddb_controller.DataController.with_new_session()
 
     if not code_override:
-        exe = Executable.deserialise(session.executable)
+        exe = controller.executable
 
     # NOTE: First, teal code is loaded from the base executable. This allows the
     # user to override that with custom code. This might not be a good idea...
@@ -192,14 +183,12 @@ def _new_session(
         try:
             exe = load.compile_text(code_override)
         except Exception as exc:
-            return fail(f"Error compiling code:\n{exc}")
+            return fail(f"Error compiling code:", exception=exc)
 
         try:
-            session.executable = exe.serialise()
-            session.save()
-            LOG.info("Set session code")
-        except db.Session.UpdateError:
-            return fail("Error saving code")
+            controller.set_executable(exe)
+        except ddb_controller.ControllerError as exc:
+            return fail("Error saving code:", exception=exc)
 
     try:
         fn_ptr = exe.bindings[function]
@@ -207,26 +196,29 @@ def _new_session(
         return fail(f"No such Teal function: `{function}`")
 
     try:
-        lock = db.SessionLocker(session)
-        controller = ddb_controller.DataController(session, lock)
         invoker = Invoker(controller)
-        vmid = controller.new_machine(args, fn_ptr, is_top_level=True)
+        vmid = controller.toplevel_machine(fn_ptr, args)
+        machine = TlMachine(vmid, invoker)
     except Exception as exc:
-        return fail("Error initialising", exception=exc)
+        return fail("Error initialising Teal:", exception=exc)
 
-    try_run(session, vmid, invoker)
+    machine.run()
 
     if wait_for_finish:
         start_time = time.time()
-        while not controller.finished:
+        while not controller.all_stopped():
             time.sleep(check_period)
             if time.time() - start_time > timeout:
-                return fail("Timeout waiting for finish", session_id=session.session_id)
+                return fail(
+                    "Timeout waiting for Teal program to finish",
+                    session_id=controller.session_id
+                )
 
     return success(
-        session_id=session.session_id,
+        session_id=controller.session_id,
         vmid=vmid,
-        finished=controller.finished,
+        finished=controller.all_stopped(),
+        broken=controller.broken,
         result=controller.result,
     )
 
@@ -235,42 +227,14 @@ def set_exe(event, context):
     """Set the executable for the base session"""
     db.init_base_session()
     content = event["content"]
-    exe = load.compile_text(content)
-    db.set_base_exe(exe)
-    return success(
-        # --
-        message="Base Executable set successfully"
-    )
-
-
-def set_session_exe(event, context):
-    """Set the executable for the specified session session"""
-    session_id = event.get("session_id", None)
-    content = event.get("content", None)
-
-    if not content:
-        return fail("No Teal code")
-
-    if not session_id:
-        return fail("No session ID")
-
-    try:
-        session = db.Session.get(session_id)
-    except db.Session.DoesNotExist:
-        return fail("Couldn't find that session")
 
     try:
         exe = load.compile_text(content)
-    except:
-        return fail("Error compiling code")
+    except Exception as exc:
+        return fail(f"Error compiling code", exception=exc)
 
-    try:
-        session.executable = exe.serialise()
-        session.save()
-    except db.Session.UpdateError:
-        return fail("Error saving code")
-
-    return success(message="Executable set successfully")
+    db.set_base_exe(exe)
+    return success(message="Base Executable set successfully")
 
 
 def getoutput(event, context):
@@ -281,14 +245,13 @@ def getoutput(event, context):
         return fail("No session ID")
 
     try:
-        session = db.Session.get(session_id)
-    except db.Session.DoesNotExist:
-        return fail("Couldn't find that session")
+        controller = ddb_controller.DataController.with_session_id(session_id)
+        output = [o.serialise() for o in controller.get_stdout()]
+        errors = [controller.get_state(idx).error_msg for idx in controller.get_thread_ids()]
+    except ControllerError as exc:
+        return fail("Error getting data", exception=exc)
 
-    output = session.stdout
-    exceptions = [m.exception for m in session.machines]
-
-    return success(output=output, exceptions=exceptions)
+    return success(output=output, errors=errors)
 
 
 def getevents(event, context) -> dict:
@@ -299,65 +262,13 @@ def getevents(event, context) -> dict:
         return fail("No session ID")
 
     try:
-        session = db.Session.get(session_id)
-    except db.Session.DoesNotExist:
-        return fail("Couldn't find that session")
+        session = db.SessionItem.get(session_id)
+        controller = ddb_controller.DataController.with_session_id(session_id)
+    except ControllerError as exc:
+        return fail("Error loading session data", exception=exc)
 
-    events = [[pe.as_dict() for pe in m.probe_events] for m in session.machines]
-
+    events = [pe.serialise() for pe in session.get_probe_events()]
     return success(events=events)
-
-
-## CLI helpers (TODO - these probably shouldn't be here):
-
-
-def print_outputs(success_result: dict):
-    exceptions = success_result["exceptions"]
-    output = success_result["output"]
-
-    print("".join(output))
-    for idx, item in enumerate(exceptions):
-        if item:
-            print(em(f"Exception in Thread {idx}!"))
-            print(item)
-
-
-def print_events_by_machine(success_result: dict):
-    """Print the results of `getevents`, grouped by machine"""
-    elist = success_result["events"]
-    lowest_time = min(float(event["time"]) for machines in elist for event in machines)
-
-    for i, machine in enumerate(elist):
-        print(em(f"Thread {i}:"))
-        for event in machine:
-            offset_time = float(event["time"]) - lowest_time
-            time = dim("{:.3f}".format(offset_time))
-            name = event["event"]
-            data = event["data"] if len(event["data"]) else ""
-            print(f"{time}  {name} {data}")
-
-
-def print_events_unified(success_result: dict):
-    """Print the results of `getevents`, in one table"""
-    elist = success_result["events"]
-    lowest_time = min(float(event["time"]) for machines in elist for event in machines)
-
-    all_events = []
-    for i, machine in enumerate(elist):
-        for event in machine:
-            offset_time = float(event["time"]) - lowest_time
-            event["machine"] = i
-            event["offset_time"] = offset_time
-            event["insert_idx"] = len(all_events)
-            all_events.append(event)
-
-    print(em("{:>8}  {}  {}".format("Time", "Thread", "Event")))
-    for event in sorted(all_events, key=itemgetter("offset_time", "insert_idx")):
-        time = dim("{:8.3f}".format(event["offset_time"]))
-        name = event["event"]
-        machine = event["machine"]
-        data = event["data"] if len(event["data"]) else ""
-        print(f"{time:^}  {machine:^7}  {name} {data}")
 
 
 ## API gateway wrappers

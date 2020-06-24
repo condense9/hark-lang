@@ -18,7 +18,7 @@ class Invoker:
     def invoke(self, vmid, run_async=True):
         event = dict(
             # --
-            session_id=self.data_controller.sid,
+            session_id=self.data_controller.session_id,
             vmid=vmid,
         )
         p = multiprocessing.Process(target=resume_handler, args=(event,))

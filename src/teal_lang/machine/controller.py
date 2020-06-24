@@ -171,3 +171,24 @@ class Controller:
         if not finished_ok:
             self.broken = True
         self.set_stopped(vmid, True)
+
+    ##
+
+    def get_stacktrace(self, vmid) -> list:
+        """Get a stack trace for a thread"""
+        state = self.get_state(vmid)
+        arec_ptr = state.current_arec_ptr
+        arec = self.get_arec(arec_ptr)
+
+        # minus 1: IP is pre-advanced
+        trace = [[vmid, state.ip - 1, arec.function.identifier]]
+        while True:
+            arec = self.get_arec(arec_ptr)
+            if arec.dynamic_chain:
+                parent = self.get_arec(arec.dynamic_chain)
+                trace.append([arec.vmid, arec.call_site, parent.function.identifier])
+            else:
+                break
+            arec_ptr = arec.dynamic_chain
+
+        return trace

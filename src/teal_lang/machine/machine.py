@@ -111,7 +111,6 @@ class TlMachine:
     """
 
     builtins = {
-        "wait": Wait,
         "print": Print,
         "sleep": Sleep,
         "atomp": Atomp,
@@ -157,23 +156,6 @@ class TlMachine:
         else:
             raise TealRuntimeError(msg)
 
-    def get_traceback(self):
-        arec_ptr = self.state.current_arec_ptr
-        arec = self.dc.get_arec(arec_ptr)
-
-        # minus 1: IP is pre-advanced
-        trace = [[self.vmid, self.state.ip - 1, arec.function.identifier]]
-        while True:
-            arec = self.dc.get_arec(arec_ptr)
-            if arec.dynamic_chain:
-                parent = self.dc.get_arec(arec.dynamic_chain)
-                trace.append([arec.vmid, arec.call_site, parent.function.identifier])
-            else:
-                break
-            arec_ptr = arec.dynamic_chain
-
-        return trace
-
     @property
     def stopped(self):
         return self.state.stopped
@@ -187,7 +169,12 @@ class TlMachine:
         if self.state.ip >= len(self.exe.code):
             self.error(None, "Instruction Pointer out of bounds")
         instr = self.exe.code[self.state.ip]
-        self.probe.event("step", ip=self.state.ip, instr=str(instr))
+        self.probe.event(
+            "step",
+            ip=self.state.ip,
+            instr=str(instr),
+            top_of_stack=str(self.state._ds[-3:]),  # str so it's serialisable
+        )
         self.state.ip += 1  # NOTE - IP incremented before evaluation
         self.evali(instr)
         self._steps += 1  # Counts successfully completed steps
@@ -211,13 +198,17 @@ class TlMachine:
             try:
                 self.step()
             except (UnhandledError, TealRuntimeError, ForeignError) as exc:
-                self.state.stopped = True
-                self.state.error = exc
-                # TODO - just save the current activation record and IP. The
-                # user interface can then rebuild the traceback. Make sure the
-                # "core" is dumped though.
-                self.state.traceback = self.get_traceback()
                 broken = True
+                self.state.stopped = True
+                self.state.error_msg = str(exc)
+                # TODO maybe dump the "core"
+                break
+            except Exception as exc:
+                # It's important to catch *all* errors so that other threads
+                # don't continue waiting for this to return.
+                broken = True
+                self.state.stopped = True
+                self.state.error_msg = str(exc)
                 break
 
         self.probe.event("stop", steps=self._steps)
@@ -307,7 +298,7 @@ class TlMachine:
         # Otherwise, this thread has finished!
         self.state.stopped = True
         value = self.state.ds_peek(0)
-        LOG.info(f"{self.vmid} Returning value: {value}")
+        self.probe.log(f"Returning value: {value}")
         value, continuations = self.dc.finish(self.vmid, value)
         for machine in continuations:
             self.dc.set_stopped(machine, False)
@@ -401,10 +392,15 @@ class TlMachine:
         if isinstance(val, mt.TlFuturePtr):
             resolved, result = self.dc.get_or_wait(self.vmid, val)
             if resolved:
-                LOG.info(f"{self.vmid} Finished waiting for {val}, got {result}")
+                self.probe.log(f"{val} resolved, got {result}")
                 self.state.ds_set(0, result)
             else:
-                self.state.ip -= 1  # i.e., repeat the Wait instruction again
+                self.probe.log(f"Waiting for {val}")
+                # repeat the Wait instruction again:
+                #
+                # NOTE: Wait cannot be a builtin for this to work! It must be an
+                # explicit instruction in the bytecode.
+                self.state.ip -= 1
                 self.state.stopped = True
 
         elif isinstance(val, list) and any(

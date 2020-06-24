@@ -290,11 +290,13 @@ class DataTable:
             TableName=name,
             AttributeDefinitions=[
                 # --
-                dict(AttributeName="session_id", AttributeType="S")
+                dict(AttributeName="session_id", AttributeType="S"),
+                dict(AttributeName="item_id", AttributeType="S"),
             ],
             KeySchema=[
                 # --
-                dict(AttributeName="session_id", KeyType="HASH")
+                dict(AttributeName="session_id", KeyType="HASH"),
+                dict(AttributeName="item_id", KeyType="RANGE"),
             ],
             BillingMode="PAY_PER_REQUEST",
         )

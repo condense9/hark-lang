@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
+from ..cli import interface as ui
 from . import instructionset
 from .instruction import Instruction
 from .types import TlType
@@ -19,26 +20,25 @@ class Executable:
 
     def listing(self) -> str:
         """Get a pretty assembly listing string"""
-        res = " /\n"
+        print(" /")
         for i, instr in enumerate(self.code):
             if i in self.locations.values():
                 funcname = next(
                     k for k in self.locations.keys() if self.locations[k] == i
                 )
-                res += f" | ;; {funcname}:\n"
-            res += f" | {i:4} | {instr}\n"
-        res += " \\\n"
-        return res
+                print(" | " + ui.primary(f";; {funcname}:"))
+            print(f" | {i:4} | {instr}")
+        print(" \\")
 
     def bindings_table(self):
         """Get a pretty table of bindings"""
         spacing = max(len(x) for x in self.bindings.keys()) + 5
-        res = ""
         k = "NAME"
-        res += f" {k: <{spacing}}VALUE\n"
+        print(f" {k: <{spacing}}VALUE")
         for k, v in self.bindings.items():
-            res += f" {k:.<{spacing}}{v}\n"
-        return res
+            dots = "." * (spacing - len(k))
+            k = ui.primary(k)
+            print(f" {k}{dots}{v}")
 
     def serialise(self) -> dict:
         """Serialise the executable into a JSON-able dict"""

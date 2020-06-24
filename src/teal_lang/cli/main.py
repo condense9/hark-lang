@@ -28,6 +28,7 @@ Options:
   -v, --verbose   Be verbose.
   -V, --vverbose  Be very verbose.
   --version       Show version.
+  --no-colours    Disable colours in CLI output.
 
   -f FUNCTION, --fn=FUNCTION   Function to run      [default: main]
   -s MODE, --storage=MODE      memory | dynamodb    [default: memory]
@@ -45,23 +46,21 @@ Options:
 #
 # - pyfiglet https://github.com/pwaller/pyfiglet
 # - typer? https://typer.tiangolo.com/
-# - colorama https://pypi.org/project/colorama/
 
 import json
 import logging
-import pprint
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-import colorama
-
 from docopt import docopt
+from yaspin import yaspin
+from yaspin.spinners import Spinners
 
 from .. import __version__
-from .styling import dim, em
-from .ui import configure_logging
+from . import interface
+from .interface import good, bad, neutral, dim, init, TICK, CROSS, primary, exit_fail
 
 LOG = logging.getLogger(__name__)
 
@@ -80,11 +79,9 @@ def _run(args):
 
     if args["--storage"] == "memory":
         if args["--concurrency"] == "processes":
-            raise ValueError("Can't use processes with in-memory storage")
+            exit_fail("Can't use processes with in-memory storage")
 
         from ..run.local import run_local
-
-        configure_logging(args["--verbose"], args["--vverbose"])
 
         # NOTE: we use the "lambda" timeout even for local invocations. Maybe
         # there should be a more general timeout
@@ -93,15 +90,13 @@ def _run(args):
     elif args["--storage"] == "dynamodb":
         from ..run.dynamodb import run_ddb_local, run_ddb_processes
 
-        configure_logging(args["--verbose"], args["--vverbose"])
-
         if args["--concurrency"] == "processes":
             result = run_ddb_processes(filename, fn, fn_args)
         else:
             result = run_ddb_local(filename, fn, fn_args)
 
     else:
-        raise ValueError(args["--storage"])
+        exit_fail("Bad storage type: " + str(args["--storage"]))
 
     if result:
         print(result)
@@ -122,10 +117,10 @@ def _asm(args):
     from .. import load
 
     exe = load.compile_file(Path(args["FILE"]))
-    print(em("\nBYTECODE:"))
-    print(exe.listing())
-    print(em("\nBINDINGS:\n"))
-    print(exe.bindings_table())
+    print(neutral("\nBYTECODE:"))
+    exe.listing()
+    print(neutral("\nBINDINGS:\n"))
+    exe.bindings_table()
     print()
 
 
@@ -137,7 +132,7 @@ def timed(fn):
         fn(args, **kwargs)
         end = time.time()
         if not args["--quiet"]:
-            print(f"Done ({int(end-start)}s elapsed).")
+            print(dim(f"\n-- {int(end-start)}s elapsed."))
 
     return _wrapped
 
@@ -146,38 +141,46 @@ def timed(fn):
 def _deploy(args):
     from ..cloud import aws
     from ..config import load
-
-    configure_logging(args["--verbose"], args["--vverbose"])
+    import botocore
 
     cfg = load(
         config_file=Path(args["--config"]), require_dep_id=True, create_dep_id=True,
     )
 
-    # Deploy the infrastructure (idempotent)
-    aws.deploy(cfg)
-    LOG.info(f"Core infrastructure ready, checking version...")
+    with yaspin(Spinners.dots, text="Deploying infrastructure") as sp:
+        # this is idempotent
+        aws.deploy(cfg)
+        sp.text += dim(f" {cfg.service.data_dir}/")
+        sp.ok(TICK)
 
-    api = aws.get_api()
+    with yaspin(Spinners.dots, text="Checking version") as sp:
+        api = aws.get_api()
 
-    try:
-        logs, response = api.version.invoke(cfg, {})
-    except botocore.exceptions.KMSAccessDeniedException:
-        print(em("AWS is not ready. Try `teal deploy` again in a few minutes."))
-        print("If this persists, please let us know:")
-        print("https://github.com/condense9/teal-lang/issues/new")
-        return
+        try:
+            response = _call_cloud_api("version", {}, Path(args["--config"]))
+        except botocore.exceptions.ClientError as exc:
+            if exc.response["Error"]["Code"] == "KMSAccessDeniedException":
+                print(
+                    bad("AWS is not ready. Try `teal deploy` again in a few minutes.")
+                )
+                let_us_know()
+                sys.exit(1)
+            raise
 
-    print("Teal:", response["body"])
+        sp.text += " " + dim(response["version"])
+        sp.ok(TICK)
 
-    # Deploy the teal code
-    with open(cfg.service.teal_file) as f:
-        content = f.read()
+    with yaspin(Spinners.dots, text="Deploying program") as sp:
+        with open(cfg.service.teal_file) as f:
+            content = f.read()
 
-    # See teal_lang/executors/awslambda.py
-    exe_payload = {"content": content}
-    logs, response = api.set_exe.invoke(cfg, exe_payload)
+        # See teal_lang/executors/awslambda.py
+        exe_payload = {"content": content}
+        logs, response = api.set_exe.invoke(cfg, exe_payload)
+        sp.ok(TICK)
+
     LOG.info(f"Uploaded {cfg.service.teal_file}")
-    print(em(f"Data stored in {cfg.service.data_dir}. `teal invoke` to run main()."))
+    print(good(f"\nDone. `teal invoke` to run main()."))
 
 
 @timed
@@ -185,28 +188,17 @@ def _destroy(args):
     from ..cloud import aws
     from ..config import load
 
-    configure_logging(args["--verbose"], args["--vverbose"])
-
     cfg = load(config_file=Path(args["--config"]), require_dep_id=True)
-    aws.destroy(cfg)
-    print(em(f"Done. you can safely `rm -rf {cfg.service.data_dir}`."))
+
+    with yaspin(Spinners.dots, text="Destroying") as sp:
+        aws.destroy(cfg)
+        sp.ok(TICK)
+
+    print(good(f"Done. You can safely `rm -rf {cfg.service.data_dir}`."))
 
 
-class InvokeError(Exception):
-    """Something broke while running"""
-
-    def __init__(self, err, traceback=None):
-        self.err = err
-        self.traceback = traceback
-
-    def __str__(self):
-        res = "\n\n" + em(str(self.err)) + "\n"
-        if self.traceback:
-            res += "\n" + "".join(self.traceback)
-        return res
-
-
-def _call_cloud_api(function, args, config_file, as_json=True):
+def _call_cloud_api(function: str, args: dict, config_file: Path, as_json=True):
+    """Call a teal API endpoint and handle errors"""
     from ..cloud import aws
     from ..config import load
 
@@ -225,17 +217,16 @@ def _call_cloud_api(function, args, config_file, as_json=True):
             + "https://github.com/condense9/teal-lang/issues/new \n\n"
             + response["errorMessage"]
         )
-        raise InvokeError(msg, response["stackTrace"])
+        exit_fail(msg, response.get("stackTrace", None))
 
     code = response.get("statusCode", None)
     if code == 400:
         # This is when there's a (handled) error
-        print("Error! (statusCode: 400)\n")
         err = json.loads(response["body"])
-        raise InvokeError(err.get("message", err), err.get("traceback", None))
+        exit_fail(err.get("message", "StatusCode 400"))
 
     if code != 200:
-        raise ValueError(f"Unexpected response code: {code}")
+        exit_fail(f"Unexpected response code: {code}")
 
     body = json.loads(response["body"]) if as_json else response["body"]
     LOG.info(body)
@@ -247,52 +238,70 @@ def _call_cloud_api(function, args, config_file, as_json=True):
 def _invoke(args):
     from ..config import load
 
-    cfg = load(config_file=Path(args["--config"]))
+    config_file = Path(args["--config"])
+    cfg = load(config_file=config_file)
+    function = args.get("--fn", "main")
     payload = {
-        "function": args["--fn"],
+        "function": function,
         "args": args["ARG"],
-        "timeout": cfg.service.lambda_timeout,
+        "timeout": cfg.service.lambda_timeout - 3,  # FIXME
     }
-    data = _call_cloud_api("new", payload, Path(args["--config"]))
+    with yaspin(Spinners.dots, text=f"Invoking {primary(function)}") as sp:
+        data = _call_cloud_api("new", payload, config_file)
+        sp.text += " " + dim(data["session_id"])
+
+        if data["broken"]:
+            sp.fail(CROSS)
+        else:
+            sp.ok(TICK)
 
     session_id = data["session_id"]
     last_session_file = cfg.service.data_dir / "last_session_id.txt"
     with open(last_session_file, "w") as f:
-        LOG.info("Session ID: %s (saved in %s)", session_id, last_session_file)
         f.write(session_id)
+        LOG.info("Session ID: %s (saved in %s)", session_id, last_session_file)
 
-    print(data["result"])
+    if data["broken"]:
+        with yaspin(Spinners.dots, text=f"Getting logs"):
+            logs = _call_cloud_api(
+                "get_output", {"session_id": session_id}, config_file
+            )
+
+        interface.print_outputs(logs)
+
+    elif data["finished"]:
+        print("\n" + str(data["result"]))
 
 
 @timed
 def _events(args):
-    from ..executors import awslambda
-
     data = _call_cloud_api(
         "get_events", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
     )
     if args["--unified"]:
-        awslambda.print_events_unified(data)
+        interface.print_events_unified(data)
     elif args["--json"]:
         print(json.dumps(data, indent=2))
     else:
-        awslambda.print_events_by_machine(data)
+        interface.print_events_by_machine(data)
 
 
 @timed
 def _logs(args):
-    from ..executors import awslambda
+    from . import interface
 
-    data = _call_cloud_api(
-        "get_output", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
-    )
-    awslambda.print_outputs(data)
+    with yaspin(Spinners.dots, text=f"Getting logs"):
+        data = _call_cloud_api(
+            "get_output", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
+        )
+    interface.print_outputs(data)
 
 
 def main():
-    colorama.init()
     args = docopt(__doc__, version=__version__)
+    init(args)
     LOG.debug("CLI args: %s", args)
+    print("")  # Space in the CLI
 
     if args["ast"]:
         _ast(args)
@@ -311,7 +320,7 @@ def main():
     elif args["FILE"] and args["FILE"].endswith(".tl"):
         _run(args)
     else:
-        print(em("Invalid command line.\n"))
+        print(bad("Invalid command line.\n"))
         print(__doc__)
         sys.exit(1)
 

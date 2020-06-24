@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import time
 
+from .types import TlType
 from .teal_serialisable import TealSerialisable
 
 
@@ -19,6 +20,8 @@ class ProbeEvent(TealSerialisable):
     time: int
     event: str
     data: dict
+
+    # TODO deserialise?
 
 
 class Probe:
