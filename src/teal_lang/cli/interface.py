@@ -1,7 +1,9 @@
 """CLI UI related functions"""
 
-import sys
 import logging
+import sys
+from operator import itemgetter
+
 import colorful as cf
 
 TICK = "✔"
