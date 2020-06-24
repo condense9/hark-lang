@@ -33,15 +33,13 @@ fi
 
 set +x
 echo
-echo Set this environment variable for Teal:
+echo Set these environment variables for Teal:
 echo
 echo "export DYNAMODB_ENDPOINT=http://localhost:${PORT}"
 echo
-echo And, optionally:
-echo
 echo "export DYNAMODB_TABLE=${TABLE}"
-echo "export TL_REGION=${AWS_DEFAULT_REGION}"
 echo
+echo "And make sure your region is correct! ${AWS_DEFAULT_REGION}"
 echo
 
 DYNAMO_ENDPOINT=http://localhost:${PORT} dynamodb-admin

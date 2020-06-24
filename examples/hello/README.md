@@ -55,9 +55,8 @@ $ ../../scripts/dynamodb_local.sh
 Then:
 
 ```
-$ export TL_REGION=eu-west-2
 $ export DYNAMODB_ENDPOINT=http://localhost:9000 
-$ export DYNAMODB_TABLE=TlSessions
+$ export DYNAMODB_TABLE=TealSessions
 $ teal hello.tl --storage dynamodb --concurrency processes
 ```
 

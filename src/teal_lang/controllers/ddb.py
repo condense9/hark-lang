@@ -30,10 +30,17 @@ from . import ddb_model as db
 
 LOG = logging.getLogger(__name__)
 
+# Alias
 SI = db.SessionItem
 
 
 class DataController(Controller):
+    @classmethod
+    def with_new_session(cls):
+        """Create a data controller for a new session"""
+        db.init_base_session()
+        return cls(db.new_session())
+
     def __init__(self, session_meta: str):
         self.sid = session_meta.session_id
         self._locks = {}

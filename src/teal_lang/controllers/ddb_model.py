@@ -110,7 +110,7 @@ class SessionItem(Model):
     class Meta:
         table_name = os.environ.get("DYNAMODB_TABLE", "TealSessions")
         host = os.environ.get("DYNAMODB_ENDPOINT", None)
-        region = os.environ.get("TL_REGION", None)
+        region = os.environ.get("AWS_DEFAULT_REGION", None)
 
     session_id = UnicodeAttribute(hash_key=True)
     item_id = UnicodeAttribute(range_key=True)

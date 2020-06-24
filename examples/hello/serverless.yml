@@ -18,7 +18,6 @@ provider:
   runtime: python3.8
   region: eu-west-2
   environment:
-    TL_REGION: ${self:provider.region}
     RESOURCE_PREFIX: ${self:service}-${opt:stage, self:provider.stage}-
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}-teal-sessions
     USE_LIVE_AWS: "foo"  # setting this to "yes" breaks AWS...?

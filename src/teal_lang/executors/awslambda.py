@@ -29,11 +29,8 @@ if os.environ.get("ENABLE_LOGGING", False):
 
 
 def get_lambda_client():
-    region = os.environ.get("TL_REGION", None)
-
     return boto3.client(
         "lambda",
-        region_name=region,
         config=botocore.config.Config(retries={"max_attempts": 0}),
     )
 
