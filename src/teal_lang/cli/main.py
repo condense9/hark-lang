@@ -275,9 +275,10 @@ def _invoke(args):
 
 @timed
 def _events(args):
-    data = _call_cloud_api(
-        "get_events", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
-    )
+    with yaspin(Spinners.dots, text=f"Getting events"):
+        data = _call_cloud_api(
+            "get_events", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
+        )
     if args["--unified"]:
         interface.print_events_unified(data)
     elif args["--json"]:

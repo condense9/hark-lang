@@ -262,12 +262,11 @@ def getevents(event, context) -> dict:
         return fail("No session ID")
 
     try:
-        session = db.SessionItem.get(session_id)
         controller = ddb_controller.DataController.with_session_id(session_id)
+        events = [pe.serialise() for pe in controller.get_probe_events()]
     except ControllerError as exc:
         return fail("Error loading session data", exception=exc)
 
-    events = [pe.serialise() for pe in session.get_probe_events()]
     return success(events=events)
 
 

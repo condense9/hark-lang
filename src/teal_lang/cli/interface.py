@@ -113,36 +113,31 @@ def print_outputs(success_result: dict):
 def print_events_by_machine(success_result: dict):
     """Print the results of `getevents`, grouped by machine"""
     elist = success_result["events"]
-    lowest_time = min(float(event["time"]) for machines in elist for event in machines)
+    lowest_time = min(float(event["time"]) for event in elist)
 
-    for i, machine in enumerate(elist):
-        print(cf.bold(f"Thread {i}:"))
-        for event in machine:
-            offset_time = float(event["time"]) - lowest_time
-            time = dim("{:.3f}".format(offset_time))
-            name = event["event"]
-            data = event["data"] if len(event["data"]) else ""
-            print(f"{time}  {name} {data}")
+    for event in sorted(elist, key=itemgetter("thread")):
+        offset_time = float(event["time"]) - lowest_time
+        time = dim("{:.3f}".format(offset_time))
+        name = event["event"]
+        thread = event["thread"]
+        name = event["event"]
+        data = event["data"] if len(event["data"]) else ""
+        print(f"[{thread}] {time}  {name} {data}")
 
 
 def print_events_unified(success_result: dict):
     """Print the results of `getevents`, in one table"""
     elist = success_result["events"]
-    lowest_time = min(float(event["time"]) for machines in elist for event in machines)
+    lowest_time = min(float(event["time"]) for event in elist)
 
-    all_events = []
-    for i, machine in enumerate(elist):
-        for event in machine:
-            offset_time = float(event["time"]) - lowest_time
-            event["machine"] = i
-            event["offset_time"] = offset_time
-            event["insert_idx"] = len(all_events)
-            all_events.append(event)
+    for event in elist:
+        offset_time = float(event["time"]) - lowest_time
+        event["offset_time"] = offset_time
 
     print(cf.bold("{:>8}  {}  {}".format("Time", "Thread", "Event")))
-    for event in sorted(all_events, key=itemgetter("offset_time", "insert_idx")):
+    for event in sorted(elist, key=itemgetter("offset_time")):
         time = dim("{:8.3f}".format(event["offset_time"]))
         name = event["event"]
-        machine = event["machine"]
+        thread = event["thread"]
         data = event["data"] if len(event["data"]) else ""
-        print(f"{time:^}  {machine:^7}  {name} {data}")
+        print(f"{time:^}  {thread:^7}  {name} {data}")
