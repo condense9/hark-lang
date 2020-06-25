@@ -1,8 +1,9 @@
 """CLI related utilities"""
 import logging
+from pathlib import Path
 from typing import Union
 
-from ..config import Config
+from ..config import Config, load
 from .interface import exit_fail
 
 LOG = logging.getLogger(__name__)
@@ -28,7 +29,8 @@ def load_last_session_id(cfg: Config) -> Union[str, None]:
 def get_session_id(args):
     session_id = args["SESSION_ID"]
     if session_id is None:
-        cfg = load_config(config_file=Path(args["--config"]), require_dep_id=True)
+        cfg = load(config_file=Path(args["--config"]), require_dep_id=True)
         session_id = load_last_session_id(cfg)
     if session_id is None:
         exit_fail("No session ID specified, and no previous session found.")
+    return session_id

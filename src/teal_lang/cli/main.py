@@ -279,18 +279,18 @@ def _invoke(args):
 
 @timed
 def _events(args):
+    session_id = utils.get_session_id(args)
+
     if args["--json"]:
         # Don't show the spinner in JSON mode
         data = _call_cloud_api(
-            "get_events", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
+            "get_events", {"session_id": session_id}, Path(args["--config"]),
         )
         print(json.dumps(data, indent=2))
     else:
         with spin(args, f"Getting events"):
             data = _call_cloud_api(
-                "get_events",
-                {"session_id": args["SESSION_ID"]},
-                Path(args["--config"]),
+                "get_events", {"session_id": session_id}, Path(args["--config"]),
             )
         if args["--unified"]:
             interface.print_events_unified(data)
@@ -300,8 +300,6 @@ def _events(args):
 
 @timed
 def _logs(args):
-    from . import interface
-
     session_id = utils.get_session_id(args)
 
     with spin(args, f"Getting output {dim(session_id)}") as sp:
