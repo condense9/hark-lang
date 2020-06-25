@@ -123,7 +123,9 @@ def _ast(args):
 
 
 def _asm(args):
-    exe = load_config.compile_file(Path(args["FILE"]))
+    from ..load import compile_file
+
+    exe = compile_file(Path(args["FILE"]))
     print(neutral("\nBYTECODE:"))
     exe.listing()
     print(neutral("\nBINDINGS:\n"))
