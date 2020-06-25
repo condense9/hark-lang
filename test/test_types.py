@@ -31,6 +31,25 @@ def test_literals():
     assert deser + int_c == 9
 
 
+def test_hashes():
+    h = TlHash(
+        {
+            TlInt(1): TlInt(2),
+            TlInt(3): TlInt(4),
+            TlString("5"): TlList([TlInt(1), TlInt(31)]),
+        }
+    )
+    deser = to_json_and_back(h)
+    assert h == deser
+
+
+def test_lists():
+    inner = TlList([TlInt(1), TlInt(31)])
+    l = TlList([TlInt(1), TlInt(31), TlString("bla"), inner])
+    deser = to_json_and_back(l)
+    assert l == deser
+
+
 def test_list():
     list_a = TlList([TlInt(1), TlInt(2), TlInt(3)])
     assert len(list_a) == 3

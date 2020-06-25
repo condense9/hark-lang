@@ -1,18 +1,21 @@
 """AWS Lambda handlers for running and controller Teal"""
 import functools
-import sys
 import json
+import sys
+import os
 import time
 import traceback
 
 from .. import __version__, load
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
+from ..executors.awslambda import Invoker
 from ..machine import TlMachine
 from ..machine import types as mt
 from ..machine.controller import ControllerError
 from ..machine.executable import Executable
-from ..executors.awslambda import Invoker
+from ..teal_compiler.compiler import CompileError
+from ..teal_parser.parser import TealSyntaxError
 
 
 def version(event, context):

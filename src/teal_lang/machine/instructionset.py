@@ -212,6 +212,24 @@ class Nullp(I):
     """Check whether the top item on the stack is Null"""
 
 
+class Length(I):
+    """Get a list length"""
+
+
+class Hash(I):
+    """Make a hash (dict-like type)"""
+
+    num_ops = 1
+
+
+class HGet(I):
+    """Get a value from a hash"""
+
+
+class HSet(I):
+    """Set a value in a hash"""
+
+
 ##± Types and Type Conversion ±#################################################
 
 

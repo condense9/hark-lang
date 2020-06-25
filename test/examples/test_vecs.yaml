@@ -46,7 +46,6 @@ kitchen_sink:
 
 
 pythonimport:
-
   show_format:
     - ["World"]
     - "Hello World!"
@@ -54,3 +53,16 @@ pythonimport:
   show_trig:
     - [0.0]
     - 1.0
+
+compound:
+  lists:
+    - []
+    - 5
+
+  hashes:
+    - ["foo"]
+    - "bar"
+
+  modify:
+    - []
+    - "tree"

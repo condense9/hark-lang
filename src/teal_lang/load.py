@@ -2,10 +2,11 @@
 import sys
 from pathlib import Path
 
+from .teal_compiler.compiler import CompileError
+from .cli.interface import bad, neutral
 from .machine.executable import Executable
 from .teal_compiler import tl_compile
-from .teal_parser.parser import tl_parse, TealSyntaxError, token_column
-from .cli.interface import bad, neutral
+from .teal_parser.parser import TealSyntaxError, tl_parse, token_column
 
 
 def compile_text(text: str) -> Executable:

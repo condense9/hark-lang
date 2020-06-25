@@ -38,6 +38,12 @@ class ImportPyError(Exception):
 class TealRuntimeError(Exception):
     """Error while executing Teal code"""
 
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return f"Runtime Error: {self.msg}"
+
 
 class UnhandledError(Exception):
     """Some Teal code signaled an error which was not handled"""
@@ -47,10 +53,6 @@ class UnhandledError(Exception):
 
     def __str__(self):
         return f'error("{self.msg}")'
-
-
-class RunMachineError(Exception):
-    """An error occurred while running the machine"""
 
 
 class ForeignError(Exception):
@@ -120,6 +122,10 @@ class TlMachine:
         "append": Append,
         "first": First,
         "rest": Rest,
+        "length": Length,
+        "hash": Hash,
+        "get": HGet,
+        "set": HSet,
         # "future": Future,
         "nth": Nth,
         "==": Eq,
@@ -150,7 +156,6 @@ class TlMachine:
         # No entrypoint argument - just set the IP in the state
 
     def error(self, original, msg):
-        # TODO stacktraces
         if original:
             raise TealRuntimeError(msg) from original
         else:
@@ -208,7 +213,10 @@ class TlMachine:
                 # don't continue waiting for this to return.
                 broken = True
                 self.state.stopped = True
-                self.state.error_msg = str(exc)
+                msg = f"Unexpected Exception:\n\n" + "".join(
+                    traceback.format_exception(*sys.exc_info())
+                )
+                self.state.error_msg = msg
                 break
 
         self.probe.event("stop", steps=self._steps)
@@ -485,6 +493,43 @@ class TlMachine:
         if not isinstance(lst, mt.TlList):
             self.error(None, f"{lst} ({type(lst)}) is not a list")
         self.state.ds_push(lst[n])
+
+    @evali.register
+    def _(self, i: Length):
+        lst = self.state.ds_pop()
+        if not isinstance(lst, mt.TlList):
+            self.error(None, f"{lst} ({type(lst)}) is not a list")
+        self.state.ds_push(mt.TlInt(len(lst)))
+
+    @evali.register
+    def _(self, i: Hash):
+        num_args = i.operands[0]
+        # convert list [a, b, c, d] (reversed) -> dict {a: b, c: d}
+        elts = [self.state.ds_pop() for _ in range(num_args)][::-1]
+        pairs = zip(elts[::2], elts[1::2])
+        self.state.ds_push(mt.TlHash(pairs))
+
+    @evali.register
+    def _(self, i: HGet):
+        key = self.state.ds_pop()
+        obj = self.state.ds_pop()
+        if not isinstance(obj, mt.TlHash):
+            self.error(None, f"{obj} ({type(obj)}) is not a hash")
+        try:
+            res = obj[key]
+        except KeyError:
+            res = mt.TlNull()
+        self.state.ds_push(res)
+
+    @evali.register
+    def _(self, i: HSet):
+        value = self.state.ds_pop()
+        key = self.state.ds_pop()
+        obj = self.state.ds_pop()
+        if not isinstance(obj, mt.TlHash):
+            self.error(None, f"{obj} ({type(obj)}) is not a hash")
+        # Create a new object, overwriting the old key
+        self.state.ds_push(mt.TlHash({**obj, key: value}))
 
     @evali.register
     def _(self, i: Plus):

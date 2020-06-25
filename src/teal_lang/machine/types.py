@@ -8,6 +8,8 @@ See https://docs.python.org/3/library/json.html#py-to-json-table
 from typing import Optional
 from collections import UserList, UserDict
 
+from ..teal_parser.nodes import N_Literal
+
 # TODO Convert these to dataclasses
 
 
@@ -137,6 +139,15 @@ class TlList(UserList, TlType):
         return cls([TlType.deserialise(a) for a in data])
 
 
+class TlHash(UserDict, TlType):
+    def serialise_data(self):
+        return [[k.serialise(), v.serialise()] for k, v in self.data.items()]
+
+    @classmethod
+    def from_data(cls, data):
+        return cls({TlType.deserialise(k): TlType.deserialise(v) for k, v in data})
+
+
 class TlFunctionPtr(TlType):
     """Pointer to a function or closure defined in Tl"""
 
@@ -185,10 +196,6 @@ class TlForeignPtr(TlType):
         return f"<{kind} {self.module}.{self.identifier}>"
 
 
-# TODO:
-# class TlObject(UserDict, TlType):
-
-
 ### Type Conversion
 
 # NOTE - no conversion to/from Symbols
@@ -201,11 +208,20 @@ def to_teal_type_list(lst: list) -> TlList:
     return TlList([to_teal_type(x) for x in lst])
 
 
+def to_teal_type_dict(dct: dict) -> TlHash:
+    """Recursively convert dict to TlHash"""
+    if type(dct) != dict:
+        raise ValueError(dct)
+    return TlHash({to_teal_type(k): to_teal_type(v) for k, v in dct.items()})
+
+
 PY_TO_TL = {
     int: TlInt,
     float: TlFloat,
     str: TlString,
     list: to_teal_type_list,
+    dict: to_teal_type_dict,
+    N_Literal: lambda x: to_teal_type(x.value),  # special case to handle parser
 }
 
 
@@ -217,6 +233,7 @@ Tl_TO_PY = {
     TlFloat: float,
     TlString: str,
     TlList: list,
+    TlHash: dict,
 }
 
 

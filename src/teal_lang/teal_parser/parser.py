@@ -47,7 +47,7 @@ class TealLexer(Lexer):
         LT,
         SET,  # must come after EQ
     }
-    literals = {"(", ")", ",", "{", "}"}
+    literals = {"(", ")", ",", "{", "}", "[", "]", ":"}
 
     ignore = " \t"
 
@@ -113,18 +113,23 @@ def post_lex(toks):
     nl.type = "NL"
 
     t = next(toks)
+    last = None
     for next_tok in chain(toks, [nl]):
         if t.type != "NL":
             yield t
+            last = t
+
         term.lineno = t.lineno
         term.index = t.index
 
-        if next_tok.type == "}" and t.type != "TERM":
-            yield term
-        if t.type == "}" and next_tok.type != "TERM":
-            yield term
-        elif next_tok.type == "NL" and t.type != "TERM":
-            yield term
+        if last and last.type != "TERM":
+            if (
+                (t.type == "}" and next_tok.type != "TERM")
+                or (next_tok.type == "}" and t.type != "TERM")
+                or (next_tok.type == "NL" and t.type != "TERM")
+            ):
+                yield term
+                last = term
 
         t = next_tok
 
@@ -254,6 +259,7 @@ class TealParser(Parser):
 
     @_("SYMBOL expr")
     def arg_item(self, p):
+        # named arguments.
         # A bit icky - conflicts with SYMBOL
         return nodes.N_Argument(p.index, nodes.N_Symbol(p.index, p.SYMBOL), p.expr)
 
@@ -304,6 +310,45 @@ class TealParser(Parser):
     def expr(self, p):
         return nodes.N_Binop(p.index, p[0], p[1], p[2])
 
+    # compound
+
+    @_("'[' maybe_term list_items maybe_term ']'")
+    def expr(self, p):
+        return nodes.N_Call(p.index, nodes.N_Id(p.index, "list"), p.list_items)
+
+    @_("nothing")
+    def list_items(self, p):
+        return []
+
+    @_("expr")
+    def list_items(self, p):
+        return [p.expr]
+
+    @_("expr ',' maybe_term list_items")
+    def list_items(self, p):
+        return [p.expr] + p.list_items
+
+    @_("'{' maybe_term dict_items maybe_term '}'")
+    def expr(self, p):
+        return nodes.N_Call(p.index, nodes.N_Id(p.index, "hash"), p.dict_items)
+
+    # TODO fix, this is icky - TERM can either be ';' or '\n'
+    @_("nothing")
+    def dict_items(self, p):
+        return []
+
+    @_("expr ':' expr maybe_term")
+    def dict_items(self, p):
+        return [p[0], p[2]]
+
+    @_("expr ':' expr maybe_term ',' maybe_term dict_items")
+    def dict_items(self, p):
+        return [p[0], p[2]] + p.dict_items
+
+    @_("nothing", "TERM")
+    def maybe_term(self, p):
+        pass
+
     # literals
 
     @_("ID")
@@ -353,7 +398,6 @@ def token_column(text, index):
 def tl_parse(text, debug_lex=False):
     parser = TealParser()
     lexer = TealLexer()
-    text = text.strip() + "\n"
     if debug_lex:
         toks = list(post_lex(lexer.tokenize(text)))
         indent = 0

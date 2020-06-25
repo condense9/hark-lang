@@ -20,7 +20,7 @@ class State:
 
     def ds_push(self, val):
         if not isinstance(val, TlType):
-            raise TypeError(val)
+            raise TypeError(f"Cannot store {val} ({type(val)})")
         self._ds.append(val)
 
     def ds_pop(self):
