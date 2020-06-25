@@ -741,24 +741,24 @@ class TealFunction:
 
 class FnSetexe(TealFunction):
     name = "set_exe"
-    handler = "teal_lang.executors.awslambda.set_exe"
+    handler = "teal_lang.run.aws.set_exe"
 
 
 class FnNew(TealFunction):
     name = "new"
-    handler = "teal_lang.executors.awslambda.new"
+    handler = "teal_lang.run.aws.new"
     needs_src_layer = True
 
 
 class FnResume(TealFunction):
     name = "resume"
-    handler = "teal_lang.executors.awslambda.resume"
+    handler = "teal_lang.run.aws.resume"
     needs_src_layer = True
 
 
 class FnS3UploadHandler(TealFunction):
     name = "upload_handler"
-    handler = "teal_lang.executors.awslambda.upload_handler"
+    handler = "teal_lang.run.aws.upload_handler"
     needs_src_layer = True
 
     # FIXME this should be done in the BucketTrigger class.
@@ -781,17 +781,17 @@ class FnS3UploadHandler(TealFunction):
 
 class FnGetOutput(TealFunction):
     name = "getoutput"
-    handler = "teal_lang.executors.awslambda.getoutput"
+    handler = "teal_lang.run.aws.getoutput"
 
 
 class FnGetEvents(TealFunction):
     name = "getevents"
-    handler = "teal_lang.executors.awslambda.getevents"
+    handler = "teal_lang.run.aws.getevents"
 
 
 class FnVersion(TealFunction):
     name = "version"
-    handler = "teal_lang.executors.awslambda.version"
+    handler = "teal_lang.run.aws.version"
 
 
 ## optional infrastructure

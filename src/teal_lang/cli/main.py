@@ -6,8 +6,8 @@ Usage:
   teal [options] deploy [--config CONFIG]
   teal [options] destroy [--config CONFIG]
   teal [options] invoke [--config CONFIG] [ARG...]
-  teal [options] events [--config CONFIG] [--unified | --json] SESSION_ID
-  teal [options] logs [--config CONFIG] SESSION_ID
+  teal [options] events [--config CONFIG] [--unified | --json] [SESSION_ID]
+  teal [options] logs [--config CONFIG] [SESSION_ID]
   teal [options] FILE [ARG...]
   teal --version
   teal --help
@@ -55,20 +55,29 @@ import time
 from pathlib import Path
 
 from docopt import docopt
-from yaspin import yaspin
-from yaspin.spinners import Spinners
 
 from .. import __version__
 from . import interface
-from .interface import good, bad, neutral, dim, init, TICK, CROSS, primary, exit_fail
+from .interface import (
+    good,
+    bad,
+    neutral,
+    dim,
+    init,
+    TICK,
+    CROSS,
+    primary,
+    exit_fail,
+    spin,
+)
+from . import utils
+from ..config import load as load_config
 
 LOG = logging.getLogger(__name__)
 
 
 def _run(args):
-    from ..config import load
-
-    cfg = load(config_file=Path(args["--config"]))
+    cfg = load_config(config_file=Path(args["--config"]))
     fn = args["--fn"]
     filename = args["FILE"]
     sys.path.append(".")
@@ -114,9 +123,7 @@ def _ast(args):
 
 
 def _asm(args):
-    from .. import load
-
-    exe = load.compile_file(Path(args["FILE"]))
+    exe = load_config.compile_file(Path(args["FILE"]))
     print(neutral("\nBYTECODE:"))
     exe.listing()
     print(neutral("\nBINDINGS:\n"))
@@ -140,43 +147,43 @@ def timed(fn):
 @timed
 def _deploy(args):
     from ..cloud import aws
-    from ..config import load
     import botocore
 
-    cfg = load(
+    cfg = load_config(
         config_file=Path(args["--config"]), require_dep_id=True, create_dep_id=True,
     )
 
-    with yaspin(Spinners.dots, text="Deploying infrastructure") as sp:
+    with spin(args, "Deploying infrastructure") as sp:
         # this is idempotent
         aws.deploy(cfg)
         sp.text += dim(f" {cfg.service.data_dir}/")
         sp.ok(TICK)
 
-    with yaspin(Spinners.dots, text="Checking version") as sp:
+    with spin(args, "Checking version") as sp:
         api = aws.get_api()
 
         try:
             response = _call_cloud_api("version", {}, Path(args["--config"]))
         except botocore.exceptions.ClientError as exc:
             if exc.response["Error"]["Code"] == "KMSAccessDeniedException":
+                sp.fail(CROSS)
                 print(
-                    bad("AWS is not ready. Try `teal deploy` again in a few minutes.")
+                    bad("\nAWS is not ready. Try `teal deploy` again in a few minutes.")
                 )
-                interface.let_us_know()
+                interface.let_us_know("Deployment Failed (KMSAccessDeniedException)")
                 sys.exit(1)
             raise
 
         sp.text += " " + dim(response["version"])
         sp.ok(TICK)
 
-    with yaspin(Spinners.dots, text="Deploying program") as sp:
+    with spin(args, "Deploying program") as sp:
         with open(cfg.service.teal_file) as f:
             content = f.read()
 
         # See teal_lang/executors/awslambda.py
-        exe_payload = {"content": content}
-        logs, response = api.set_exe.invoke(cfg, exe_payload)
+        payload = {"content": content}
+        _call_cloud_api("set_exe", payload, Path(args["--config"]))
         sp.ok(TICK)
 
     LOG.info(f"Uploaded {cfg.service.teal_file}")
@@ -186,24 +193,22 @@ def _deploy(args):
 @timed
 def _destroy(args):
     from ..cloud import aws
-    from ..config import load
 
-    cfg = load(config_file=Path(args["--config"]), require_dep_id=True)
+    cfg = load_config(config_file=Path(args["--config"]), require_dep_id=True)
 
-    with yaspin(Spinners.dots, text="Destroying") as sp:
+    with spin(args, "Destroying") as sp:
         aws.destroy(cfg)
         sp.ok(TICK)
 
-    print(good(f"Done. You can safely `rm -rf {cfg.service.data_dir}`."))
+    print(good(f"\nDone. You can safely `rm -rf {cfg.service.data_dir}`."))
 
 
 def _call_cloud_api(function: str, args: dict, config_file: Path, as_json=True):
     """Call a teal API endpoint and handle errors"""
     from ..cloud import aws
-    from ..config import load
 
     api = aws.get_api()
-    cfg = load(config_file=config_file, require_dep_id=True)
+    cfg = load_config(config_file=config_file, require_dep_id=True)
 
     # See teal_lang/executors/awslambda.py
     LOG.debug("Calling Teal cloud: %s %s", function, args)
@@ -212,21 +217,23 @@ def _call_cloud_api(function: str, args: dict, config_file: Path, as_json=True):
 
     # This is when there's an unhandled exception in the Lambda.
     if "errorMessage" in response:
-        msg = (
-            "Teal Bug! Please report this! "
-            + "https://github.com/condense9/teal-lang/issues/new \n\n"
-            + response["errorMessage"]
-        )
+        print("\n" + bad("Unexpected exception!"))
+        msg = response["errorMessage"]
+        interface.let_us_know(msg)
         exit_fail(msg, response.get("stackTrace", None))
 
     code = response.get("statusCode", None)
     if code == 400:
+        print("\n")
         # This is when there's a (handled) error
         err = json.loads(response["body"])
-        exit_fail(err.get("message", "StatusCode 400"))
+        exit_fail(err.get("message", "StatusCode 400"), err.get("traceback", None))
 
     if code != 200:
-        exit_fail(f"Unexpected response code: {code}")
+        print("\n")
+        msg = f"Unexpected response code: {code}"
+        interface.let_us_know(msg)
+        exit_fail(msg)
 
     body = json.loads(response["body"]) if as_json else response["body"]
     LOG.info(body)
@@ -236,17 +243,16 @@ def _call_cloud_api(function: str, args: dict, config_file: Path, as_json=True):
 
 @timed
 def _invoke(args):
-    from ..config import load
-
     config_file = Path(args["--config"])
-    cfg = load(config_file=config_file)
+    cfg = load_config(config_file=config_file)
     function = args.get("--fn", "main")
     payload = {
         "function": function,
         "args": args["ARG"],
         "timeout": cfg.service.lambda_timeout - 3,  # FIXME
     }
-    with yaspin(Spinners.dots, text=f"Invoking {primary(function)}") as sp:
+
+    with spin(args, str(primary(f"{function}(...)"))) as sp:
         data = _call_cloud_api("new", payload, config_file)
         sp.text += " " + dim(data["session_id"])
 
@@ -255,22 +261,20 @@ def _invoke(args):
         else:
             sp.ok(TICK)
 
-    session_id = data["session_id"]
-    last_session_file = cfg.service.data_dir / "last_session_id.txt"
-    with open(last_session_file, "w") as f:
-        f.write(session_id)
-        LOG.info("Session ID: %s (saved in %s)", session_id, last_session_file)
+    utils.save_last_session_id(cfg, data["session_id"])
 
-    if data["broken"]:
-        with yaspin(Spinners.dots, text=f"Getting logs"):
-            logs = _call_cloud_api(
-                "get_output", {"session_id": session_id}, config_file
-            )
+    with spin(args, "Getting logs") as sp:
+        logs = _call_cloud_api(
+            "get_output", {"session_id": data["session_id"]}, config_file
+        )
+        sp.ok(TICK)
 
-        interface.print_outputs(logs)
+    interface.print_outputs(logs)
 
-    elif data["finished"]:
-        print("\n" + str(data["result"]))
+    if data["finished"]:
+        if not args["--quiet"]:
+            print(dim("\n=>"))
+        print(data["result"])
 
 
 @timed
@@ -282,7 +286,7 @@ def _events(args):
         )
         print(json.dumps(data, indent=2))
     else:
-        with yaspin(Spinners.dots, text=f"Getting events"):
+        with spin(args, f"Getting events"):
             data = _call_cloud_api(
                 "get_events",
                 {"session_id": args["SESSION_ID"]},
@@ -298,10 +302,15 @@ def _events(args):
 def _logs(args):
     from . import interface
 
-    with yaspin(Spinners.dots, text=f"Getting logs"):
+    session_id = utils.get_session_id(args)
+
+    with spin(args, f"Getting output {dim(session_id)}") as sp:
         data = _call_cloud_api(
-            "get_output", {"session_id": args["SESSION_ID"]}, Path(args["--config"]),
+            "get_output", {"session_id": session_id}, Path(args["--config"]),
         )
+        sp.ok(TICK)
+    if not args["--quiet"]:
+        print("")
     interface.print_outputs(data)
 
 
@@ -309,7 +318,8 @@ def main():
     args = docopt(__doc__, version=__version__)
     init(args)
     LOG.debug("CLI args: %s", args)
-    print("")  # Space in the CLI
+    if not args["--quiet"]:
+        print("")  # Space in the CLI
 
     if args["ast"]:
         _ast(args)

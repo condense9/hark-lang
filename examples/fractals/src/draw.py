@@ -129,9 +129,10 @@ def save_fractal_to_file(fractal_name: str, size, dirname=".") -> str:
 
 def random_fractals(num) -> list:
     """Create a list of random fractals to generate"""
-    fractal_names = [x for x in dir(Fractals) if not x.startswith("_")]
-    return [  # --
-        [random.choice(fractal_names), random.randint(10, 20)] for _ in range(num)
+    fractals = [getattr(Fractals, x) for x in dir(Fractals) if not x.startswith("_")]
+    return [
+        [fractal.name, random.randint(fractal.min_iter, fractal.max_iter)]
+        for fractal in random.choices(fractals, k=num)
     ]
 
 

@@ -15,11 +15,15 @@ def compile_text(text: str) -> Executable:
 
 def error_msg(text, exc, filename) -> str:
     """Get an error message explaining why compilation failed"""
-    msg = bad(f"{filename}:{exc.token.lineno} ~ {exc.msg}")
-    line = text.split("\n")[exc.token.lineno - 1]
-    msg += neutral(f"\n\n {line}\n")
-    msg += " " * (token_column(text, exc.token.index) - 1) + "^"
-    return msg
+    # TODO add debug info to the CompileError class and unify this
+    if isinstance(exc, CompileError):
+        return bad("Compilation failed.\n") + str(exc)
+    else:
+        msg = bad(f"{filename}:{exc.token.lineno} ~ {exc.msg}")
+        line = text.split("\n")[exc.token.lineno - 1]
+        msg += neutral(f"\n\n {line}\n")
+        msg += " " * (token_column(text, exc.token.index) - 1) + "^"
+        return msg
 
 
 def compile_file(filename: Path) -> Executable:
@@ -29,7 +33,7 @@ def compile_file(filename: Path) -> Executable:
 
     try:
         return compile_text(text)
-    except TealSyntaxError as exc:
+    except (TealSyntaxError, CompileError) as exc:
         print(error_msg(text, exc, filename))
         sys.exit(1)
 

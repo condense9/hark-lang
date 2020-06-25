@@ -1,5 +1,6 @@
 """Teal configuration loading"""
 
+import functools
 import logging
 import os
 import uuid
@@ -112,6 +113,7 @@ def _get_deployment_id(service: dict, require: bool, create: bool) -> str:
     raise ConfigError("Can't find a deployment ID")
 
 
+@functools.lru_cache
 def load(
     config_file: Path = None, *, require_dep_id=False, create_dep_id=False
 ) -> Config:

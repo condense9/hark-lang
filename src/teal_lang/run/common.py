@@ -88,23 +88,28 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
 
     with open(filename, "r") as f:
         text = f.read()
-        lines = text.split("\n")
 
     # It broke - print traceback
+    print_traceback(controller, text)
+
+
+def print_traceback(controller, source_text: str, stream=sys.stdout):
+    """Print the traceback for a controller"""
+    lines = source_text.split("\n")
     for vmid in controller.get_thread_ids():
         state = controller.get_state(vmid)
         err = state.error_msg
         if err is not None:
-            print(ui.bad(f"\nError [Thread {vmid}]: {err}\n"))
-            print("Teal Traceback (most recent call last):")
+            stream.write(str(ui.bad(f"\nError [Thread {vmid}]: {err}\n\n")))
+            stream.write("Teal Traceback (most recent call last):\n")
             for thread, ip, fn in reversed(controller.get_stacktrace(vmid)):
-                instr = exe.code[ip]
+                instr = controller.executable.code[ip]
                 if instr.source is not None:
-                    idx = text[: instr.source].count("\n")
+                    idx = source_text[: instr.source].count("\n")
                     line = lines[idx]
                 else:
                     line = "<unknown line>"
 
                 prefix = f"[{thread}] in {fn}, line {idx}:"
-                print(f"~ {prefix:<25} {line}")
-            print("")
+                stream.write(f"~ {prefix:<25} {line}\n")
+            stream.write("\n")

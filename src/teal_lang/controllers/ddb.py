@@ -17,6 +17,7 @@ Data exchange points:
 - machine stops (upload the State)
 - machine continues (download the State)
 """
+import functools
 import logging
 import sys
 import time
@@ -53,7 +54,6 @@ class DataController(Controller):
 
     def __init__(self, session_meta):
         self.session_id = session_meta.session_id
-        self._locks = {}
         if session_meta.meta.exe:
             self.executable = Executable.deserialise(session_meta.meta.exe)
         else:
@@ -62,15 +62,18 @@ class DataController(Controller):
     def _qry(self, group, item_id=None):
         """Retrieve the specified group:item_id"""
         _key = f"{group}:{item_id}" if item_id is not None else group
-        return SI.get(self.session_id, _key)
+        try:
+            return SI.get(self.session_id, _key)
+        except SI.DoesNotExist as exc:
+            raise ControllerError(
+                f"Item {_key} does not exist in {self.session_id}"
+            ) from exc
 
-    def _lock_item(self, group, item_id=None):
+    @functools.lru_cache
+    def _lock_item(self, group: str, item_id=None) -> db.SessionLocker:
         """Get a context manager that locks the specified group:item_id"""
-        lock_key = (group, item_id)
-        if lock_key not in self._locks:
-            item = self._qry(group, item_id)
-            self._locks[lock_key] = db.SessionLocker(item)
-        return self._locks[lock_key]
+        item = self._qry(group, item_id)
+        return db.SessionLocker(item)
 
     def set_executable(self, exe):
         self.executable = exe
@@ -164,7 +167,7 @@ class DataController(Controller):
         try:
             s = self._qry("arec", ptr)
             s.arec = rec
-        except SI.DoesNotExist:
+        except ControllerError:
             s = db.new_session_item(self.session_id, f"arec:{ptr}", arec=rec)
         s.save()
 

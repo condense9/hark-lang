@@ -1,10 +1,14 @@
 """CLI UI related functions"""
 
+import contextlib
 import logging
 import sys
+import urllib.parse
 from operator import itemgetter
 
 import colorful as cf
+from yaspin import yaspin
+from yaspin.spinners import Spinners
 
 TICK = "✔"
 CROSS = "✘"
@@ -79,19 +83,42 @@ def neutral(string):
     return cf.bold(string)
 
 
-def let_us_know():
+def let_us_know(error_msg=None, traceback=None):
     """Print helpful information for bug reporting"""
     # TODO sadface ascii art
     print("If this persists, please let us know:")
-    print("https://github.com/condense9/teal-lang/issues/new")
+    if error_msg:
+        params = "?" + urllib.parse.urlencode(dict(title=error_msg))
+    else:
+        params = ""
+    print(f"https://github.com/condense9/teal-lang/issues/new{params}")
+    print("")
 
 
 def exit_fail(err, traceback=None):
     """Something broke while running"""
-    print("\n\n" + bad(str(err)))
+    print(bad(str(err)))
     if traceback:
         print("\n" + "".join(traceback))
     sys.exit(1)
+
+
+class DummySpinner:
+    def write(*args):
+        pass
+
+    def ok(*args):
+        pass
+
+    def fail(*args):
+        pass
+
+
+def spin(args, text):
+    if args["--quiet"]:
+        return contextlib.nullcontext(DummySpinner())
+    else:
+        return yaspin(Spinners.dots, text=str(text))
 
 
 # TODO types for these interfaces - they're outputs from awslambda.py

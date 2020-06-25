@@ -1,13 +1,8 @@
 """Run with multiple processes - sort of emulates AWS Lambda"""
 import multiprocessing
-import time
-import traceback
-import warnings
 
 from ..controllers import ddb as ddb_controller
-from ..controllers import ddb_model as db
 from ..machine import TlMachine
-from ..machine.probe import Probe
 
 
 class Invoker:
@@ -29,10 +24,7 @@ def resume_handler(event):
     # TODO catch exceptions and send them back!
     session_id = event["session_id"]
     vmid = event["vmid"]
-    session = db.SessionItem.get(session_id, "meta")
-    controller = ddb_controller.DataController(session)
+    controller = ddb_controller.DataController.with_session_id(session_id)
     invoker = Invoker(controller)
-
     machine = TlMachine(vmid, invoker)
     machine.run()
-    # TODO return something
