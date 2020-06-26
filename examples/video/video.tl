@@ -52,7 +52,3 @@ fn on_upload(bucket, key, env) {
     signal("error", "bad format")
   }
 }
-
-fn on_apicall(route, query, env) {
-  {"route": route, "query": query, "env": env}
-}

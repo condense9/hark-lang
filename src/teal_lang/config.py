@@ -40,6 +40,7 @@ class ServiceConfig:
     s3_access: tuple
     upload_triggers: Tuple[BucketTriggerConfig]
     managed_buckets: list
+    enable_api: bool
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ SERVICE_DEFAULTS = dict(
     s3_access=[],
     upload_triggers=[],
     managed_buckets=[],
+    enable_api=False
 )
 
 DEFAULT_CONFIG_FILENAME = Path("teal.toml")

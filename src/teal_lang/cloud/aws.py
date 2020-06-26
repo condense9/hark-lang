@@ -1035,7 +1035,6 @@ CORE_RESOURCES = [
     FnGetOutput,
     FnGetEvents,
     FnVersion,
-    SharedAPIGateway,
 ]
 
 
@@ -1050,29 +1049,32 @@ def deploy(config):
     # which are waited on at the end.
 
     for res in CORE_RESOURCES:
-        LOG.info("Resource: %s", res)
         res.create_or_update(config)
+
+    if config.service.enable_api:
+        SharedAPIGateway.create_or_update(config)
+    else:
+        SharedAPIGateway.destroy_if_exists(config)
 
     for bucket in config.service.managed_buckets:
         # TODO s3_access should be here too.
         res = BucketTrigger(bucket)
-        LOG.info("Resource: %s", res)
         res.create_or_update_or_destroy(config)
 
 
 def destroy(config):
     """Destroy infrastructure created for this config"""
     LOG.info(f"Destroying: {config.service.deployment_id}")
-
     # destroy in reverse order so dependencies go first
-    for res in reversed(CORE_RESOURCES):
-        LOG.info("Resource: %s", res)
-        res.destroy_if_exists(config)
 
     for bucket in config.service.managed_buckets:
         # TODO s3_access should be here too.
         res = BucketTrigger(bucket)
-        LOG.info("Resource: %s", res)
+        res.destroy_if_exists(config)
+
+    SharedAPIGateway.destroy_if_exists(config)
+
+    for res in reversed(CORE_RESOURCES):
         res.destroy_if_exists(config)
 
 
