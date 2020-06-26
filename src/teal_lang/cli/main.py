@@ -1,6 +1,7 @@
 """Teal.
 
 Usage:
+  teal [options] info
   teal [options] asm FILE
   teal [options] ast [-o OUTPUT] FILE
   teal [options] deploy [--config CONFIG]
@@ -13,6 +14,7 @@ Usage:
   teal --help
 
 Commands:
+  info     Show info about this Teal environment
   asm      Compile a file and print the bytecode listing.
   ast      Create a data flow graph (PNG).
   deploy   Deploy to the cloud.
@@ -141,7 +143,7 @@ def timed(fn):
         fn(args, **kwargs)
         end = time.time()
         if not args["--quiet"]:
-            sys.stderr.write(str(dim(f"\n-- {int(end-start)}s elapsed.\n")))
+            sys.stderr.write(str(dim(f"\n-- {int(end-start)}s\n")))
 
     return _wrapped
 
@@ -161,7 +163,7 @@ def _deploy(args):
         sp.text += dim(f" {cfg.service.data_dir}/")
         sp.ok(TICK)
 
-    with spin(args, "Checking version") as sp:
+    with spin(args, "Checking API") as sp:
         api = aws.get_api()
 
         try:
@@ -176,7 +178,7 @@ def _deploy(args):
                 sys.exit(1)
             raise
 
-        sp.text += " " + dim(response["version"])
+        sp.text += " Teal " + dim(response["version"])
         sp.ok(TICK)
 
     with spin(args, "Deploying program") as sp:
@@ -314,6 +316,16 @@ def _logs(args):
     interface.print_outputs(data)
 
 
+@timed
+def _info(args):
+    # API URL
+    # deployment ID
+    # deployed teal version
+    # last session ID
+    # links to console items?
+    raise NotImplementedError
+
+
 def main():
     args = docopt(__doc__, version=__version__)
     init(args)
@@ -323,6 +335,8 @@ def main():
 
     if args["ast"]:
         _ast(args)
+    elif args["info"]:
+        _info(args)
     elif args["asm"]:
         _asm(args)
     elif args["deploy"]:

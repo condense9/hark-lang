@@ -33,12 +33,6 @@ def init(args):
     else:
         level = None
 
-    # enabled_loggers = [
-    #     logger
-    #     for name, logger in logging.root.manager.loggerDict.items()
-    #     if name.startswith("teal_lang") and isinstance(logger, logging.Logger)
-    # ]
-
     root_logger = logging.getLogger("teal_lang")
 
     if not args["--no-colours"]:
@@ -49,9 +43,7 @@ def init(args):
         cf.update_palette(UI_COLORS)
         if level:
             coloredlogs.install(
-                fmt="%(name)s[%(process)d] %(message)s",
-                level=level,
-                logger=root_logger,
+                fmt="%(name)-25s %(message)s", level=level, logger=root_logger,
             )
     else:
         cf.disable()
@@ -104,6 +96,10 @@ def exit_fail(err, traceback=None):
 
 
 class DummySpinner:
+    """Something that quacks like yaspin, but does nothing"""
+
+    text = ""
+
     def write(*args):
         pass
 
@@ -115,7 +111,7 @@ class DummySpinner:
 
 
 def spin(args, text):
-    if args["--quiet"]:
+    if args["--quiet"] or args["--verbose"] or args["--vverbose"]:
         return contextlib.nullcontext(DummySpinner())
     else:
         return yaspin(Spinners.dots, text=str(text))

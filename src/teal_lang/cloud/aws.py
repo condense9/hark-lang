@@ -104,7 +104,7 @@ class DataBucket:
             DataBucket.create(config)
 
     @staticmethod
-    def delete_if_exists(config):
+    def destroy_if_exists(config):
         name = DataBucket.resource_name(config)
         client = get_client(config, "s3")
         try:
@@ -184,7 +184,7 @@ class S3File:
         upload_if_necessary(client, bucket, cls.key, str(dest_file))
 
     @classmethod
-    def delete_if_exists(cls, config):
+    def destroy_if_exists(cls, config):
         client = get_client(config, "s3")
         bucket = DataBucket.resource_name(config)
         try:
@@ -306,7 +306,7 @@ class DataTable:
         LOG.info(f"Created Table {name}")
 
     @staticmethod
-    def delete_if_exists(config):
+    def destroy_if_exists(config):
         client = get_client(config, "dynamodb")
         name = DataTable.resource_name(config)
         try:
@@ -340,7 +340,7 @@ class ExecutionRole:
             return False
 
     @staticmethod
-    def delete_if_exists(config):
+    def destroy_if_exists(config):
         if not ExecutionRole.exists(config):
             return
 
@@ -545,7 +545,7 @@ class SourceLayer:
         assert current_sha == local_sha
 
     @staticmethod
-    def delete_if_exists(config):
+    def destroy_if_exists(config):
         client = get_client(config, "lambda")
         name = SourceLayer.resource_name(config)
         while True:
@@ -683,7 +683,6 @@ class TealFunction:
             Environment=dict(Variables=cls.get_environment_variables(config)),
         )
         LOG.info(f"Created function {name}")
-        cls.create_extra_permissions(config)
 
     @classmethod
     def get_environment_variables(cls, config):
@@ -703,7 +702,7 @@ class TealFunction:
         }
 
     @classmethod
-    def delete_if_exists(cls, config):
+    def destroy_if_exists(cls, config):
         client = get_client(config, "lambda")
         name = cls.resource_name(config)
         try:
@@ -756,27 +755,10 @@ class FnResume(TealFunction):
     needs_src_layer = True
 
 
-class FnS3UploadHandler(TealFunction):
-    name = "upload_handler"
-    handler = "teal_lang.run.aws.upload_handler"
+class FnEventHandler(TealFunction):
+    name = "event_handler"
+    handler = "teal_lang.run.aws.event_handler"
     needs_src_layer = True
-
-    # FIXME this should be done in the BucketTrigger class.
-    @classmethod
-    def create_extra_permissions(cls, config):
-        client = get_client(config, "lambda")
-        name = cls.resource_name(config)
-        # add_permission: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.add_permission
-        for bucket in config.service.upload_triggers:
-            client.add_permission(
-                FunctionName=name,
-                StatementId="s3-trigger",
-                Action="lambda:InvokeFunction",
-                Principal="s3.amazonaws.com",
-                SourceArn=f"arn:aws:s3:::{bucket.name}",
-                # SourceAccount="", # TODO get this account ID
-            )
-            LOG.info(f"Added S3 trigger permission from {bucket} to {name}")
 
 
 class FnGetOutput(TealFunction):
@@ -809,9 +791,12 @@ class BucketTrigger:
         return f"teal-{config.service.deployment_id}"
 
     def _get_filter(self, config):
-        trigger_config = next(
-            b for b in config.service.upload_triggers if b.name == self.bucket
-        )
+        try:
+            trigger_config = next(
+                b for b in config.service.upload_triggers if b.name == self.bucket
+            )
+        except StopIteration:
+            return None
         return dict(
             Key=dict(
                 FilterRules=[
@@ -841,7 +826,7 @@ class BucketTrigger:
 
     def exists(self, config):
         res = self._get_current(config)
-        arn = FnS3UploadHandler.get_arn(config)
+        arn = FnEventHandler.get_arn(config)
         if "LambdaFunctionConfigurations" in res:
             for fn in res["LambdaFunctionConfigurations"]:
                 if fn["LambdaFunctionArn"] == arn and fn["Filter"] == self._get_filter(
@@ -850,13 +835,18 @@ class BucketTrigger:
                     return True
         return False
 
+    def trigger_permission_id(self, config):
+        """StatementID of the permission added to the event handler lambda"""
+        return f"teal-s3-trigger-{self.bucket}"
+
     def create(self, config):
         client = get_client(config, "s3")
-        arn = FnS3UploadHandler.get_arn(config)
+        arn = FnEventHandler.get_arn(config)
         new = self._get_current(config)
+        name = self.resource_name(config)
 
         new_notification = dict(
-            Id=self.resource_name(config),
+            Id=name,
             LambdaFunctionArn=arn,
             Events=["s3:ObjectCreated:*"],
             Filter=self._get_filter(config),
@@ -873,15 +863,31 @@ class BucketTrigger:
             else:
                 new.append(new_notification)
 
-        # NOTE: the lambda MUST be configured to allow S3 triggers first
+        # Add the lambda permission. NOTE: this MUST be configured before adding
+        # the notification
+        lambda_client = get_client(config, "lambda")
+        handler_name = FnEventHandler.resource_name(config)
+        lambda_client.add_permission(
+            FunctionName=handler_name,
+            StatementId=self.trigger_permission_id(config),
+            Action="lambda:InvokeFunction",
+            Principal="s3.amazonaws.com",
+            SourceArn=f"arn:aws:s3:::{self.bucket}",
+            # SourceAccount="", # TODO get this account ID
+        )
+
+        # Actually add the notification
         client.put_bucket_notification_configuration(
             Bucket=self.bucket, NotificationConfiguration=new
         )
+        LOG.info(f"Added bucket notification from {self.bucket}")
 
-    def destroy(self, config):
+    def destroy_if_exists(self, config, definitely_exists=False):
+        if not self.exists(config):
+            return
         client = get_client(config, "s3")
         current = self._get_current(config)
-        arn = FnS3UploadHandler.get_arn(config)
+        arn = FnEventHandler.get_arn(config)
 
         # remove just this key
         new_fn_config = [
@@ -894,6 +900,14 @@ class BucketTrigger:
             Bucket=self.bucket, NotificationConfiguration=current
         )
 
+        # And remove the lambda invoke permission
+        lambda_client = get_client(config, "lambda")
+        handler_name = FnEventHandler.resource_name(config)
+        lambda_client.remove_permission(
+            FunctionName=handler_name, StatementId=self.trigger_permission_id(config),
+        )
+        LOG.info(f"Destroyed {self}")
+
     def create_or_update_or_destroy(self, config):
         exists = self.exists(config)
         needed = False
@@ -905,9 +919,105 @@ class BucketTrigger:
             if not exists:
                 self.create(config)
                 LOG.info(f"Created/updated {self}")
-        elif exists:
-            self.destroy(config)
-            LOG.info(f"Destroyed {self}")
+        else:
+            self.destroy_if_exists(config)
+
+
+# Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2.html#client
+class SharedAPIGateway:
+    @staticmethod
+    def resource_name(config):
+        return f"teal-{config.service.deployment_id}"
+
+    @staticmethod
+    def retrieve(config):
+        client = get_client(config, "apigatewayv2")
+        name = SharedAPIGateway.resource_name(config)
+        items = client.get_apis()["Items"]
+        for item in items:
+            if item["Name"] == name:
+                return item
+        return None
+
+    @staticmethod
+    def exists(config):
+        return SharedAPIGateway.retrieve(config) is not None
+
+    @staticmethod
+    def create_or_update(config):
+        if api := SharedAPIGateway.retrieve(config):
+            SharedAPIGateway.update(config, api)
+        else:
+            api = SharedAPIGateway.create(config)
+        endpoint = api["ApiEndpoint"]
+        LOG.info(f"API Endpoint: {endpoint}")
+
+    @staticmethod
+    def destroy_if_exists(config):
+        if not (api := SharedAPIGateway.retrieve(config)):
+            return
+
+        client = get_client(config, "apigatewayv2")
+        client.delete_api(ApiId=api["ApiId"])
+
+        lambda_client = get_client(config, "lambda")
+        handler_name = FnEventHandler.resource_name(config)
+        lambda_client.remove_permission(
+            FunctionName=handler_name, StatementId=SharedAPIGateway.trigger_permission_id(config),
+        )
+
+        name = api["Name"]
+        LOG.info(f"Deleted API {name}")
+
+    @staticmethod
+    def trigger_permission_id(config):
+        return "teal-apigateway"
+
+    @staticmethod
+    def create(config):
+        client = get_client(config, "apigatewayv2")
+        name = SharedAPIGateway.resource_name(config)
+
+        # Quick Create is awesome.
+        #
+        # NOTE: Leave RouteKey default so this API catches everything
+        # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2.html#ApiGatewayV2.Client.create_api
+        # Cors: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-cors.html
+        response = client.create_api(
+            Name=name,
+            ProtocolType="HTTP",
+            Target=FnEventHandler.get_arn(config),
+            Description=f"Catch-all handler for Teal {config.service.deployment_id}",
+            # CorsConfiguration = dict(
+            #     AllowCredentials=False,  # TODO? Not allowed with AllowOrigins=*
+            #     AllowOrigins=["*"],  # TODO config this
+            #     AllowMethods=["*"],
+            #     AllowHeaders=["*"],
+            # )
+        )
+
+        api_id = response["ApiId"]
+
+        # Allow invocation
+        # https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html
+        lambda_client = get_client(config, "lambda")
+        handler_name = FnEventHandler.resource_name(config)
+        account_id = "297409317403"  # TODO get this account ID
+        lambda_client.add_permission(
+            FunctionName=handler_name,
+            StatementId=SharedAPIGateway.trigger_permission_id(config),
+            Action="lambda:InvokeFunction",
+            Principal="apigateway.amazonaws.com",
+            SourceArn=f"arn:aws:execute-api:{config.service.region}:{account_id}:{api_id}/*/$default",
+        )
+        LOG.info(f"Created API {name}")
+        return response
+
+    @staticmethod
+    def update(config, api):
+        name = api["Name"]
+        LOG.info(f"Updated API {name}")
+        # TODO ?? Will become relevant when auth is configurable.
 
 
 CORE_RESOURCES = [
@@ -920,12 +1030,12 @@ CORE_RESOURCES = [
     FnSetexe,
     FnNew,
     FnResume,
-    FnS3UploadHandler,
+    FnEventHandler,
     # TODO combine these three:
     FnGetOutput,
     FnGetEvents,
     FnVersion,
-    # SharedAPIGateway, TODO
+    SharedAPIGateway,
 ]
 
 
@@ -957,7 +1067,13 @@ def destroy(config):
     # destroy in reverse order so dependencies go first
     for res in reversed(CORE_RESOURCES):
         LOG.info("Resource: %s", res)
-        res.delete_if_exists(config)
+        res.destroy_if_exists(config)
+
+    for bucket in config.service.managed_buckets:
+        # TODO s3_access should be here too.
+        res = BucketTrigger(bucket)
+        LOG.info("Resource: %s", res)
+        res.destroy_if_exists(config)
 
 
 def show(config):

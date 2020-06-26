@@ -17,6 +17,8 @@ from ..machine.executable import Executable
 from ..teal_compiler.compiler import CompileError
 from ..teal_parser.parser import TealSyntaxError
 
+from .lambda_source import get_lambda_event_source
+
 
 def version(event, context):
     return success(version=__version__)
@@ -95,33 +97,94 @@ def new(event, context):
     )
 
 
-def upload_handler(event, context):
-    """Handle uploads to S3 buckets
+def event_handler(event, context):
+    """Handle all 'events'.
 
-    NOTE - unlike `new', this does not wait for finish by default.
+    Events could be an S3 upload, an API trigger, ...
     """
+    handlers = [S3Handler, ApiHandler]
 
-    # https://docs.aws.amazon.com/AmazonS3/latest/dev/notification-content-structure.html
+    for h in handlers:
+        if h.can_handle(event):
+            return _new_session(**h.get_invoke_args(event))
 
-    if (it := event["Records"][0]["eventVersion"].split(".")[0]) != "2":
-        raise NotImplementedError(f"AWS have changed major event versions! {it}")
+    raise Exception(f"Can't handle event {event}")
 
-    data = event["Records"][0]["s3"]
 
-    if (it := data["s3SchemaVersion"]) != "1.0":
-        raise NotImplementedError(f"AWS have changed S3 schema version! {it}")
+def set_exe(event, context):
+    """Set the executable for the base session"""
+    db.init_base_session()
+    content = event["content"]
 
-    bucket = data["bucket"]["name"]
-    key = data["object"]["key"]  # NOTE - could check size here
+    try:
+        exe = load.compile_text(content)
+    except Exception as exc:
+        return fail(f"Error compiling code", exception=exc)
 
-    return _new_session(
-        function="on_upload",  # constant
-        args=[mt.TlString(bucket), mt.TlString(key), mt.TlString("aws")],
-        wait_for_finish=False,
-        check_period=None,
-        timeout=None,
-        code_override=None,
-    )
+    db.set_base_exe(exe)
+    return success(message="Base Executable set successfully")
+
+
+def getoutput(event, context):
+    """Get Teal standard output for a session"""
+    session_id = event.get("session_id", None)
+
+    if not session_id:
+        return fail("No session ID")
+
+    try:
+        controller = ddb_controller.DataController.with_session_id(session_id)
+        output = [o.serialise() for o in controller.get_stdout()]
+        errors = [
+            controller.get_state(idx).error_msg for idx in controller.get_thread_ids()
+        ]
+    except ControllerError as exc:
+        return fail("Error getting data", exception=exc)
+
+    return success(output=output, errors=errors)
+
+
+def getevents(event, context) -> dict:
+    """Get probe events for a session"""
+    session_id = event.get("session_id", None)
+
+    if not session_id:
+        return fail("No session ID")
+
+    try:
+        controller = ddb_controller.DataController.with_session_id(session_id)
+        events = [pe.serialise() for pe in controller.get_probe_events()]
+    except ControllerError as exc:
+        return fail("Error loading session data", exception=exc)
+
+    return success(events=events)
+
+
+## API gateway wrappers
+
+
+def wrap_apigw(fn):
+    """API Gateway wrapper for FN"""
+
+    @functools.wraps(fn)
+    def _wrapper(event, context):
+        try:
+            body = json.loads(event["body"])
+        except (KeyError, TypeError, json.decoder.JSONDecodeError):
+            return fail("No event body")
+
+        return fn(body, context)
+
+    return _wrapper
+
+
+new_apigw = wrap_apigw(new)
+getoutput_apigw = wrap_apigw(getoutput)
+getevents_apigw = wrap_apigw(getevents)
+version_apigw = wrap_apigw(version)
+
+
+##
 
 
 def _new_session(
@@ -175,7 +238,7 @@ def _new_session(
             if time.time() - start_time > timeout:
                 return fail(
                     "Timeout waiting for Teal program to finish",
-                    session_id=controller.session_id
+                    session_id=controller.session_id,
                 )
 
     return success(
@@ -185,74 +248,3 @@ def _new_session(
         broken=controller.broken,
         result=controller.result,
     )
-
-
-def set_exe(event, context):
-    """Set the executable for the base session"""
-    db.init_base_session()
-    content = event["content"]
-
-    try:
-        exe = load.compile_text(content)
-    except Exception as exc:
-        return fail(f"Error compiling code", exception=exc)
-
-    db.set_base_exe(exe)
-    return success(message="Base Executable set successfully")
-
-
-def getoutput(event, context):
-    """Get Teal standard output for a session"""
-    session_id = event.get("session_id", None)
-
-    if not session_id:
-        return fail("No session ID")
-
-    try:
-        controller = ddb_controller.DataController.with_session_id(session_id)
-        output = [o.serialise() for o in controller.get_stdout()]
-        errors = [controller.get_state(idx).error_msg for idx in controller.get_thread_ids()]
-    except ControllerError as exc:
-        return fail("Error getting data", exception=exc)
-
-    return success(output=output, errors=errors)
-
-
-def getevents(event, context) -> dict:
-    """Get probe events for a session"""
-    session_id = event.get("session_id", None)
-
-    if not session_id:
-        return fail("No session ID")
-
-    try:
-        controller = ddb_controller.DataController.with_session_id(session_id)
-        events = [pe.serialise() for pe in controller.get_probe_events()]
-    except ControllerError as exc:
-        return fail("Error loading session data", exception=exc)
-
-    return success(events=events)
-
-
-## API gateway wrappers
-
-
-def wrap_apigw(fn):
-    """API Gateway wrapper for FN"""
-
-    @functools.wraps(fn)
-    def _wrapper(event, context):
-        try:
-            body = json.loads(event["body"])
-        except (KeyError, TypeError, json.decoder.JSONDecodeError):
-            return fail("No event body")
-
-        return fn(body, context)
-
-    return _wrapper
-
-
-new_apigw = wrap_apigw(new)
-getoutput_apigw = wrap_apigw(getoutput)
-getevents_apigw = wrap_apigw(getevents)
-version_apigw = wrap_apigw(version)
