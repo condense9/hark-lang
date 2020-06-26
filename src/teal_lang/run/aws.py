@@ -17,7 +17,7 @@ from ..machine.executable import Executable
 from ..teal_compiler.compiler import CompileError
 from ..teal_parser.parser import TealSyntaxError
 
-from .lambda_source import get_lambda_event_source
+from . import lambda_handlers
 
 
 def version(event, context):
@@ -102,9 +102,7 @@ def event_handler(event, context):
 
     Events could be an S3 upload, an API trigger, ...
     """
-    handlers = [S3Handler, ApiHandler]
-
-    for h in handlers:
+    for h in lambda_handlers.ALL_HANDLERS:
         if h.can_handle(event):
             return _new_session(**h.get_invoke_args(event))
 

@@ -108,7 +108,8 @@ def print_traceback(controller, source_text: str, stream=sys.stdout):
                     idx = source_text[: instr.source].count("\n")
                     line = lines[idx]
                 else:
-                    line = "<unknown line>"
+                    idx = "<unknown line>"
+                    line = "--"
 
                 prefix = f"[{thread}] in {fn}, line {idx}:"
                 stream.write(f"~ {prefix:<25} {line}\n")

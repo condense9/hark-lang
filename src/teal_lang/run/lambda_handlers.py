@@ -1,11 +1,11 @@
 """Handle different kinds of events"""
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from ..machine import types as mt
 
 
 class TealEventHandler(ABC):
-    """A generic event handler.
+    """An event handler.
 
     Designed so new event handlers can be built without having to interface
     tightly with Teal
@@ -26,7 +26,7 @@ class TealEventHandler(ABC):
         """
 
 
-class S3Handler:
+class S3Handler(TealEventHandler):
     @classmethod
     def can_handle(cls, event: dict):
         return (
@@ -41,7 +41,7 @@ class S3Handler:
     def get_invoke_args(cls, event: dict) -> dict:
         """Get arguments to invoke the upload handler
 
-        NOTE: does not return anything!
+        NOTE: does not wait for the session to finish!
         """
         data = event["Records"][0]["s3"]
 
@@ -57,7 +57,7 @@ class S3Handler:
         )
 
 
-class ApiHandler:
+class ApiHandler(TealEventHandler):
     @classmethod
     def can_handle(cls, event: dict):
         return "routeKey" in event and "rawPath" in event and "rawQueryString" in event
@@ -74,3 +74,7 @@ class ApiHandler:
             check_period=0.02,
             timeout=3.0,  # TODO? make configurable
         )
+
+
+# List of all available handlers
+ALL_HANDLERS = [S3Handler, ApiHandler]

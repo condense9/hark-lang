@@ -56,24 +56,25 @@ import sys
 import time
 from pathlib import Path
 
+import botocore
+
 from docopt import docopt
 
 from .. import __version__
-from . import interface
+from ..config import load as load_config
+from . import interface, utils
 from .interface import (
-    good,
-    bad,
-    neutral,
-    dim,
-    init,
-    TICK,
     CROSS,
-    primary,
+    TICK,
+    bad,
+    dim,
     exit_fail,
+    good,
+    init,
+    neutral,
+    primary,
     spin,
 )
-from . import utils
-from ..config import load as load_config
 
 LOG = logging.getLogger(__name__)
 
@@ -151,7 +152,6 @@ def timed(fn):
 @timed
 def _deploy(args):
     from ..cloud import aws
-    import botocore
 
     cfg = load_config(
         config_file=Path(args["--config"]), require_dep_id=True, create_dep_id=True,
@@ -165,19 +165,7 @@ def _deploy(args):
 
     with spin(args, "Checking API") as sp:
         api = aws.get_api()
-
-        try:
-            response = _call_cloud_api("version", {}, Path(args["--config"]))
-        except botocore.exceptions.ClientError as exc:
-            if exc.response["Error"]["Code"] == "KMSAccessDeniedException":
-                sp.fail(CROSS)
-                print(
-                    bad("\nAWS is not ready. Try `teal deploy` again in a few minutes.")
-                )
-                interface.let_us_know("Deployment Failed (KMSAccessDeniedException)")
-                sys.exit(1)
-            raise
-
+        response = _call_cloud_api("version", {}, Path(args["--config"]))
         sp.text += " Teal " + dim(response["version"])
         sp.ok(TICK)
 
@@ -214,9 +202,18 @@ def _call_cloud_api(function: str, args: dict, config_file: Path, as_json=True):
     api = aws.get_api()
     cfg = load_config(config_file=config_file, require_dep_id=True)
 
-    # See teal_lang/executors/awslambda.py
     LOG.debug("Calling Teal cloud: %s %s", function, args)
-    logs, response = getattr(api, function).invoke(cfg, args)
+
+    try:
+        logs, response = getattr(api, function).invoke(cfg, args)
+    except botocore.exceptions.ClientError as exc:
+        if exc.response["Error"]["Code"] == "KMSAccessDeniedException":
+            msg = "\nAWS is not ready (KMSAccessDeniedException). Please try again in a few minutes."
+            print(bad(msg))
+            interface.let_us_know("Deployment Failed (KMSAccessDeniedException)")
+            sys.exit(1)
+        raise
+
     LOG.info(logs)
 
     # This is when there's an unhandled exception in the Lambda.
