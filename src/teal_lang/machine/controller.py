@@ -1,11 +1,14 @@
 """Placeholder for the controller class"""
 
 import logging
+from typing import List
+
 from . import types as mt
-from .state import State
+from .arec import ActivationRecord
 from .future import Future
 from .probe import Probe
-from .arec import ActivationRecord
+from .state import State
+from .thread_failure import StackTraceItem, ThreadFailure
 
 LOG = logging.getLogger(__name__)
 
@@ -18,7 +21,7 @@ class Controller:
     def __init__(self):
         raise NotImplementedError("Must be subclassed")
 
-    def toplevel_machine(self, fn_ptr, args):
+    def toplevel_machine(self, fn_ptr: mt.TlFunctionPtr, args):
         """Create a top-level machine"""
         vmid = self.new_thread()
         arec = ActivationRecord(
@@ -29,6 +32,7 @@ class Controller:
             bindings={},
             ref_count=1,
         )
+        self.set_entrypoint(fn_ptr.identifier)
         self._init_thread(vmid, fn_ptr, args, arec)
         return vmid
 
@@ -174,19 +178,51 @@ class Controller:
 
     ##
 
-    def get_stacktrace(self, vmid) -> list:
+    def get_failures(self) -> List[ThreadFailure]:
+        """Get information about failed threads"""
+        results = []
+        for vmid in self.get_thread_ids():
+            state = self.get_state(vmid)
+            if state.error_msg is not None:
+                stacktrace = self.get_stacktrace(vmid)
+                results.append(
+                    ThreadFailure(
+                        # --
+                        thread=vmid,
+                        error_msg=state.error_msg,
+                        stacktrace=stacktrace,
+                    )
+                )
+        return results
+
+    def get_stacktrace(self, vmid) -> List[StackTraceItem]:
         """Get a stack trace for a thread"""
+        trace = []
         state = self.get_state(vmid)
         arec_ptr = state.current_arec_ptr
         arec = self.get_arec(arec_ptr)
 
-        # minus 1: IP is pre-advanced
-        trace = [[vmid, state.ip - 1, arec.function.identifier]]
+        # Push the current frame
+        trace.append(
+            StackTraceItem(
+                caller_thread=vmid,
+                caller_ip=state.ip - 1,  # minus 1: IP is pre-advanced
+                caller_fn=arec.function.identifier,
+            )
+        )
+
+        # And then all parents
         while True:
             arec = self.get_arec(arec_ptr)
             if arec.dynamic_chain is not None:
                 parent = self.get_arec(arec.dynamic_chain)
-                trace.append([parent.vmid, arec.call_site, parent.function.identifier])
+                trace.append(
+                    StackTraceItem(
+                        caller_thread=parent.vmid,
+                        caller_ip=arec.call_site,
+                        caller_fn=parent.function.identifier,
+                    )
+                )
             else:
                 break
             arec_ptr = arec.dynamic_chain

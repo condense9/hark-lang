@@ -1,5 +1,6 @@
 """TealSerialisable class"""
-from dataclasses import dataclass, asdict
+import datetime
+from dataclasses import asdict, dataclass
 
 
 @dataclass
@@ -17,3 +18,7 @@ class TealSerialisable:
     @classmethod
     def deserialise(cls, item: dict):
         return cls(**item)
+
+
+def now_str() -> str:
+    return datetime.datetime.now().isoformat()

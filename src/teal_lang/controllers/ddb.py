@@ -85,6 +85,14 @@ class DataController(Controller):
             raise ControllerError("Could not update session executable") from exc
         LOG.info("Updated session code")
 
+    def set_entrypoint(self, fn_name: str):
+        s = self._qry("meta")
+        s.meta.entrypoint = fn_name
+        try:
+            s.save()
+        except SI.UpdateError as exc:
+            raise ControllerError from exc
+
     ## Threads
 
     def new_thread(self) -> int:

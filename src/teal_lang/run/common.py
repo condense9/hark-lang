@@ -96,21 +96,19 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
 def print_traceback(controller, source_text: str, stream=sys.stdout):
     """Print the traceback for a controller"""
     lines = source_text.split("\n")
-    for vmid in controller.get_thread_ids():
-        state = controller.get_state(vmid)
-        err = state.error_msg
-        if err is not None:
-            stream.write(str(ui.bad(f"\nError [Thread {vmid}]: {err}\n\n")))
-            stream.write("Teal Traceback (most recent call last):\n")
-            for thread, ip, fn in reversed(controller.get_stacktrace(vmid)):
-                instr = controller.executable.code[ip]
-                if instr.source is not None:
-                    idx = source_text[: instr.source].count("\n")
-                    line = lines[idx]
-                else:
-                    idx = "<unknown line>"
-                    line = "--"
+    for failure in controller.get_failures():
+        msg = f"\nError [Thread {failure.thread}]: {failure.error_msg}\n\n"
+        stream.write(str(ui.bad(msg)))
+        stream.write("Teal Traceback (most recent call last):\n")
+        for item in reversed(failure.stacktrace):
+            instr = controller.executable.code[item.caller_ip]
+            if instr.source is not None:
+                idx = source_text[: instr.source].count("\n")
+                line = lines[idx]
+            else:
+                idx = "<unknown line>"
+                line = "--"
 
-                prefix = f"[{thread}] in {fn}, line {idx}:"
-                stream.write(f"~ {prefix:<25} {line}\n")
-            stream.write("\n")
+            prefix = f"[{item.caller_thread}] in {item.caller_fn}, line {idx}:"
+            stream.write(f"~ {prefix:<25} {line}\n")
+        stream.write("\n")

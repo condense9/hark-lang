@@ -72,6 +72,7 @@ class ARecAttribute(MapAttribute):
 class MetaAttribute(MapAttribute):
     num_threads = NumberAttribute(default=0)
     num_arecs = NumberAttribute(default=0)
+    entrypoint = UnicodeAttribute(null=True)
     stopped = ListAttribute(default=list)
     exe = MapAttribute(null=True)
     result = JSONAttribute(null=True)
@@ -103,11 +104,13 @@ class SessionItem(Model):
     session_id = UnicodeAttribute(hash_key=True)
     item_id = UnicodeAttribute(range_key=True)
     locked = BooleanAttribute(default=False)
+    # TODO create LSI on created_at
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
     expires_on = NumberAttribute()
 
     # Only one of these items should actually be set, determined by the item_id
+    new_session_record = UnicodeAttribute(null=True)
     meta = MetaAttribute(null=True)
     stdout = ListAttribute(null=True)
     plogs = ListAttribute(null=True)
@@ -172,6 +175,17 @@ def new_session() -> SessionItem:
     new_session_item(sid, "plogs", plogs=[]).save()
     new_session_item(sid, "pevents", pevents=[]).save()
     new_session_item(sid, "stdout", stdout=[]).save()
+
+    # Record the new session for cheap retrieval later
+    SessionItem(
+        session_id=BASE_SESSION_ID,
+        item_id=str(s.created_at),  # for sorting by created_at
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        expires_on=int(ITEM_TTL + time.time()),
+        new_session_record=sid,
+    ).save()
+
     return s
 
 

@@ -1,10 +1,9 @@
 """Machine Probe"""
 
 from dataclasses import dataclass
-import time
 
 from .types import TlType
-from .teal_serialisable import TealSerialisable
+from .teal_serialisable import TealSerialisable, now_str
 
 
 @dataclass(frozen=True)
@@ -33,9 +32,9 @@ class Probe:
         self.events = []
 
     def event(self, etype: str, **data):
-        self.events.append(
-            ProbeEvent(thread=self.vmid, time=time.time(), event=etype, data=data)
-        )
+        e = ProbeEvent(thread=self.vmid, time=now_str(), event=etype, data=data)
+        self.events.append(e)
 
     def log(self, text):
-        self.logs.append(ProbeLog(thread=self.vmid, time=time.time(), text=text))
+        l = ProbeLog(thread=self.vmid, time=now_str(), text=text)
+        self.logs.append(l)

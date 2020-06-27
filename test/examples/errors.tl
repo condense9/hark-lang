@@ -1,12 +1,14 @@
 import(bad_fn, :python pysrc.main)
 
 fn main() {
+  print("main starting...")
   x = async bad()
+  y = async py_bad()
 }
 
 
 fn bad() {
-  print("hi")
+  print("About to fail")
   signal("error", "badness")
 }
 

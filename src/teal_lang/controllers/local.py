@@ -33,6 +33,9 @@ class DataController(Controller):
     def set_executable(self, exe):
         self.executable = exe
 
+    def set_entrypoint(self, fn_name: str):
+        pass  # N/A for local
+
     ## Threads
 
     def new_thread(self):
