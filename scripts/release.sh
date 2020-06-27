@@ -61,8 +61,16 @@ printf "\nReleasing version: %s (from pyproject.toml)\n\n" "${VERSION}"
 
 read -p "Are you sure (Y/n)? " -n 1 -r
 echo
-if [[ $REPLY =~ ^[Y]$ ]]; then
-    do_release
-else
+if [[ ! $REPLY =~ ^[Y]$ ]]; then
     echo "Aborting."
+    exit 1
 fi
+
+read -p "Definitely??? (Y/n)? " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Y]$ ]]; then
+    echo "Aborting."
+    exit 1
+fi
+
+do_release
