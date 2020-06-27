@@ -227,4 +227,4 @@ class Controller:
                 break
             arec_ptr = arec.dynamic_chain
 
-        return trace
+        return list(reversed(trace))

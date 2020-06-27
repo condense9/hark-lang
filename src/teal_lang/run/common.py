@@ -100,7 +100,7 @@ def print_traceback(controller, source_text: str, stream=sys.stdout):
         msg = f"\nError [Thread {failure.thread}]: {failure.error_msg}\n\n"
         stream.write(str(ui.bad(msg)))
         stream.write("Teal Traceback (most recent call last):\n")
-        for item in reversed(failure.stacktrace):
+        for item in failure.stacktrace:
             instr = controller.executable.code[item.caller_ip]
             if instr.source is not None:
                 idx = source_text[: instr.source].count("\n")
