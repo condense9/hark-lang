@@ -7,17 +7,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [unreleased]
 
+## [0.3.0] (2020-06-27)
+
+### New
+
+- New syntax for lists and hash maps (dictionaries)
+- Optional API Gateway trigger for sessions
+- Teal Tracebacks on error
+
 ### Changed
 
+- More tests
+- Massively improved CLI experience (colours, logs, progress indications)
+- Activation Records used internally for stack management
+- Big upgrades to underlying data model - more efficient and maintainable
 - Removed the project name in config - it doesn't help anything, and adds extra
   state to keep track of (deployment ID is enough).
-- Add colouring to logs output and clean them up a little
 - Local run prints result at the end
 - Local run prints stdout in real-time, instead in one go at the end
+- No dependency on TL_REGION - just use AWS_DEFAULT_REGION
+- Many other small improvements
 
 ### Fixed
 
 - Tail-call optimisation bug which caused all values in a block to be kept
+- *Lots* of other bugs.
 
 
 ## [0.2.4] (2020-06-08)
@@ -111,7 +125,8 @@ Initial release.
 - A few examples
 
 
-[unreleased]: https://github.com/condense9/teal-lang/compare/v0.2.4...HEAD
+[unreleased]: https://github.com/condense9/teal-lang/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/condense9/teal-lang/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/condense9/teal-lang/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/condense9/teal-lang/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/condense9/teal-lang/compare/v0.2.1...v0.2.2
