@@ -16,8 +16,10 @@ test:  ## Run all unit tests (including the slow ones!)
 
 .PHONY: lint
 lint:  ## check for syntax errors or undefined names
-	flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude src/teal_lang/teal_parser/parser.py --exclude .teal_data
-	flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics --exclude .teal_data
+	flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics \
+    --exclude src/teal_lang/teal_parser/parser.py,.teal_data,scratch
+	flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics \
+    --exclude src/teal_lang/teal_parser/parser.py,.teal_data,scratch
 
 
 .PHONY: testfast
