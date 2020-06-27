@@ -138,9 +138,10 @@ class DataController(Controller):
 
     @broken.setter
     def broken(self, value):
-        s = self._qry("meta")
-        s.meta.broken = True
-        s.save()
+        with self._lock_item("meta"):
+            s = self._qry("meta")
+            s.meta.broken = True
+            s.save()
 
     @property
     def result(self):
@@ -149,9 +150,10 @@ class DataController(Controller):
 
     @result.setter
     def result(self, value):
-        s = self._qry("meta")
-        s.meta.result = value
-        s.save()
+        with self._lock_item("meta"):
+            s = self._qry("meta")
+            s.meta.result = value
+            s.save()
 
     ## arecs
 
