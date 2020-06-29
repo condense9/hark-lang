@@ -84,7 +84,7 @@ class Controller:
         # Pop parent records until one is still being used
         if collect_garbage:
             while rec.dynamic_chain:
-                with self.lock_arec(ptr):
+                with self.lock_arec(rec.dynamic_chain):
                     parent = self.decrement_ref(rec.dynamic_chain)
                     if parent.ref_count > 0:
                         break
@@ -100,17 +100,18 @@ class Controller:
         if isinstance(value, mt.TlFuturePtr):
             raise TypeError(value)
 
-        future = self.get_future(vmid)
-        future.resolved = True
-        future.value = value
-        self.set_future(vmid, future)
+        with self.lock_future(vmid):
+            future = self.get_future(vmid)
+            future.resolved = True
+            future.value = value
+            self.set_future(vmid, future)
+
+            continuations = future.continuations
+            if future.chain:
+                continuations += self.resolve_future(future.chain, value)
 
         if self.is_top_level(vmid):
             self.result = mt.to_py_type(value)
-
-        continuations = future.continuations
-        if future.chain:
-            continuations += self.resolve_future(future.chain, value)
 
         LOG.info("Resolved %d to %s. Continuations: %s", vmid, value, continuations)
         return continuations
@@ -130,16 +131,14 @@ class Controller:
         # Otherwise, VALUE is another future, and we can only resolve this machine's
         # future if VALUE has also resolved. If VALUE hasn't resolved, we "chain"
         # this machine's future to it.
-        with self.lock_future(value.vmid):
-            next_future = self.get_future(value.vmid)
+        next_future_id = value.vmid
+        with self.lock_future(next_future_id):
+            next_future = self.get_future(next_future_id)
             if next_future.resolved:
-                return (
-                    next_future.value,
-                    self._resolve_future(vmid, next_future.value),
-                )
+                return (next_future.value, self.resolve_future(vmid, next_future.value))
             else:
                 LOG.info("Chaining %s to %s", vmid, value)
-                self.set_future_chain(value.vmid, vmid)
+                self.set_future_chain(next_future_id, vmid)
                 return None, []
 
     def get_or_wait(self, vmid, future_ptr):
