@@ -1,7 +1,7 @@
 """Teal configuration data, usually stored in teal.toml"""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Tuple
 
@@ -43,6 +43,7 @@ class InstanceConfig:
     managed_buckets: tuple = ()
     upload_triggers: Tuple[BucketTriggerConfig] = ()
     enable_api: bool = False
+    name: str = "dev"
 
     def __post_init__(self):
         # ensure some keys are paths

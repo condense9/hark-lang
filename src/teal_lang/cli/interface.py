@@ -81,7 +81,7 @@ def neutral(string):
 def exit_fail(err, *, data=None, traceback=None):
     """Something broke while running"""
     print("")
-    print(bad("Unexpected error: " + str(err)))
+    print(bad(str(err)))
 
     if traceback:
         print("\n" + "".join(traceback))
@@ -89,10 +89,13 @@ def exit_fail(err, *, data=None, traceback=None):
     if data:
         print(f"Associated Data:\n{data}")
 
-    # TODO sadface ascii art
-    print("If this persists, please let us know:")
-    params = "?" + urllib.parse.urlencode(dict(title=err))
-    print(f"https://github.com/condense9/teal-lang/issues/new{params}")
+    # If no traceback or data, it's assumed this is a general error and not a
+    # bug.
+    if traceback or data:
+        # TODO sadface ascii art
+        print("If this persists, please let us know:")
+        params = "?" + urllib.parse.urlencode(dict(title=err))
+        print(f"https://github.com/condense9/teal-lang/issues/new{params}")
 
     sys.exit(1)
 
@@ -122,9 +125,17 @@ def spin(args, text):
 def check(question: str, default=False) -> bool:
     """Check whether the user wants to proceed"""
     answers = prompt(
-        {"type": "confirm", "message": question, "name": "check", "default": default}
+        {"type": "confirm", "name": "check", "message": question, "default": default}
     )
     return answers["check"]
+
+
+def select(question: str, options: list) -> str:
+    """Choose one from a list"""
+    answers = prompt(
+        {"type": "list", "name": "select", "message": question, "choices": options,},
+    )
+    return answers.get("select", None)
 
 
 # TODO types for these interfaces - they're outputs from awslambda.py

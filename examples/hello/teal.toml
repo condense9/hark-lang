@@ -6,16 +6,11 @@ teal_file = "hello.tl"
 ## optional, location of Python source:
 python_src = "src"
 
-## optional
-data_dir = ".teal_data"
-
-
 [instance]
 
 ## optional, extra layers to use (maximum of 4)
 extra_layers = [
   # Layer from: https://github.com/keithrozario/Klayers
-  "arn:aws:lambda:eu-west-2:770693421928:layer:Klayers-python38-Pillow:4"
 ]
 
 ## optional, location of Python dependencies:
@@ -25,13 +20,8 @@ extra_layers = [
 lambda_timeout = 20
 
 ## optional, lambda function memory (MB)
-lambda_memory = 512
+lambda_memory = 128
 
 ## optional, file with lambda environment variables
 # env = "teal_env.txt"
-
-## optional, enable read/write to one or more s3 buckets
-s3_access = [
-  "teal-examples-data"
-]
 

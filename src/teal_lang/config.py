@@ -25,14 +25,22 @@ class ConfigError(Exception):
     """Error loading configuration"""
 
 
+LAST_LOADED = None
+
+
 @dataclass
 class Config:
     root: str
+    config_file: Path
     project: ProjectConfig
     instance: InstanceConfig
     endpoint: Union[str, None]
     instance_uuid: Union[uuid.UUID, None]
     project_id: Union[str, None]
+
+
+def get_last_loaded() -> Config:
+    return LAST_LOADED
 
 
 @functools.lru_cache
@@ -62,14 +70,17 @@ def load(config_file: Path = None) -> Config:
     if not project_config.data_dir.is_dir():
         os.makedirs(str(project_config.data_dir))
 
-    return Config(
+    global LAST_LOADED
+    LAST_LOADED = Config(
         root=project_root,
+        config_file=config_file,
         project=project_config,
         instance=instance_config,
         endpoint=os.environ.get("TEAL_CLOUD_ENDPOINT", None),
         instance_uuid=_try_get_instance_uuid(project_config.data_dir),
         project_id=_try_get_project_id(project_config.data_dir),
     )
+    return LAST_LOADED
 
 
 def _try_get_instance_uuid(data_dir: Path) -> Union[uuid.UUID, None]:
@@ -77,15 +88,7 @@ def _try_get_instance_uuid(data_dir: Path) -> Union[uuid.UUID, None]:
     filename = data_dir / DEFAULT_UUID_FILENAME
     if data_dir.exists() and filename.exists():
         with open(filename) as f:
-            return uuid.UUID(f.read())
-
-
-def _try_get_project_id(data_dir: Path) -> Union[str, None]:
-    """Get the project ID if it exists"""
-    filename = data_dir / DEFAULT_PROJECTID_FILENAME
-    if data_dir.exists() and filename.exists():
-        with open(filename) as f:
-            return f.read()
+            return uuid.UUID(f.read().strip())
 
 
 def new_instance_uuid(config: Config) -> uuid.UUID:
@@ -103,3 +106,19 @@ def new_instance_uuid(config: Config) -> uuid.UUID:
 
     LOG.info("New instance: %s", cfg.instance_uuid)
     return value
+
+
+def _try_get_project_id(data_dir: Path) -> Union[str, None]:
+    """Get the project ID if it exists"""
+    filename = data_dir / DEFAULT_PROJECTID_FILENAME
+    if data_dir.exists() and filename.exists():
+        with open(filename) as f:
+            return f.read().strip()
+
+
+def set_project_id(config: Config, project_id: int):
+    """Save the project ID in the project data"""
+    data_dir = config.project.data_dir
+    filename = data_dir / DEFAULT_PROJECTID_FILENAME
+    with open(filename, "w") as f:
+        return f.write(str(project_id))

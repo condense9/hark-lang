@@ -51,6 +51,7 @@ yaspin = "^0.17.0"
 colorful = "^0.5.4"
 texttable = "^1.6.2"
 PyInquirer = "^1.0.3"
+gql = "^2.0.0"
 
 [tool.poetry.dev-dependencies]
 boto3 = "*"

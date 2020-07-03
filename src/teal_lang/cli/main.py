@@ -62,7 +62,8 @@ from pathlib import Path
 from docopt import docopt
 
 from .. import __version__, config
-from . import interface, utils
+from . import interface as ui
+from . import utils
 from .interface import (
     CROSS,
     TICK,
@@ -179,27 +180,40 @@ def _asm(args):
 
 def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
     """Helper - do something either in your cloud or the hosted Teal Cloud"""
-    if cfg.endpoint:
+    if cfg.endpoint and not cfg.instance_uuid:
         if not cfg.project_id:
-            # TODO init - login and choose project
-            exit_fail("No project ID!")
-        return do_in_hosted
-    else:
-        if not cfg.instance_uuid:
-            if can_create_uuid and check(
-                "No Teal instance found - would you like to create one?"
-            ):
-                cfg.instance_uuid = config.new_instance_uuid(cfg)
-            else:
-                exit_fail("No instance UUID or endpoint configured.")
+            from . import hosted_query
 
-        return do_in_own
+            print("No project configured, retrieving your projects...")
+            projects = hosted_query.list_projects()
+            options = [p.name for p in projects]
+            choice = ui.select("Which project would you like?", options)
+            if choice:
+                project_id = next(p.id for p in projects if p.name == choice)
+                config.set_project_id(cfg, project_id)
+                cfg.project_id = project_id
+
+        if cfg.project_id:
+            return do_in_hosted
+
+    if not cfg.instance_uuid:
+        if can_create_uuid and check(
+            "No Teal instance found - would you like to create one?"
+        ):
+            cfg.instance_uuid = config.new_instance_uuid(cfg)
+        else:
+            exit_fail("No instance UUID or endpoint configured.")
+
+    return do_in_own
 
 
 @timed
 @need_cfg
 def _deploy(args, cfg):
     from . import in_own, in_hosted
+
+    # TODO prompt when it looks like this is a new instance. Make sure! Need an
+    # AWS method (e.g. check whether the first/last resources exist)
 
     deployer = _local_or_cloud(
         cfg, in_own.deploy, in_hosted.deploy, can_create_uuid=True
@@ -269,9 +283,9 @@ def _events(args, cfg):
         with spin(args, f"Getting events {dim(sid)}"):
             data = invoker(args, cfg, sid)
         if args["--unified"]:
-            interface.print_events_unified(data)
+            ui.print_events_unified(data)
         else:
-            interface.print_events_by_machine(data)
+            ui.print_events_by_machine(data)
 
 
 @need_cfg
@@ -291,7 +305,7 @@ def _stdout(args, cfg):
         with spin(args, f"Getting stdout {dim(sid)}") as sp:
             data = invoker(args, cfg, sid)
             sp.ok(TICK)
-        interface.print_outputs(data)
+        ui.print_outputs(data)
 
 
 @timed

@@ -45,10 +45,6 @@ def zip_dir(dirname: Path, dest: Path, deterministic=True):
         dz.add_directory(zip_file, dirname, dirname.name)
 
 
-def make_teal_zip(config, dest: Path):
-    raise NotImplementedError
-
-
 def make_python_layer_zip(config: Config, dest: Path):
     """Create the python code layer Zip, saving it in dest"""
     root = Path(__file__).parents[3]
