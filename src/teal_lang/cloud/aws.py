@@ -90,7 +90,7 @@ def get_bucket_and_key(s3_path: str) -> Tuple[str, str]:
     # path = s3://bucket/path/to/code.zip
     path = s3_path[5:]  # remove 's3://'
     s3_bucket = path.split("/")[0]  # up to first /
-    s3_key = path[len(s3_bucket) :]  # everything after bucket
+    s3_key = path[len(s3_bucket) + 1 :]  # everything after bucket
     return s3_bucket, s3_key
 
 
