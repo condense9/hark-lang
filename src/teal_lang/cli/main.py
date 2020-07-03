@@ -8,7 +8,7 @@ Usage:
   teal [options] destroy [--config CONFIG]
   teal [options] invoke [--config CONFIG] [ARG...]
   teal [options] events [--config CONFIG] [--unified | --json] [SESSION_ID]
-  teal [options] logs [--config CONFIG] [SESSION_ID]
+  teal [options] stdout [--config CONFIG] [--json] [SESSION_ID]
   teal [options] FILE [ARG...]
   teal --version
   teal --help
@@ -21,7 +21,7 @@ Commands:
   destroy  Remove cloud deployment.
   invoke   Invoke a teal function in the cloud.
   events   Get events for a session.
-  logs     Get logs for a session.
+  stdout   Get session output.
   default  Run a Teal function locally.
 
 Options:
@@ -31,6 +31,8 @@ Options:
   -V, --vverbose  Be very verbose.
   --version       Show version.
   --no-colours    Disable colours in CLI output.
+
+  --endpoint URL  Teal Cloud endpoint (default: env.TEAL_ENDPOINT).
 
   -f FUNCTION, --fn=FUNCTION   Function to run      [default: main]
   -s MODE, --storage=MODE      memory | dynamodb    [default: memory]
@@ -54,19 +56,18 @@ import logging
 import subprocess
 import sys
 import time
+from functools import wraps
 from pathlib import Path
-
-import botocore
 
 from docopt import docopt
 
-from .. import __version__
-from ..config import load as load_config
+from .. import __version__, config
 from . import interface, utils
 from .interface import (
     CROSS,
     TICK,
     bad,
+    check,
     dim,
     exit_fail,
     good,
@@ -78,9 +79,41 @@ from .interface import (
 
 LOG = logging.getLogger(__name__)
 
+TEAL_CLI_VERSION_KEY = "teal_ver"
+
+
+def timed(fn):
+    """Time execution of fn and print it"""
+
+    @wraps(fn)
+    def _wrapped(args, **kwargs):
+        start = time.time()
+        fn(args, **kwargs)
+        end = time.time()
+        if not args["--quiet"]:
+            sys.stderr.write(str(dim(f"\n-- {int(end-start)}s\n")))
+
+    return _wrapped
+
+
+def need_cfg(fn):
+    """Exec fn with config, requiring a deployment ID"""
+
+    @wraps(fn)
+    def _wrapped(args):
+
+        try:
+            config_file = Path(args["--config"])
+            cfg = config.load(config_file=config_file)
+        except config.ConfigError as exc:
+            exit_fail(exc)
+
+        return fn(args, cfg=cfg)
+
+    return _wrapped
+
 
 def _run(args):
-    cfg = load_config(config_file=Path(args["--config"]))
     fn = args["--fn"]
     filename = args["FILE"]
     sys.path.append(".")
@@ -89,23 +122,30 @@ def _run(args):
 
     LOG.info(f"Running `{fn}` in {filename} ({len(fn_args)} args)...")
 
+    # Try to find a timeout for the task. NOTE: we use the "lambda" timeout even
+    # for local invocations. Maybe there should be a more general timeout
+    config_file = Path(args["--config"])
+    try:
+        cfg = config.load(config_file=config_file)
+        timeout = cfg.instance.lambda_timeout
+    except config.ConfigError:
+        timeout = 10
+
     if args["--storage"] == "memory":
         if args["--concurrency"] == "processes":
             exit_fail("Can't use processes with in-memory storage")
 
         from ..run.local import run_local
 
-        # NOTE: we use the "lambda" timeout even for local invocations. Maybe
-        # there should be a more general timeout
-        result = run_local(filename, fn, fn_args, cfg.service.lambda_timeout)
+        result = run_local(filename, fn, fn_args, timeout)
 
     elif args["--storage"] == "dynamodb":
         from ..run.dynamodb import run_ddb_local, run_ddb_processes
 
         if args["--concurrency"] == "processes":
-            result = run_ddb_processes(filename, fn, fn_args)
+            result = run_ddb_processes(filename, fn, fn_args, timeout)
         else:
-            result = run_ddb_local(filename, fn, fn_args)
+            result = run_ddb_local(filename, fn, fn_args, timeout)
 
     else:
         exit_fail("Bad storage type: " + str(args["--storage"]))
@@ -126,6 +166,7 @@ def _ast(args):
 
 
 def _asm(args):
+    """Compile a file and print the assembly"""
     from ..load import compile_file
 
     exe = compile_file(Path(args["FILE"]))
@@ -136,125 +177,61 @@ def _asm(args):
     print()
 
 
-def timed(fn):
-    """Time execution of fn and print it"""
+def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
+    """Helper - do something either in your cloud or the hosted Teal Cloud"""
+    if cfg.endpoint:
+        if not cfg.project_id:
+            # TODO init - login and choose project
+            exit_fail("No project ID!")
+        return do_in_hosted
+    else:
+        if not cfg.instance_uuid:
+            if can_create_uuid and check(
+                "No Teal instance found - would you like to create one?"
+            ):
+                cfg.instance_uuid = config.new_instance_uuid(cfg)
+            else:
+                exit_fail("No instance UUID or endpoint configured.")
 
-    def _wrapped(args, **kwargs):
-        start = time.time()
-        fn(args, **kwargs)
-        end = time.time()
-        if not args["--quiet"]:
-            sys.stderr.write(str(dim(f"\n-- {int(end-start)}s\n")))
-
-    return _wrapped
+        return do_in_own
 
 
 @timed
-def _deploy(args):
-    from ..cloud import aws
+@need_cfg
+def _deploy(args, cfg):
+    from . import in_own, in_hosted
 
-    cfg = load_config(
-        config_file=Path(args["--config"]), require_dep_id=True, create_dep_id=True,
+    deployer = _local_or_cloud(
+        cfg, in_own.deploy, in_hosted.deploy, can_create_uuid=True
     )
-
-    with spin(args, "Deploying infrastructure") as sp:
-        # this is idempotent
-        aws.deploy(cfg)
-        sp.text += dim(f" {cfg.service.data_dir}/")
-        sp.ok(TICK)
-
-    with spin(args, "Checking API") as sp:
-        api = aws.get_api()
-        response = _call_cloud_api("version", {}, Path(args["--config"]))
-        sp.text += " Teal " + dim(response["version"])
-        sp.ok(TICK)
-
-    with spin(args, "Deploying program") as sp:
-        with open(cfg.service.teal_file) as f:
-            content = f.read()
-
-        # See teal_lang/executors/awslambda.py
-        payload = {"content": content}
-        _call_cloud_api("set_exe", payload, Path(args["--config"]))
-        sp.ok(TICK)
-
-    LOG.info(f"Uploaded {cfg.service.teal_file}")
-    print(good(f"\nDone. `teal invoke` to run main()."))
+    deployer(args, cfg)
 
 
 @timed
-def _destroy(args):
-    from ..cloud import aws
+@need_cfg
+def _destroy(args, cfg):
+    from . import in_own, in_hosted
 
-    cfg = load_config(config_file=Path(args["--config"]), require_dep_id=True)
-
-    with spin(args, "Destroying") as sp:
-        aws.destroy(cfg)
-        sp.ok(TICK)
-
-    print(good(f"\nDone. You can safely `rm -rf {cfg.service.data_dir}`."))
-
-
-def _call_cloud_api(function: str, args: dict, config_file: Path, as_json=True):
-    """Call a teal API endpoint and handle errors"""
-    from ..cloud import aws
-
-    api = aws.get_api()
-    cfg = load_config(config_file=config_file, require_dep_id=True)
-
-    LOG.debug("Calling Teal cloud: %s %s", function, args)
-
-    try:
-        logs, response = getattr(api, function).invoke(cfg, args)
-    except botocore.exceptions.ClientError as exc:
-        if exc.response["Error"]["Code"] == "KMSAccessDeniedException":
-            msg = "\nAWS is not ready (KMSAccessDeniedException). Please try again in a few minutes."
-            print(bad(msg))
-            interface.let_us_know("Deployment Failed (KMSAccessDeniedException)")
-            sys.exit(1)
-        raise
-
-    LOG.info(logs)
-
-    # This is when there's an unhandled exception in the Lambda.
-    if "errorMessage" in response:
-        print("\n" + bad("Unexpected exception!"))
-        msg = response["errorMessage"]
-        interface.let_us_know(msg)
-        exit_fail(msg, response.get("stackTrace", None))
-
-    code = response.get("statusCode", None)
-    if code == 400:
-        print("\n")
-        # This is when there's a (handled) error
-        err = json.loads(response["body"])
-        exit_fail(err.get("message", "StatusCode 400"), err.get("traceback", None))
-
-    if code != 200:
-        print("\n")
-        msg = f"Unexpected response code: {code}"
-        interface.let_us_know(msg)
-        exit_fail(msg)
-
-    body = json.loads(response["body"]) if as_json else response["body"]
-    LOG.info(body)
-
-    return body
+    destroyer = _local_or_cloud(cfg, in_own.destroy, in_hosted.destroy)
+    destroyer(args, cfg)
 
 
 @timed
-def _invoke(args):
-    config_file = Path(args["--config"])
-    cfg = load_config(config_file=config_file)
+@need_cfg
+def _invoke(args, cfg):
+    from . import in_own, in_hosted
+
     function = args.get("--fn", "main")
     payload = {
+        TEAL_CLI_VERSION_KEY: __version__,
         "function": function,
         "args": args["ARG"],
-        "timeout": cfg.service.lambda_timeout - 3,  # FIXME
+        "timeout": cfg.instance.lambda_timeout - 3,  # FIXME why is -3 needed?
     }
 
     with spin(args, str(primary(f"{function}(...)"))) as sp:
-        data = _call_cloud_api("new", payload, config_file)
+        invoker = _local_or_cloud(cfg, in_own.invoke, in_hosted.invoke)
+        data = invoker(args, cfg, payload)
         sp.text += " " + dim(data["session_id"])
 
         if data["broken"]:
@@ -264,53 +241,57 @@ def _invoke(args):
 
     utils.save_last_session_id(cfg, data["session_id"])
 
-    with spin(args, "Getting logs") as sp:
-        logs = _call_cloud_api(
-            "get_output", {"session_id": data["session_id"]}, config_file
-        )
-        sp.ok(TICK)
-
-    interface.print_outputs(logs)
-
+    # Print the standard output and result immediately
     if data["finished"]:
         if not args["--quiet"]:
+            _stdout(args)
             print(dim("\n=>"))
         print(data["result"])
 
 
 @timed
-def _events(args):
-    session_id = utils.get_session_id(args)
+@need_cfg
+def _events(args, cfg):
+    from . import in_own, in_hosted
+
+    sid = utils.get_session_id(args, cfg)
+
+    if sid is None:
+        exit_fail("No session ID specified, and no previous session found.")
+
+    invoker = _local_or_cloud(cfg, in_own.events, in_hosted.events)
 
     if args["--json"]:
         # Don't show the spinner in JSON mode
-        data = _call_cloud_api(
-            "get_events", {"session_id": session_id}, Path(args["--config"]),
-        )
+        data = invoker(args, cfg, sid)
         print(json.dumps(data, indent=2))
     else:
-        with spin(args, f"Getting events"):
-            data = _call_cloud_api(
-                "get_events", {"session_id": session_id}, Path(args["--config"]),
-            )
+        with spin(args, f"Getting events {dim(sid)}"):
+            data = invoker(args, cfg, sid)
         if args["--unified"]:
             interface.print_events_unified(data)
         else:
             interface.print_events_by_machine(data)
 
 
-@timed
-def _logs(args):
-    session_id = utils.get_session_id(args)
+@need_cfg
+def _stdout(args, cfg):
+    from . import in_own, in_hosted
 
-    with spin(args, f"Getting output {dim(session_id)}") as sp:
-        data = _call_cloud_api(
-            "get_output", {"session_id": session_id}, Path(args["--config"]),
-        )
-        sp.ok(TICK)
-    if not args["--quiet"]:
-        print("")
-    interface.print_outputs(data)
+    sid = utils.get_session_id(args, cfg)
+
+    if sid is None:
+        exit_fail("No session ID specified, and no previous session found.")
+
+    invoker = _local_or_cloud(cfg, in_own.stdout, in_hosted.stdout)
+    if args["--json"]:
+        data = invoker(args, cfg, sid)
+        print(json.dumps(data, indent=2))
+    else:
+        with spin(args, f"Getting stdout {dim(sid)}") as sp:
+            data = invoker(args, cfg, sid)
+            sp.ok(TICK)
+        interface.print_outputs(data)
 
 
 @timed
@@ -344,8 +325,8 @@ def main():
         _invoke(args)
     elif args["events"]:
         _events(args)
-    elif args["logs"]:
-        _logs(args)
+    elif args["stdout"]:
+        _stdout(args)
     elif args["FILE"] and args["FILE"].endswith(".tl"):
         _run(args)
     else:

@@ -4,19 +4,12 @@ import base64
 import json
 import logging
 import os
-import os.path
-import random
-import shutil
-import subprocess
 import time
-import zipfile
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Tuple, Union
-from uuid import UUID
-from zipfile import ZipFile
 
 import boto3
 import botocore
@@ -31,21 +24,11 @@ THIS_DIR = Path(__file__).parent
 
 @dataclass(frozen=True)
 class DeployConfig:
-    uuid: UUID
+    uuid: str
     instance: InstanceConfig
-    python_url: str
-    python_hash: str
-    empty_source: bool = False
-
-    @classmethod
-    def with_empty_source(cls, uuid: str):
-        return cls(
-            uuid=uuid,
-            instance=InstanceConfig(),  # defaults
-            python_url=None,
-            python_hash=None,
-            empty_source=True,
-        )
+    source_layer_hash: str = None
+    source_layer_file: Path = None
+    source_layer_url: str = None
 
 
 class DeploymentFailed(Exception):
@@ -82,10 +65,12 @@ def get_account_id():
 
 
 def get_region():
-    try:
+    if "AWS_DEFAULT_REGION" in os.environ:
         return os.environ["AWS_DEFAULT_REGION"]
-    except KeyError:
+    elif "AWS_REGION" in os.environ:
         return os.environ["AWS_REGION"]  # Preset in the Lambda env
+    else:
+        raise DeploymentFailed("AWS_DEFAULT_REGION or AWS_REGION must be set")
 
 
 def hash_file(filename: Path) -> str:
@@ -146,12 +131,25 @@ class DataBucket:
     def destroy_if_exists(config):
         name = DataBucket.resource_name(config)
         client = get_client(config, "s3")
-        # FIXME : empty first. No way to track package uploads
+        # Delete all objects first (NOTE - assumes no versioning)
+
         try:
-            client.delete_bucket(Bucket=name)
+            destroy_bucket(client, name)
             LOG.info(f"Deleted bucket {name}")
         except client.exceptions.NoSuchBucket:
             pass
+
+
+def destroy_bucket(client, name):
+    """Delete all items in the bucket and delete the bucket"""
+    objects = client.list_objects(Bucket=name)
+    delete_keys = {
+        "Objects": [
+            {"Key": k} for k in [obj["Key"] for obj in objects.get("Contents", [])]
+        ]
+    }
+    client.delete_objects(Bucket=name, Delete=delete_keys)
+    client.delete_bucket(Bucket=name)
 
 
 def upload_if_necessary(client, bucket, key, filename: Path):
@@ -209,12 +207,7 @@ class S3File:
 
 class TealPackage(S3File):
     key = "teal_lambda.zip"
-    local_file = THIS_DIR / "teal_lambda.zip"  # TODO versions
-
-
-class InitSourcePackage(S3File):
-    key = "init_source.zip"
-    local_file = THIS_DIR / "init_source.zip"
+    local_file = THIS_DIR.parents[2] / "teal_lambda.zip"
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#client
@@ -498,20 +491,20 @@ class SourceLayer:
     @staticmethod
     def create_or_update(config):
         current_sha = SourceLayer.get_latest_sha256(config)
-        local_sha = config.python_hash
+        local_sha = config.source_layer_hash
 
         if local_sha is not None and local_sha == current_sha:
             return
 
-        if config.empty_source:
+        if config.source_layer_file:
+            # upload the new source package
             s3_bucket = DataBucket.resource_name(config)
-            s3_key = InitSourcePackage.key
-            local_sha = InitSourcePackage.local_sha(config)
-            LOG.info(f"Uploaded source layer data for new instance")
+            s3_key = f"automated/source_{config.source_layer_hash}.zip"
+            client = get_client(config, "s3")
+            upload_if_necessary(client, s3_bucket, s3_key, config.source_layer_file)
+            LOG.info(f"Uploaded source layer {config.source_layer_file}")
         else:
-            s3_bucket, s3_key = get_bucket_and_key(config.python_url)
-            if s3_bucket != DataBucket.resource_name(config):
-                raise ValueError(f"Bucket {s3_bucket} is not expected")
+            s3_bucket, s3_key = get_bucket_and_key(config.source_layer_url)
 
         client = get_client(config, "lambda")
         name = SourceLayer.resource_name(config)
@@ -998,7 +991,6 @@ class SharedAPIGateway:
 
 CORE_RESOURCES = [
     DataBucket,
-    InitSourcePackage,
     TealPackage,
     DataTable,
     ExecutionRole,
@@ -1016,9 +1008,17 @@ CORE_RESOURCES = [
 def deploy(config):
     """Deploy (or update) infrastructure for this config"""
     if not config.uuid:
-        raise ValueError("Need UUID")
+        raise DeploymentFailed("Need Instance UUID")
 
-    LOG.info(f"Deploying: {config.uuid}")
+    # One of these must be set...
+    if config.source_layer_url is None and config.source_layer_file is None:
+        raise DeploymentFailed("No source layer configured")
+
+    # Vague file-format validation
+    if config.source_layer_file and not str(config.source_layer_file).endswith(".zip"):
+        raise DeploymentFailed(f"{source_layer_file} is not a .zip file")
+
+    LOG.info(f"Deploying Instance: {config.uuid}")
 
     # TODO - could make this faster by letting resource return a list of waiters
     # which are waited on at the end.
@@ -1040,7 +1040,10 @@ def deploy(config):
 
 def destroy(config):
     """Destroy infrastructure created for this config"""
-    LOG.info(f"Destroying: {config.uuid}")
+    if not config.uuid:
+        raise DeploymentFailed("Need Instance UUID")
+
+    LOG.info(f"Destroying Instance: {config.uuid}")
     # destroy in reverse order so dependencies go first
 
     for bucket in config.instance.managed_buckets:

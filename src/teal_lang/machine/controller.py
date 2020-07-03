@@ -21,6 +21,9 @@ class Controller:
     def __init__(self):
         raise NotImplementedError("Must be subclassed")
 
+    def supports_plugin(self, name: str):
+        return False
+
     def toplevel_machine(self, fn_ptr: mt.TlFunctionPtr, args):
         """Create a top-level machine"""
         vmid = self.new_thread()

@@ -21,42 +21,7 @@ from . import lambda_handlers
 
 
 def version(event, context):
-    return success(version=__version__)
-
-
-def success(code=200, **body_data):
-    """Return successfully"""
-    return dict(
-        statusCode=code,
-        isBase64Encoded=False,
-        # https://www.serverless.com/blog/cors-api-gateway-survival-guide/
-        headers={
-            "Access-Control-Allow-Origin": "*",  # Required for CORS
-            "Access-Control-Allow-Credentials": True,
-        },
-        body=json.dumps(body_data),
-    )
-
-
-def fail(msg, code=400, exception=None, **body_data):
-    """Return an error message"""
-    # 400 = client error
-    # 500 = server error
-    if exception:
-        etype, value, tb = sys.exc_info()
-        body_data["etype"] = str(etype)
-        body_data["evalue"] = str(value)
-        body_data["traceback"] = traceback.format_exception(etype, value, tb)
-
-    return dict(
-        statusCode=code,
-        isBase64Encoded=False,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": True,
-        },
-        body=json.dumps({"message": msg, **body_data}),
-    )
+    return _success(version=__version__)
 
 
 def resume(event, context):
@@ -83,20 +48,6 @@ def resume(event, context):
         raise
 
 
-def new(event, context):
-    """Create a new session - event is a simple payload"""
-    timeout = event.get("timeout", None)
-
-    return _new_session(
-        function=event.get("function", "main"),
-        args=[mt.TlString(a) for a in event.get("args", [])],
-        check_period=event.get("check_period", 1),
-        wait_for_finish=event.get("wait_for_finish", True),
-        timeout=timeout if timeout else int(os.getenv("FIXED_TEAL_TIMEOUT", 5)),
-        code_override=event.get("code", None),
-    )
-
-
 def event_handler(event, context):
     """Handle all 'events'.
 
@@ -117,10 +68,10 @@ def set_exe(event, context):
     try:
         exe = load.compile_text(content)
     except Exception as exc:
-        return fail(f"Error compiling code", exception=exc)
+        return _fail(f"Error compiling code", exception=exc)
 
     db.set_base_exe(exe)
-    return success(message="Base Executable set successfully")
+    return _success(message="Base Executable set successfully")
 
 
 def getoutput(event, context):
@@ -128,7 +79,7 @@ def getoutput(event, context):
     session_id = event.get("session_id", None)
 
     if not session_id:
-        return fail("No session ID")
+        return _fail("No session ID")
 
     try:
         controller = ddb_controller.DataController.with_session_id(session_id)
@@ -137,9 +88,9 @@ def getoutput(event, context):
             controller.get_state(idx).error_msg for idx in controller.get_thread_ids()
         ]
     except ControllerError as exc:
-        return fail("Error getting data", exception=exc)
+        return _fail("Error getting data", exception=exc)
 
-    return success(output=output, errors=errors)
+    return _success(output=output, errors=errors)
 
 
 def getevents(event, context) -> dict:
@@ -147,42 +98,18 @@ def getevents(event, context) -> dict:
     session_id = event.get("session_id", None)
 
     if not session_id:
-        return fail("No session ID")
+        return _fail("No session ID")
 
     try:
         controller = ddb_controller.DataController.with_session_id(session_id)
         events = [pe.serialise() for pe in controller.get_probe_events()]
     except ControllerError as exc:
-        return fail("Error loading session data", exception=exc)
+        return _fail("Error loading session data", exception=exc)
 
-    return success(events=events)
-
-
-## API gateway wrappers
+    return _success(events=events)
 
 
-def wrap_apigw(fn):
-    """API Gateway wrapper for FN"""
-
-    @functools.wraps(fn)
-    def _wrapper(event, context):
-        try:
-            body = json.loads(event["body"])
-        except (KeyError, TypeError, json.decoder.JSONDecodeError):
-            return fail("No event body")
-
-        return fn(body, context)
-
-    return _wrapper
-
-
-new_apigw = wrap_apigw(new)
-getoutput_apigw = wrap_apigw(getoutput)
-getevents_apigw = wrap_apigw(getevents)
-version_apigw = wrap_apigw(version)
-
-
-##
+## Helpers
 
 
 def _new_session(
@@ -201,19 +128,19 @@ def _new_session(
             exe = load.compile_text(code_override)
         except (TealSyntaxError, CompileError) as exc:
             # TODO use load.msg to print this nicely
-            return fail(f"Code error", exception=exc)
+            return _fail(f"Code error", exception=exc)
         except Exception as exc:
-            return fail(f"Teal bug:", exception=exc)
+            return _fail(f"Teal bug:", exception=exc)
 
         try:
             controller.set_executable(exe)
         except ddb_controller.ControllerError as exc:
-            return fail("Error saving code:", exception=exc)
+            return _fail("Error saving code:", exception=exc)
 
     try:
         fn_ptr = exe.bindings[function]
     except KeyError as exc:
-        return fail(f"No such Teal function: `{function}`")
+        return _fail(f"No such Teal function: `{function}`")
 
     try:
         invoker = Invoker(controller)
@@ -224,7 +151,7 @@ def _new_session(
             controller.broken = True
         except ControllerError:
             pass
-        return fail("Error initialising Teal:", exception=exc)
+        return _fail("Error initialising Teal:", exception=exc)
 
     machine.run()
 
@@ -234,15 +161,50 @@ def _new_session(
         while not controller.all_stopped():
             time.sleep(check_period)
             if time.time() - start_time > timeout:
-                return fail(
+                return _fail(
                     "Timeout waiting for Teal program to finish",
                     session_id=controller.session_id,
                 )
 
-    return success(
+    return _success(
         session_id=controller.session_id,
         vmid=vmid,
         finished=controller.all_stopped(),
         broken=controller.broken,
         result=controller.result,
+    )
+
+
+def _success(code=200, **body_data):
+    """Return successfully"""
+    return dict(
+        statusCode=code,
+        isBase64Encoded=False,
+        # https://www.serverless.com/blog/cors-api-gateway-survival-guide/
+        headers={
+            "Access-Control-Allow-Origin": "*",  # Required for CORS
+            "Access-Control-Allow-Credentials": True,
+        },
+        body=json.dumps(body_data),
+    )
+
+
+def _fail(msg, code=400, exception=None, **body_data):
+    """Return an error message"""
+    # 400 = client error
+    # 500 = server error
+    if exception:
+        etype, value, tb = sys.exc_info()
+        body_data["etype"] = str(etype)
+        body_data["evalue"] = str(value)
+        body_data["traceback"] = traceback.format_exception(etype, value, tb)
+
+    return dict(
+        statusCode=code,
+        isBase64Encoded=False,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": True,
+        },
+        body=json.dumps({"message": msg, **body_data}),
     )

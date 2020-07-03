@@ -8,8 +8,6 @@ See https://docs.python.org/3/library/json.html#py-to-json-table
 from typing import Optional
 from collections import UserList, UserDict
 
-from ..teal_parser.nodes import N_Literal
-
 # TODO Convert these to dataclasses
 
 
@@ -105,11 +103,11 @@ class TlInstruction(str, TlLiteral):
 class TlFuturePtr(TlLiteral):
     """Pointer to a TlFuture"""
 
-    def __init__(self, value):
-        if type(value) is not int:
-            raise TypeError(value)
-        super().__init__(value)
-        self.vmid = value
+    def __init__(self, future_id):
+        if type(future_id) not in (int, str):
+            raise TypeError(future_id)
+        super().__init__(future_id)
+        self.vmid = future_id
 
 
 ### Complex types
@@ -221,7 +219,6 @@ PY_TO_TL = {
     str: TlString,
     list: to_teal_type_list,
     dict: to_teal_type_dict,
-    N_Literal: lambda x: to_teal_type(x.value),  # special case to handle parser
 }
 
 

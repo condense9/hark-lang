@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 
 from ..machine import types as mt
+from ..cli.main import TEAL_CLI_VERSION_KEY
 
 
 class TealEventHandler(ABC):
@@ -26,7 +27,36 @@ class TealEventHandler(ABC):
         """
 
 
+## Concrete Implementations
+
+
+class CliHandler(TealEventHandler):
+    """Handle invocations by the Teal CLI"""
+
+    @classmethod
+    def can_handle(cls, event: dict):
+        return TEAL_CLI_VERSION_KEY in event
+
+    @classmethod
+    def get_invoke_args(cls, event: dict) -> dict:
+        try:
+            timeout = int(event["timeout"])
+        except KeyError:
+            timeout = int(os.getenv("FIXED_TEAL_TIMEOUT", 5))
+
+        return dict(
+            function=event.get("function", "main"),
+            args=[mt.TlString(a) for a in event.get("args", [])],
+            check_period=event.get("check_period", 1),
+            wait_for_finish=event.get("wait_for_finish", True),
+            timeout=timeout,
+            code_override=event.get("code", None),
+        )
+
+
 class S3Handler(TealEventHandler):
+    """Handle S3 upload events"""
+
     @classmethod
     def can_handle(cls, event: dict):
         return (
@@ -77,4 +107,4 @@ class ApiHandler(TealEventHandler):
 
 
 # List of all available handlers
-ALL_HANDLERS = [S3Handler, ApiHandler]
+ALL_HANDLERS = [CliHandler, S3Handler, ApiHandler]

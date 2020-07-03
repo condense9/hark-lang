@@ -113,6 +113,7 @@ class TlMachine:
     """
 
     builtins = {
+        "future": Future,
         "print": Print,
         "sleep": Sleep,
         "atomp": Atomp,
@@ -126,7 +127,6 @@ class TlMachine:
         "hash": Hash,
         "get": HGet,
         "set": HSet,
-        # "future": Future,
         "nth": Nth,
         "==": Eq,
         "+": Plus,
@@ -390,7 +390,7 @@ class TlMachine:
         self.invoker.invoke(machine)
         future = mt.TlFuturePtr(machine)
 
-        self.probe.event("fork", to_function=fn_ptr.identifier, to_thread=self.vmid)
+        self.probe.event("fork", to_function=fn_ptr.identifier, to_thread=machine)
         self.state.ds_push(future)
 
     @evali.register
@@ -426,6 +426,22 @@ class TlMachine:
             pass
 
     ## "builtins":
+
+    @evali.register
+    def _(self, i: Future):
+        wrapped = str(self.state.ds_pop())
+        plugin_name = str(self.state.ds_pop())
+
+        if self.dc.supports_plugin(plugin_name):
+            # Return a Future which can be waited on
+            self.probe.event("fork_plugin", plugin=plugin_name, wrapped=wrapped)
+            future_id = self.dc.add_plugin_future(plugin_name, wrapped)
+            self.state.ds_push(mt.TlFuturePtr(future_id))
+
+        else:
+            # Just return the wrapped immediately
+            self.probe.log("Skipping call to plugin - controller doesn't support it")
+            self.state.ds_push(wrapped)
 
     @evali.register
     def _(self, i: Atomp):

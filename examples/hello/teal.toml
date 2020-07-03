@@ -1,7 +1,7 @@
 [project]
 
 ## optional, file containing Teal code to be deployed
-teal_file = "service.tl"
+teal_file = "hello.tl"
 
 ## optional, location of Python source:
 python_src = "src"

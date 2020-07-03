@@ -7,6 +7,8 @@ import urllib.parse
 from operator import itemgetter
 
 import colorful as cf
+from PyInquirer import prompt
+from texttable import Texttable
 from yaspin import yaspin
 from yaspin.spinners import Spinners
 
@@ -47,6 +49,7 @@ def init(args):
             )
     else:
         cf.disable()
+        # FIXME Logger doesn't have basicConfig
         if level:
             root_logger.basicConfig(level=level)
 
@@ -75,23 +78,22 @@ def neutral(string):
     return cf.bold(string)
 
 
-def let_us_know(error_msg=None, traceback=None):
-    """Print helpful information for bug reporting"""
-    # TODO sadface ascii art
-    print("If this persists, please let us know:")
-    if error_msg:
-        params = "?" + urllib.parse.urlencode(dict(title=error_msg))
-    else:
-        params = ""
-    print(f"https://github.com/condense9/teal-lang/issues/new{params}")
-    print("")
-
-
-def exit_fail(err, traceback=None):
+def exit_fail(err, *, data=None, traceback=None):
     """Something broke while running"""
-    print(bad(str(err)))
+    print("")
+    print(bad("Unexpected error: " + str(err)))
+
     if traceback:
         print("\n" + "".join(traceback))
+
+    if data:
+        print(f"Associated Data:\n{data}")
+
+    # TODO sadface ascii art
+    print("If this persists, please let us know:")
+    params = "?" + urllib.parse.urlencode(dict(title=err))
+    print(f"https://github.com/condense9/teal-lang/issues/new{params}")
+
     sys.exit(1)
 
 
@@ -117,6 +119,14 @@ def spin(args, text):
         return yaspin(Spinners.dots, text=str(text))
 
 
+def check(question: str, default=False) -> bool:
+    """Check whether the user wants to proceed"""
+    answers = prompt(
+        {"type": "confirm", "message": question, "name": "check", "default": default}
+    )
+    return answers["check"]
+
+
 # TODO types for these interfaces - they're outputs from awslambda.py
 
 
@@ -124,8 +134,15 @@ def print_outputs(success_result: dict):
     errors = success_result["errors"]
     output = success_result["output"]
 
-    for o in output:
-        sys.stdout.write(o["text"])
+    if output:
+        table = Texttable()
+        table.set_cols_align(["l", "l", "l"])
+        table.add_row(["Thread", "Time", "Output"])
+        for o in output:
+            # TODO make time print nicer
+            table.add_row([o["thread"], o["time"], o["text"].strip()])
+
+    print("\n" + table.draw() + "\n")
 
     for idx, item in enumerate(errors):
         if item:

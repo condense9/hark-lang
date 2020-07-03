@@ -32,7 +32,7 @@ class Future(I):
 
     """
 
-    num_ops = 1
+    num_ops = 2
 
 
 # This is a bit complex. Instead of a "user_future_id", just provide
