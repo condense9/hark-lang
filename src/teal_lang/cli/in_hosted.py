@@ -51,9 +51,8 @@ def deploy(args, config: Config):
     with ui.spin(args, f"Deploying {config.instance.name}") as sp:
         deployment = q.new_deployment(instance.id, package.id)
         q.switch(instance.id, deployment.id)
-        # TODO poll status until done
-        start = time.time()
 
+        start = time.time()
         while True:
             if time.time() - start > 120:
                 ui.exit_fail("Deployment took too long - something didn't work :(")
@@ -68,6 +67,7 @@ def deploy(args, config: Config):
                 info = ui.dim(f"waiting")
 
             sp.text = f"Deploying {config.instance.name}... {info}"
+            time.sleep(0.5)
 
         sp.ok(ui.TICK)
 
@@ -79,7 +79,23 @@ def invoke(args, config: Config, payload: dict) -> dict:
 
 
 def destroy(args, config: Config):
-    raise NotImplementedError
+    with ui.spin(args, f"Destroying {config.instance.name}") as sp:
+        instance = q.get_instance(config.project_id, config.instance.name)
+        q.destroy(instance.id)
+
+        # And poll
+        start = time.time()
+        while True:
+            if time.time() - start > 120:
+                ui.exit_fail("Took too long - something didn't work :(")
+
+            ready = q.is_instance_ready(instance.id)
+            if not ready:
+                break  # Done
+
+            time.sleep(0.5)
+
+        sp.ok(ui.TICK)
 
 
 def stdout(args, config: Config, session_id: str) -> dict:
