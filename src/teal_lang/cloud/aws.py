@@ -15,22 +15,37 @@ from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Tuple, Union
+from uuid import UUID
 from zipfile import ZipFile
 
 import boto3
 import botocore
 from botocore.client import ClientError
 
-import deterministic_zip as dz
-
-from .. import config as teal_config
+from teal_lang.config_classes import InstanceConfig
 
 LOG = logging.getLogger(__name__)
 
-
-# https://medium.com/uk-hydrographic-office/developing-and-testing-lambdas-with-pytest-and-localstack-21a111b7f6e8
-
 THIS_DIR = Path(__file__).parent
+
+
+@dataclass(frozen=True)
+class DeployConfig:
+    uuid: UUID
+    instance: InstanceConfig
+    python_url: str
+    python_hash: str
+    empty_source: bool = False
+
+    @classmethod
+    def with_empty_source(cls, uuid: str):
+        return cls(
+            uuid=uuid,
+            instance=InstanceConfig(),  # defaults
+            python_url=None,
+            python_hash=None,
+            empty_source=True,
+        )
 
 
 class DeploymentFailed(Exception):
@@ -42,8 +57,8 @@ class InvokeError(Exception):
 
 
 @lru_cache
-def get_client(config, service):
-    """Get a boto3 client for SERVICE, setting endpoint and region"""
+def get_client(config, aws_service: str):
+    """Get a boto3 client for AWS_SERVICE, setting endpoint and region"""
     args = {}
 
     endpoint_url = os.environ.get("AWS_ENDPOINT", None)
@@ -51,11 +66,26 @@ def get_client(config, service):
         args["endpoint_url"] = endpoint_url
 
     return boto3.client(
-        service,
-        region_name=config.service.region,
+        aws_service,
+        region_name=get_region(),
         # config=botocore.config.Config(retries={"max_attempts": 0}),
         **args,
     )
+
+
+@lru_cache
+def get_account_id():
+    try:
+        return os.environ["AWS_ACCOUNT_ID"]
+    except KeyError:
+        return boto3.client("sts").get_caller_identity().get("Account")
+
+
+def get_region():
+    try:
+        return os.environ["AWS_DEFAULT_REGION"]
+    except KeyError:
+        return os.environ["AWS_REGION"]  # Preset in the Lambda env
 
 
 def hash_file(filename: Path) -> str:
@@ -64,11 +94,20 @@ def hash_file(filename: Path) -> str:
         return base64.b64encode(sha256(f.read()).digest()).decode()
 
 
+def get_bucket_and_key(s3_path: str) -> Tuple[str, str]:
+    """Get a bucket and key from an S3 path"""
+    # path = s3://bucket/path/to/code.zip
+    path = s3_path[5:]  # remove 's3://'
+    s3_bucket = path.split("/")[0]  # up to first /
+    s3_key = path[len(s3_bucket) :]  # everything after bucket
+    return s3_bucket, s3_key
+
+
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#client
 class DataBucket:
     @staticmethod
     def resource_name(config):
-        return f"teal-{config.service.deployment_id}"
+        return f"teal-{config.uuid}"
 
     @staticmethod
     def exists(config):
@@ -87,13 +126,13 @@ class DataBucket:
 
         # Example: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-example-creating-buckets.html
         try:
-            location = {"LocationConstraint": config.service.region}
+            location = {"LocationConstraint": get_region()}
             client.create_bucket(
                 Bucket=name, ACL="private", CreateBucketConfiguration=location
             )
             LOG.info(f"created bucket {name}")
         except ClientError as exc:
-            raise DeploymentFailed from exc
+            raise DeploymentFailed(exc) from exc
 
     @staticmethod
     def create_or_update(config):
@@ -107,6 +146,7 @@ class DataBucket:
     def destroy_if_exists(config):
         name = DataBucket.resource_name(config)
         client = get_client(config, "s3")
+        # FIXME : empty first. No way to track package uploads
         try:
             client.delete_bucket(Bucket=name)
             LOG.info(f"Deleted bucket {name}")
@@ -114,20 +154,7 @@ class DataBucket:
             pass
 
 
-def get_data_dir(config) -> Path:
-    """Get path to the Teal data directory, ensuring it exists"""
-    data_dir = config.service.data_dir
-
-    if not data_dir.is_absolute():
-        data_dir = (Path(config.root) / config.service.data_dir).resolve()
-
-    if not data_dir.is_dir():
-        os.makedirs(str(data_dir))
-
-    return data_dir
-
-
-def upload_if_necessary(client, bucket, key, filename):
+def upload_if_necessary(client, bucket, key, filename: Path):
     """Upload a file if it doesn't already exist"""
     new_hashsum = hash_file(filename)
     hash_key = "sha256"
@@ -152,36 +179,22 @@ def upload_if_necessary(client, bucket, key, filename):
             LOG.info(f"Uploaded {filename}")
 
     except ClientError as exc:
-        raise DeploymentFailed from exc
+        raise DeploymentFailed(exc) from exc
 
 
 class S3File:
     """A file in S3. This class must be subclassed"""
 
     @classmethod
-    def resource_name(cls, config) -> list:
-        # NOTE: no nested folders. Could do later if necessary.
-        return cls.key
-
-    @classmethod
-    def local_file(cls, config) -> Path:
-        data_dir = get_data_dir(config)
-        return data_dir / cls.key
-
-    @classmethod
     def local_sha(cls, config) -> str:
-        local_file = cls.local_file(config)
-        return hash_file(local_file)
+        return hash_file(cls.local_file)
 
     @classmethod
     def create_or_update(cls, config):
         """Create the file and upload it"""
-        dest_file = cls.local_file(config)
-        cls.get_file(config, dest_file)
-
         client = get_client(config, "s3")
         bucket = DataBucket.resource_name(config)
-        upload_if_necessary(client, bucket, cls.key, str(dest_file))
+        upload_if_necessary(client, bucket, cls.key, cls.local_file)
 
     @classmethod
     def destroy_if_exists(cls, config):
@@ -195,71 +208,20 @@ class S3File:
 
 
 class TealPackage(S3File):
-    key = "teal.zip"
-
-    @staticmethod
-    def get_file(config, dest: Path):
-        """Create the Teal code Zip, saving it in dest"""
-        LOG.info(f"Copying Teal Lambda package to {dest}")
-
-        # NOTE - magic here. Relies on you running "scripts/make_lambda_dist.sh"
-        # before deployment, which creates teal_lambda.zip at the repository
-        # root, and is packaged in the teal pip distribution. Not very nice or
-        # clean, and we find a better way.
-        zipfile = Path(__file__).parents[3] / "teal_lambda.zip"
-        shutil.copyfile(zipfile, dest)
+    key = "teal_lambda.zip"
+    local_file = THIS_DIR / "teal_lambda.zip"  # TODO versions
 
 
-def zip_dir(dirname: Path, dest: Path, deterministic=True):
-    """Zip a directory"""
-    # https://github.com/bboe/deterministic_zip/blob/master/deterministic_zip/__init__.py
-    with zipfile.ZipFile(dest, "w") as zip_file:
-        dz.add_directory(zip_file, dirname, os.path.basename(dirname))
-
-
-class SourceLayerPackage(S3File):
-    key = "layer.zip"
-
-    @staticmethod
-    def get_file(config, dest: Path):
-        """Create the source code layer Zip, saving it in dest"""
-        root = Path(__file__).parents[3]
-
-        if not config.service.python_src.exists():
-            raise DeploymentFailed(
-                f"Python source directory ({config.service.python_src}) not found"
-            )
-
-        LOG.info(f"Building Source Layer package in {dest}...")
-        workdir = get_data_dir(config) / "source_build" / "python"
-        os.makedirs(workdir, exist_ok=True)
-
-        # User source
-        shutil.copytree(
-            config.service.python_src,
-            workdir / config.service.python_src.name,
-            dirs_exist_ok=True,
-        )
-
-        # Pip requirements if they exist
-        reqs_file = config.service.python_requirements
-        if reqs_file.exists():
-            subprocess.check_output(
-                ["pip", "install", "-q", "--target", workdir, "-r", reqs_file]
-            )
-
-        # Make sure the zip is not empty
-        with open(workdir / "packaged_by_teal.txt", "w") as f:
-            f.write("Packed by Teal :)")
-
-        zip_dir(workdir, dest)
+class InitSourcePackage(S3File):
+    key = "init_source.zip"
+    local_file = THIS_DIR / "init_source.zip"
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#client
 class DataTable:
     @staticmethod
     def resource_name(config):
-        return f"teal-{config.service.deployment_id}"
+        return f"teal-{config.uuid}"
 
     @staticmethod
     def exists(config):
@@ -322,7 +284,7 @@ class DataTable:
 class ExecutionRole:
     @staticmethod
     def resource_name(config):
-        return f"teal-{config.service.deployment_id}"
+        return f"teal-{config.uuid}"
 
     @staticmethod
     def get_arn(config):
@@ -370,6 +332,8 @@ class ExecutionRole:
 
     @staticmethod
     def get_s3_access_policy(config) -> dict:
+        if not config.instance.s3_access:
+            return None
         return {
             "Version": "2012-10-17",
             "Statement": [
@@ -378,7 +342,7 @@ class ExecutionRole:
                     "Action": ["s3:*"],
                     "Resource": [
                         f"arn:aws:s3:::{bucket}/*"
-                        for bucket in config.service.s3_access
+                        for bucket in config.instance.s3_access
                     ],
                 }
             ],
@@ -397,25 +361,34 @@ class ExecutionRole:
             current = None
 
         s3_access_policy = ExecutionRole.get_s3_access_policy(config)
-        if not current or current_statement != s3_access_policy["Statement"]:
-            try:
-                client.delete_role_policy(RoleName=name, PolicyName="s3_access")
-            except client.exceptions.NoSuchEntityException:
-                pass
 
+        if current is None and s3_access_policy is None:
+            return
+
+        # shoudl not exist, but does:
+        if current is not None and s3_access_policy is None:
+            client.delete_role_policy(RoleName=name, PolicyName="s3_access")
+            LOG.info(f"Removed S3 bucket access for {name}")
+            return
+
+        should_exist = current is None and s3_access_policy is not None
+        is_different = current_statement != s3_access_policy["Statement"]
+
+        if is_different:
+            client.delete_role_policy(RoleName=name, PolicyName="s3_access")
+
+        if should_exist or is_different:
             client.put_role_policy(
                 RoleName=name,
                 PolicyName="s3_access",
                 PolicyDocument=json.dumps(s3_access_policy),
             )
-
             LOG.info(f"Updated S3 bucket access for {name}")
 
     @staticmethod
     def create_or_update(config):
         if ExecutionRole.exists(config):
             ExecutionRole.update_s3_access_policy(config)
-            # ExecutionRole.update_trigger_policy(config)
             return
 
         client = get_client(config, "iam")
@@ -461,8 +434,6 @@ class ExecutionRole:
             ],
         }
 
-        s3_access_policy = ExecutionRole.get_s3_access_policy(config)
-
         assume_role_policy = {
             "Version": "2012-10-17",
             "Statement": [
@@ -480,11 +451,13 @@ class ExecutionRole:
         client.put_role_policy(
             RoleName=name, PolicyName="default", PolicyDocument=json.dumps(policy)
         )
-        client.put_role_policy(
-            RoleName=name,
-            PolicyName="s3_access",
-            PolicyDocument=json.dumps(s3_access_policy),
-        )
+        s3_access_policy = ExecutionRole.get_s3_access_policy(config)
+        if s3_access_policy:
+            client.put_role_policy(
+                RoleName=name,
+                PolicyName="s3_access",
+                PolicyDocument=json.dumps(s3_access_policy),
+            )
         client.attach_role_policy(
             RoleName=name,
             PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
@@ -500,7 +473,7 @@ class ExecutionRole:
 class SourceLayer:
     @staticmethod
     def resource_name(config):
-        return f"teal-{config.service.deployment_id}-src"
+        return f"teal-{config.uuid}-src"
 
     @staticmethod
     def get_arn(config) -> Union[None, str]:
@@ -525,24 +498,29 @@ class SourceLayer:
     @staticmethod
     def create_or_update(config):
         current_sha = SourceLayer.get_latest_sha256(config)
-        local_sha = SourceLayerPackage.local_sha(config)
+        local_sha = config.python_hash
 
-        if current_sha == local_sha:
+        if local_sha is not None and local_sha == current_sha:
             return
 
-        LOG.info(f"Layer changed, updating")
+        if config.empty_source:
+            s3_bucket = DataBucket.resource_name(config)
+            s3_key = InitSourcePackage.key
+            local_sha = InitSourcePackage.local_sha(config)
+            LOG.info(f"Uploaded source layer data for new instance")
+        else:
+            s3_bucket, s3_key = get_bucket_and_key(config.python_url)
+            if s3_bucket != DataBucket.resource_name(config):
+                raise ValueError(f"Bucket {s3_bucket} is not expected")
+
         client = get_client(config, "lambda")
         name = SourceLayer.resource_name(config)
         client.publish_layer_version(
-            LayerName=name,
-            Content=dict(
-                # --
-                S3Bucket=DataBucket.resource_name(config),
-                S3Key=SourceLayerPackage.key,
-            ),
+            LayerName=name, Content=dict(S3Bucket=s3_bucket, S3Key=s3_key)
         )
         current_sha = SourceLayer.get_latest_sha256(config)
         assert current_sha == local_sha
+        LOG.info(f"Published new version of layer {name}")
 
     @staticmethod
     def destroy_if_exists(config):
@@ -568,7 +546,7 @@ class TealFunction:
 
     @classmethod
     def resource_name(cls, config):
-        return f"teal-{config.service.deployment_id}-{cls.name}"
+        return f"teal-{config.uuid}-{cls.name}"
 
     @classmethod
     def exists(cls, config):
@@ -596,7 +574,7 @@ class TealFunction:
         # don't have write permissions;". Fixed by putting extra layers first.
         # Don't fully understand it though. See also:
         # https://forums.aws.amazon.com/thread.jspa?messageID=908553
-        return list(config.service.extra_layers) + [SourceLayer.get_arn(config)]
+        return list(config.instance.extra_layers) + [SourceLayer.get_arn(config)]
 
     @classmethod
     def create_or_update(cls, config):
@@ -641,8 +619,8 @@ class TealFunction:
         env_vars = cls.get_environment_variables(config)
 
         if (
-            current_config["MemorySize"] != config.service.lambda_memory
-            or current_config["Timeout"] != config.service.lambda_timeout
+            current_config["MemorySize"] != config.instance.lambda_memory
+            or current_config["Timeout"] != config.instance.lambda_timeout
             or (cls.needs_src_layer and current_layers != required_layers)
             or current_config["Environment"]["Variables"] != env_vars
         ):
@@ -650,8 +628,8 @@ class TealFunction:
             client.update_function_configuration(
                 FunctionName=name,
                 Layers=required_layers,
-                Timeout=config.service.lambda_timeout,  # TODO make per-function?
-                MemorySize=config.service.lambda_memory,
+                Timeout=config.instance.lambda_timeout,  # TODO make per-function?
+                MemorySize=config.instance.lambda_memory,
                 Environment=dict(Variables=env_vars),
             )
             needs_publish = True
@@ -677,8 +655,8 @@ class TealFunction:
                 S3Bucket=DataBucket.resource_name(config),
                 S3Key=TealPackage.key,
             ),
-            Timeout=config.service.lambda_timeout,  # TODO make per-function?
-            MemorySize=config.service.lambda_memory,
+            Timeout=config.instance.lambda_timeout,  # TODO make per-function?
+            MemorySize=config.instance.lambda_memory,
             Layers=cls.src_layers_list(config) if cls.needs_src_layer else [],
             Environment=dict(Variables=cls.get_environment_variables(config)),
         )
@@ -687,8 +665,8 @@ class TealFunction:
     @classmethod
     def get_environment_variables(cls, config):
         # TODO make env per-function?
-        if config.service.env.exists():
-            with open(config.service.env) as f:
+        if config.instance.env.exists():
+            with open(config.instance.env) as f:
                 user_env = dict(line.strip().split("=") for line in f.readlines())
         else:
             user_env = {}
@@ -743,12 +721,6 @@ class FnSetexe(TealFunction):
     handler = "teal_lang.run.aws.set_exe"
 
 
-class FnNew(TealFunction):
-    name = "new"
-    handler = "teal_lang.run.aws.new"
-    needs_src_layer = True
-
-
 class FnResume(TealFunction):
     name = "resume"
     handler = "teal_lang.run.aws.resume"
@@ -788,12 +760,12 @@ class BucketTrigger:
     bucket: str
 
     def resource_name(self, config):
-        return f"teal-{config.service.deployment_id}"
+        return f"teal-{config.uuid}"
 
     def _get_filter(self, config):
         try:
             trigger_config = next(
-                b for b in config.service.upload_triggers if b.name == self.bucket
+                b for b in config.instance.upload_triggers if b.name == self.bucket
             )
         except StopIteration:
             return None
@@ -911,7 +883,7 @@ class BucketTrigger:
     def create_or_update_or_destroy(self, config):
         exists = self.exists(config)
         needed = False
-        for bucket in config.service.upload_triggers:
+        for bucket in config.instance.upload_triggers:
             if bucket.name == self.bucket:
                 needed = True
 
@@ -927,7 +899,7 @@ class BucketTrigger:
 class SharedAPIGateway:
     @staticmethod
     def resource_name(config):
-        return f"teal-{config.service.deployment_id}"
+        return f"teal-{config.uuid}"
 
     @staticmethod
     def retrieve(config):
@@ -945,7 +917,8 @@ class SharedAPIGateway:
 
     @staticmethod
     def create_or_update(config):
-        if api := SharedAPIGateway.retrieve(config):
+        api = SharedAPIGateway.retrieve(config)
+        if api:
             SharedAPIGateway.update(config, api)
         else:
             api = SharedAPIGateway.create(config)
@@ -954,7 +927,8 @@ class SharedAPIGateway:
 
     @staticmethod
     def destroy_if_exists(config):
-        if not (api := SharedAPIGateway.retrieve(config)):
+        api = SharedAPIGateway.retrieve(config)
+        if not api:
             return
 
         client = get_client(config, "apigatewayv2")
@@ -963,7 +937,8 @@ class SharedAPIGateway:
         lambda_client = get_client(config, "lambda")
         handler_name = FnEventHandler.resource_name(config)
         lambda_client.remove_permission(
-            FunctionName=handler_name, StatementId=SharedAPIGateway.trigger_permission_id(config),
+            FunctionName=handler_name,
+            StatementId=SharedAPIGateway.trigger_permission_id(config),
         )
 
         name = api["Name"]
@@ -987,7 +962,7 @@ class SharedAPIGateway:
             Name=name,
             ProtocolType="HTTP",
             Target=FnEventHandler.get_arn(config),
-            Description=f"Catch-all handler for Teal {config.service.deployment_id}",
+            Description=f"Catch-all handler for Teal {config.uuid}",
             # CorsConfiguration = dict(
             #     AllowCredentials=False,  # TODO? Not allowed with AllowOrigins=*
             #     AllowOrigins=["*"],  # TODO config this
@@ -1002,13 +977,14 @@ class SharedAPIGateway:
         # https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html
         lambda_client = get_client(config, "lambda")
         handler_name = FnEventHandler.resource_name(config)
-        account_id = "297409317403"  # TODO get this account ID
+        region = get_region()
+        account_id = get_account_id()
         lambda_client.add_permission(
             FunctionName=handler_name,
             StatementId=SharedAPIGateway.trigger_permission_id(config),
             Action="lambda:InvokeFunction",
             Principal="apigateway.amazonaws.com",
-            SourceArn=f"arn:aws:execute-api:{config.service.region}:{account_id}:{api_id}/*/$default",
+            SourceArn=f"arn:aws:execute-api:{region}:{account_id}:{api_id}/*/$default",
         )
         LOG.info(f"Created API {name}")
         return response
@@ -1022,13 +998,12 @@ class SharedAPIGateway:
 
 CORE_RESOURCES = [
     DataBucket,
+    InitSourcePackage,
     TealPackage,
-    SourceLayerPackage,
     DataTable,
     ExecutionRole,
     SourceLayer,
     FnSetexe,
-    FnNew,
     FnResume,
     FnEventHandler,
     # TODO combine these three:
@@ -1040,23 +1015,24 @@ CORE_RESOURCES = [
 
 def deploy(config):
     """Deploy (or update) infrastructure for this config"""
-    if not config.service.deployment_id:
-        raise ValueError("Need deployment ID")
+    if not config.uuid:
+        raise ValueError("Need UUID")
 
-    LOG.info(f"Deploying: {config.service.deployment_id}")
+    LOG.info(f"Deploying: {config.uuid}")
 
     # TODO - could make this faster by letting resource return a list of waiters
     # which are waited on at the end.
 
     for res in CORE_RESOURCES:
+        LOG.info(f"Resource: {res}")
         res.create_or_update(config)
 
-    if config.service.enable_api:
+    if config.instance.enable_api:
         SharedAPIGateway.create_or_update(config)
     else:
         SharedAPIGateway.destroy_if_exists(config)
 
-    for bucket in config.service.managed_buckets:
+    for bucket in config.instance.managed_buckets:
         # TODO s3_access should be here too.
         res = BucketTrigger(bucket)
         res.create_or_update_or_destroy(config)
@@ -1064,10 +1040,10 @@ def deploy(config):
 
 def destroy(config):
     """Destroy infrastructure created for this config"""
-    LOG.info(f"Destroying: {config.service.deployment_id}")
+    LOG.info(f"Destroying: {config.uuid}")
     # destroy in reverse order so dependencies go first
 
-    for bucket in config.service.managed_buckets:
+    for bucket in config.instance.managed_buckets:
         # TODO s3_access should be here too.
         res = BucketTrigger(bucket)
         res.destroy_if_exists(config)
@@ -1075,6 +1051,7 @@ def destroy(config):
     SharedAPIGateway.destroy_if_exists(config)
 
     for res in reversed(CORE_RESOURCES):
+        LOG.info(f"Resource: {res}")
         res.destroy_if_exists(config)
 
 
@@ -1087,7 +1064,7 @@ def show(config):
 
 # This is a bit pointless for now - could be a generic cloud interface in the
 # future.
-@dataclass
+@dataclass(frozen=True)
 class Interface:
     set_exe: type
     new: type
@@ -1098,4 +1075,10 @@ class Interface:
 
 def get_api() -> Interface:
     # TODO check it's deployed?
-    return Interface(FnSetexe, FnNew, FnGetOutput, FnGetEvents, FnVersion)
+    return Interface(
+        new=FnEventHandler,
+        set_exe=FnSetexe,
+        get_output=FnGetOutput,
+        get_events=FnGetEvents,
+        version=FnVersion,
+    )
