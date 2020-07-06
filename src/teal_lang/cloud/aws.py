@@ -394,21 +394,6 @@ class ExecutionRole:
         policy = {
             "Version": "2012-10-17",
             "Statement": [
-                # TODO log streams
-                # {
-                #     "Action": ["logs:CreateLogStream", "logs:CreateLogGroup"],
-                #     "Resource": [
-                #         "arn:aws:logs:eu-west-2:297409317403:log-group:/aws/lambda/tryit-prod*:*"
-                #     ],
-                #     "Effect": "Allow",
-                # },
-                # {
-                #     "Action": ["logs:PutLogEvents"],
-                #     "Resource": [
-                #         "arn:aws:logs:eu-west-2:297409317403:log-group:/aws/lambda/tryit-prod*:*:*"
-                #     ],
-                #     "Effect": "Allow",
-                # },
                 {
                     "Action": [
                         "dynamodb:Query",
@@ -454,6 +439,7 @@ class ExecutionRole:
                 PolicyName="s3_access",
                 PolicyDocument=json.dumps(s3_access_policy),
             )
+        # Basic Lambda policy - logs, etc
         client.attach_role_policy(
             RoleName=name,
             PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
