@@ -4,7 +4,7 @@ import time
 import traceback
 import warnings
 
-from ..machine import TlMachine
+from ..machine.machine import TlMachine
 
 LOG = logging.getLogger(__name__)
 

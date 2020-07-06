@@ -2,7 +2,7 @@
 import multiprocessing
 
 from ..controllers import ddb as ddb_controller
-from ..machine import TlMachine
+from ..machine.machine import TlMachine
 
 
 class Invoker:
