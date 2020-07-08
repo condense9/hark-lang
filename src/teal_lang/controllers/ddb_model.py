@@ -205,15 +205,13 @@ def new_session() -> SessionItem:
     return s
 
 
-def list_sessions() -> List[str]:
+def list_sessions(cls=SessionItem) -> List[str]:
     """List existing session IDs"""
     # TODO pagination
     # https://pynamodb.readthedocs.io/en/latest/api.html?highlight=scan#pynamodb.models.Model.query
     return [
         s.new_session_record
-        for s in SessionItem.query(
-            BASE_SESSION_HASH_KEY, scan_index_forward=False, limit=10
-        )
+        for s in cls.query(BASE_SESSION_HASH_KEY, scan_index_forward=False, limit=10)
         if s.new_session_record
     ]
 
