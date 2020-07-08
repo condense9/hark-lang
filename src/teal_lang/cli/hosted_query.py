@@ -75,12 +75,16 @@ def get_instance(project_id: int, instance_name: str) -> SimpleNamespace:
 query GetInstance($name: String!, $pid: Int!) {
   instance(limit: 1, where: {project_id: {_eq: $pid}, name: {_eq: $name}}) {
     id
+    uuid
     ready
   }
 }
 """
     data = _query(qry, pid=project_id, name=instance_name)
-    return SimpleNamespace(**data["instance"][0])
+    try:
+        return SimpleNamespace(**data["instance"][0])
+    except IndexError:
+        ui.exit_fail(f"No instance '{instance_name}' in project {project_id}.")
 
 
 def new_deployment(instance_id: int, package_id: int) -> SimpleNamespace:
