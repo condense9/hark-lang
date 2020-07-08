@@ -6,10 +6,6 @@ teal_file = "service.tl"
 ## optional, location of Python source:
 python_src = "src"
 
-## optional
-data_dir = ".teal_data"
-
-
 [instance]
 
 ## optional, extra layers to use (maximum of 4)
