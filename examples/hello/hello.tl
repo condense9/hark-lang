@@ -4,3 +4,7 @@ fn main() {
   print("Some output")
   "Hello world!"
 }
+
+fn more() {
+  print("MORE")
+}
