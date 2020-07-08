@@ -78,6 +78,8 @@ class S3Handler(TealEventHandler):
         bucket = data["bucket"]["name"]
         key = data["object"]["key"]  # NOTE - could check size here
 
+        # TODO - instead of one function, with an "env" argument, just have one
+        # function, and the user can define another "test mode" function
         return dict(
             function="on_upload",  # constant
             args=[mt.TlString(bucket), mt.TlString(key), mt.TlString("aws")],

@@ -97,6 +97,8 @@ def print_traceback(controller, source_text: str, stream=sys.stdout):
     """Print the traceback for a controller"""
     lines = source_text.split("\n")
     for failure in controller.get_failures():
+        # TODO - print a separator when the thread changes, to make it easier to
+        # see where contexts change.
         msg = f"\nError [Thread {failure.thread}]: {failure.error_msg}\n\n"
         stream.write(str(ui.bad(msg)))
         stream.write("Teal Traceback (most recent call last):\n")
