@@ -18,17 +18,21 @@ LOG = logging.getLogger(__name__)
 
 def deploy(args, config: Config):
     """Deploy to Teal Cloud"""
-    python_zip = config.project.data_dir / "python.zip"
+
+    with ui.spin(args, "Getting instance details ") as sp:
+        instance = q.get_instance(config.project_id, config.instance.name)
+        sp.text += ui.dim(instance.uuid)
+        sp.ok(ui.TICK)
 
     # 1. Build {python, teal, config} packages
     # 2. Compute the hashes
     with ui.spin(args, "Building source package") as sp:
+        python_zip = config.project.data_dir / "python.zip"
         make_python_layer_zip(config, python_zip)
         sp.ok(ui.TICK)
 
     # 3. Request a new package with the hashes
     with ui.spin(args, "Checking for differences") as sp:
-        instance = q.get_instance(config.project_id, config.instance.name)
         if not instance.ready:
             ui.exit_fail(f"Instance {config.instance.name} isn't ready yet.")
         python_hash = aws.hash_file(python_zip)
