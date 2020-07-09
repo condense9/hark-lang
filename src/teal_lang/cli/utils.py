@@ -10,6 +10,7 @@ from typing import Union
 import deterministic_zip as dz
 
 from ..config import Config, load
+from . import interface as ui
 
 LOG = logging.getLogger(__name__)
 LAST_SESSION_FILENAME = "last_session_id.txt"
@@ -31,10 +32,16 @@ def load_last_session_id(cfg: Config) -> Union[str, None]:
         return f.read()
 
 
-def get_session_id(args, cfg: Config):
+def get_session_id(args, cfg: Config, required=True):
     session_id = args["SESSION_ID"]
     if session_id is None:
         session_id = load_last_session_id(cfg)
+    if required and session_id is None:
+        ui.exit_problem(
+            "No session ID specified, and no previous session found."
+            "Either pass a --session parameter, or echo $SESSION > "
+            f"{cfg.project.data_dir}/{LAST_SESSION_FILENAME}"
+        )
     return session_id
 
 
@@ -50,8 +57,9 @@ def make_python_layer_zip(config: Config, dest: Path):
     root = Path(__file__).parents[3]
 
     if not config.project.python_src.exists():
-        raise DeploymentFailed(
-            f"Python source directory ({config.project.python_src}) not found"
+        ui.exit_problem(
+            f"Python source directory ({config.project.python_src}) not found",
+            "Is your configuration (in {config.config_file}) correct?",
         )
 
     LOG.info(f"Building Source Layer package in {dest}...")

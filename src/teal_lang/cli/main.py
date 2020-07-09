@@ -3,20 +3,18 @@
 Usage:
   teal [options] info
   teal [options] asm FILE
-  teal [options] ast [-o OUTPUT] FILE
-  teal [options] deploy [--config CONFIG]
-  teal [options] destroy [--config CONFIG]
-  teal [options] invoke [--config CONFIG] [ARG...]
-  teal [options] events [--config CONFIG] [--unified | --json] [SESSION_ID]
-  teal [options] stdout [--config CONFIG] [--json] [SESSION_ID]
-  teal [options] FILE [ARG...]
+  teal [options] deploy
+  teal [options] destroy
+  teal [options] invoke [-f FUNCTION] [ARG...]
+  teal [options] events [--unified | --json] [SESSION_ID]
+  teal [options] stdout [--json] [SESSION_ID]
+  teal [options] FILE [-f FUNCTION] [-s MODE] [-c MODE] [ARG...]
   teal --version
-  teal --help
+  teal -h | --help
 
 Commands:
   info     Show info about this Teal environment
   asm      Compile a file and print the bytecode listing.
-  ast      Create a data flow graph (PNG).
   deploy   Deploy to the cloud.
   destroy  Remove cloud deployment.
   invoke   Invoke a teal function in the cloud.
@@ -25,25 +23,26 @@ Commands:
   default  Run a Teal function locally.
 
 Options:
+  --version       Show version.
   -h, --help      Show this screen.
   -q, --quiet     Be quiet.
   -v, --verbose   Be verbose.
   -V, --vverbose  Be very verbose.
-  --version       Show version.
   --no-colours    Disable colours in CLI output.
 
-  --endpoint URL  Teal Cloud endpoint (default: env.TEAL_ENDPOINT).
+  --config=CONFIG  Config file to use  [default: teal.toml]
 
-  -f FUNCTION, --fn=FUNCTION   Function to run      [default: main]
-  -s MODE, --storage=MODE      memory | dynamodb    [default: memory]
-  -c MODE, --concurrency=MODE  processes | threads  [default: threads]
-
-  -o OUTPUT  Name of the output file
-
-  --config CONFIG  Config file to use  [default: teal.toml]
+  -f FUNCTION, --function=FUNCTION  Target function      [default: main]
+  -s MODE, --storage=MODE           memory | dynamodb    [default: memory]
+  -c MODE, --concurrency=MODE       processes | threads  [default: threads]
 
   -u, --unified  Merge events into one table
   -j, --json     Print as json
+
+Teal cloud options:
+  --project=ID  Teal Cloud Project ID
+  --name=NAME   Teal Cloud instance name  [default: dev]
+  --uuid=UUID   Self-hosted instance UUID
 """
 
 # http://try.docopt.org/
@@ -62,6 +61,7 @@ from pathlib import Path
 from docopt import docopt
 
 from .. import __version__, config
+from ..exceptions import TealError
 from . import interface as ui
 from . import utils
 from .interface import (
@@ -70,7 +70,7 @@ from .interface import (
     bad,
     check,
     dim,
-    exit_fail,
+    exit_problem,
     good,
     init,
     neutral,
@@ -104,10 +104,9 @@ def need_cfg(fn):
     def _wrapped(args):
 
         try:
-            config_file = Path(args["--config"])
-            cfg = config.load(config_file=config_file)
+            cfg = config.load(args)
         except config.ConfigError as exc:
-            exit_fail(exc)
+            exit_problem(str(exc), exc.suggested_fix)
 
         return fn(args, cfg=cfg)
 
@@ -115,7 +114,7 @@ def need_cfg(fn):
 
 
 def _run(args):
-    fn = args["--fn"]
+    fn = args["--function"]
     filename = args["FILE"]
     sys.path.append(".")
 
@@ -125,45 +124,52 @@ def _run(args):
 
     # Try to find a timeout for the task. NOTE: we use the "lambda" timeout even
     # for local invocations. Maybe there should be a more general timeout
-    config_file = Path(args["--config"])
     try:
-        cfg = config.load(config_file=config_file)
+        cfg = config.load(args)
         timeout = cfg.instance.lambda_timeout
     except config.ConfigError:
-        timeout = 10
+        # Don't actually need teal.toml to run stuff locally, so here's a
+        # default. Maybe it should be None.
+        timeout = 60
+
+    supported_storages = ["memory", "dynamodb"]
+
+    if args["--storage"] not in supported_storages:
+        exit_problem(
+            "Bad storage type: " + str(args["--storage"]),
+            f"Supported types: {supported_storages}",
+        )
 
     if args["--storage"] == "memory":
         if args["--concurrency"] == "processes":
-            exit_fail("Can't use processes with in-memory storage")
+            exit_problem(
+                "Can't use processes with in-memory storage",
+                "Processes can only be used with a thread-safe memory store, like dynamodb",
+            )
 
         from ..run.local import run_local
 
-        result = run_local(filename, fn, fn_args, timeout)
+        try:
+            result = run_local(filename, fn, fn_args, timeout)
+        except TealError as exc:
+            exit_problem("Error:", str(exc))
 
     elif args["--storage"] == "dynamodb":
         from ..run.dynamodb import run_ddb_local, run_ddb_processes
 
-        if args["--concurrency"] == "processes":
-            result = run_ddb_processes(filename, fn, fn_args, timeout)
-        else:
-            result = run_ddb_local(filename, fn, fn_args, timeout)
+        try:
+            if args["--concurrency"] == "processes":
+                result = run_ddb_processes(filename, fn, fn_args, timeout)
+            else:
+                result = run_ddb_local(filename, fn, fn_args, timeout)
+        except TealError as exc:
+            exit_problem("Error:", str(exc))
 
     else:
-        exit_fail("Bad storage type: " + str(args["--storage"]))
+        raise ValueError(args["--storage"])
 
     if result:
         print(result)
-
-
-def _ast(args):
-    fn = args["--fn"]
-    filename = Path(args["FILE"])
-
-    if args["-o"]:
-        dest_png = args["-o"]
-    else:
-        dest_png = f"{filename.stem}_{fn}.png"
-    raise NotImplementedError
 
 
 def _asm(args):
@@ -180,31 +186,69 @@ def _asm(args):
 
 def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
     """Helper - do something either in your cloud or the hosted Teal Cloud"""
-    if cfg.endpoint and not cfg.instance_uuid:
-        if not cfg.project_id:
+    # Self-managed
+    if cfg.instance_uuid:
+        print(dim(f"Target: Self-hosted instance {cfg.instance_uuid}.\n"))
+        return do_in_own
+
+    # Managed by Teal Cloud
+    elif cfg.project_id:
+        m = f"Target: Teal Cloud project #{cfg.project_id}, instance {cfg.instance_name}.\n"
+        print(dim(m))
+        return do_in_hosted
+
+    # Neither. Ask what the user wants
+    else:
+        print(
+            ui.primary(
+                "\n"
+                "No deployment target found - checked command line flags and config files."
+                "\n"
+            )
+        )
+        CREATE_NEW = "Create a new self-hosted instance (using local AWS credentials)."
+        USE_EXISTING = "Use an existing self hosted instance."
+        TEAL_CLOUD = "Choose a project in Teal Cloud."
+
+        options = [TEAL_CLOUD, USE_EXISTING]
+        if can_create_uuid:
+            options += [CREATE_NEW]
+
+        choice = ui.select("What would you like to do?", options)
+
+        if choice is None:
+            sys.exit(1)
+
+        elif choice == CREATE_NEW:
+            cfg.instance_uuid = config.new_instance_uuid(cfg)
+            return do_in_own
+
+        elif choice == USE_EXISTING:
+            # TODO scan account and look for likely UUIDs...
+            value = ui.get_input("Instance UUID?")
+            if not value:
+                sys.exit(1)
+            cfg.instance_uuid = value
+            config.save_instance_uuid(cfg, value)
+            return do_in_own
+
+        elif choice == TEAL_CLOUD:
             from . import hosted_query
 
-            print("No project configured, retrieving your projects...")
-            projects = hosted_query.list_projects()
+            with ui.spin("Retrieving your projects..."):
+                projects = hosted_query.list_projects()
+
             options = [p.name for p in projects]
             choice = ui.select("Which project would you like?", options)
-            if choice:
-                project_id = next(p.id for p in projects if p.name == choice)
-                config.set_project_id(cfg, project_id)
-                cfg.project_id = project_id
-
-        if cfg.project_id:
+            if not choice:
+                sys.exit(1)
+            project_id = next(p.id for p in projects if p.name == choice)
+            cfg.project_id = project_id
+            config.save_project_id(cfg, project_id)
             return do_in_hosted
 
-    if not cfg.instance_uuid:
-        if can_create_uuid and check(
-            "No Teal instance found - would you like to create one?"
-        ):
-            cfg.instance_uuid = config.new_instance_uuid(cfg)
         else:
-            exit_fail("No instance UUID or endpoint configured.")
-
-    return do_in_own
+            exit_bug(Exception(f"Unexpected choice {choice}"))
 
 
 @timed
@@ -235,16 +279,16 @@ def _destroy(args, cfg):
 def _invoke(args, cfg):
     from . import in_own, in_hosted
 
-    function = args.get("--fn", "main")
+    function = args["--function"]
     payload = {
         TEAL_CLI_VERSION_KEY: __version__,
         "function": function,
         "args": args["ARG"],
         "timeout": cfg.instance.lambda_timeout - 3,  # FIXME why is -3 needed?
     }
+    invoker = _local_or_cloud(cfg, in_own.invoke, in_hosted.invoke)
 
-    with spin(args, str(primary(f"{function}(...)"))) as sp:
-        invoker = _local_or_cloud(cfg, in_own.invoke, in_hosted.invoke)
+    with spin(str(primary(f"{function}(...)"))) as sp:
         data = invoker(args, cfg, payload)
         sp.text += " " + dim(data["session_id"])
 
@@ -269,10 +313,6 @@ def _events(args, cfg):
     from . import in_own, in_hosted
 
     sid = utils.get_session_id(args, cfg)
-
-    if sid is None:
-        exit_fail("No session ID specified, and no previous session found.")
-
     invoker = _local_or_cloud(cfg, in_own.events, in_hosted.events)
 
     if args["--json"]:
@@ -280,7 +320,7 @@ def _events(args, cfg):
         data = invoker(args, cfg, sid)
         print(json.dumps(data, indent=2))
     else:
-        with spin(args, f"Getting events {dim(sid)}"):
+        with spin(f"Getting events {dim(sid)}"):
             data = invoker(args, cfg, sid)
         if args["--unified"]:
             ui.print_events_unified(data)
@@ -293,16 +333,13 @@ def _stdout(args, cfg):
     from . import in_own, in_hosted
 
     sid = utils.get_session_id(args, cfg)
-
-    if sid is None:
-        exit_fail("No session ID specified, and no previous session found.")
-
     invoker = _local_or_cloud(cfg, in_own.stdout, in_hosted.stdout)
+
     if args["--json"]:
         data = invoker(args, cfg, sid)
         print(json.dumps(data, indent=2))
     else:
-        with spin(args, f"Getting stdout {dim(sid)}") as sp:
+        with spin(f"Getting stdout {dim(sid)}") as sp:
             data = invoker(args, cfg, sid)
             sp.ok(TICK)
         ui.print_outputs(data)
@@ -322,12 +359,8 @@ def main():
     args = docopt(__doc__, version=__version__)
     init(args)
     LOG.debug("CLI args: %s", args)
-    if not args["--quiet"]:
-        print("")  # Space in the CLI
 
-    if args["ast"]:
-        _ast(args)
-    elif args["info"]:
+    if args["info"]:
         _info(args)
     elif args["asm"]:
         _asm(args)
@@ -344,9 +377,7 @@ def main():
     elif args["FILE"] and args["FILE"].endswith(".tl"):
         _run(args)
     else:
-        print(bad("Invalid command line.\n"))
-        print(__doc__)
-        sys.exit(1)
+        exit_problem("Invalid command line.", __doc__)
 
 
 if __name__ == "__main__":

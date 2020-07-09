@@ -3,6 +3,7 @@
 import logging
 import os
 from types import SimpleNamespace
+from typing import Union
 
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
@@ -24,7 +25,10 @@ def _init(endpoint: str):
     try:
         HASURA_SECRET = os.environ["HASURA_ADMIN_SECRET"]
     except KeyError:
-        ui.exit_fail("HASURA_ADMIN_SECRET is not set")
+        ui.exit_problem(
+            "HASURA_ADMIN_SECRET is not set",
+            "This is a temporary problem and will disappear in future versions",
+        )
 
     transport = RequestsHTTPTransport(
         url=endpoint,
@@ -42,7 +46,10 @@ def _query(s: str, **kwargs) -> dict:
         cfg = config.get_last_loaded()
         _init(cfg.endpoint)
     LOG.info("Query args: %s", kwargs)
-    return CLIENT.execute(gql(s), variable_values=kwargs)
+    try:
+        return CLIENT.execute(gql(s), variable_values=kwargs)
+    except Exception as exc:
+        ui.exit_bug(exc)
 
 
 ## Pythonic queries:
@@ -70,21 +77,27 @@ mutation NewPackage($id: Int!, $ch: String!, $ph: String!, $th: String!) {
     return SimpleNamespace(**data["new_package"]["package"])
 
 
-def get_instance(project_id: int, instance_name: str) -> SimpleNamespace:
+def get_instance(project_id: int, instance_name: str) -> Union[SimpleNamespace, None]:
     qry = """
 query GetInstance($name: String!, $pid: Int!) {
   instance(limit: 1, where: {project_id: {_eq: $pid}, name: {_eq: $name}}) {
     id
     uuid
     ready
+    project {
+      name
+    }
   }
 }
 """
     data = _query(qry, pid=project_id, name=instance_name)
     try:
+        data["instance"][0]["project"] = SimpleNamespace(
+            **data["instance"][0]["project"]
+        )
         return SimpleNamespace(**data["instance"][0])
     except IndexError:
-        ui.exit_fail(f"No instance '{instance_name}' in project {project_id}.")
+        return None
 
 
 def new_deployment(instance_id: int, package_id: int) -> SimpleNamespace:
@@ -144,6 +157,11 @@ query ListProjects {
   project {
     id
     name
+    instances {
+      name
+      uuid
+      name
+    }
   }
 }
     """

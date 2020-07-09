@@ -1,13 +1,14 @@
 """The Teal Machine Instruction class"""
 
 from .types import TlType
+from ..exceptions import TealError
 
 
-class BadOperandsLength(Exception):
+class BadOperandsLength(TealError):
     """Wrong number of operands for instruction"""
 
 
-class BadOperandsType(Exception):
+class BadOperandsType(TealError):
     """Bad operand type(s) for instruction"""
 
 
@@ -18,9 +19,9 @@ class Instruction:
     op_types = None
     check_op_types = True
 
-    def __init__(self, *operands, source=None):
+    def __init__(self, *operands, source: list = []):
         self.name = type(self).__name__
-        self.source = source
+        self.source = [str(x) for x in source]
 
         # All operands *must* be TlType so that the instruction can be
         # serialised
@@ -40,13 +41,13 @@ class Instruction:
 
         self.operands = operands
 
-    def serialise(self):
+    def serialise(self) -> list:
         """Serialise"""
         operands = [o.serialise() for o in self.operands]
         return [self.name, operands, self.source]
 
     @classmethod
-    def deserialise(cls, obj, instruction_set):
+    def deserialise(cls, obj: list, instruction_set):
         """Deserialise an Instruction
 
         instruction_set: Module of Instruction types

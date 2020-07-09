@@ -1,10 +1,12 @@
 """CLI UI related functions"""
 
 import contextlib
+import datetime
 import logging
 import sys
 import urllib.parse
 from operator import itemgetter
+from traceback import format_exception, format_tb, format_stack
 
 import colorful as cf
 from PyInquirer import prompt
@@ -25,6 +27,11 @@ UI_COLORS = {
 }
 
 
+# Flags that modify interface displays
+QUIET = False
+VERBOSE = False
+
+
 def init(args):
     """Initialise the UI, including logging"""
 
@@ -34,6 +41,11 @@ def init(args):
         level = "INFO"
     else:
         level = None
+
+    global QUIET
+    global VERBOSE
+    QUIET = args["--quiet"]
+    VERBOSE = args["--verbose"] or args["--vverbose"]
 
     root_logger = logging.getLogger("teal_lang")
 
@@ -52,6 +64,9 @@ def init(args):
         # FIXME Logger doesn't have basicConfig
         if level:
             root_logger.basicConfig(level=level)
+
+
+## String colour modifiers
 
 
 def dim(string):
@@ -78,10 +93,40 @@ def neutral(string):
     return cf.bold(string)
 
 
-def exit_fail(err, *, data=None, traceback=None):
-    """Something broke while running"""
-    print("")
-    print(bad(str(err)))
+## graceful exits
+
+
+def exit_problem(problem: str, suggested_fix: str, *, source_line=None, column=None):
+    """Exit because of a user-correctable problem"""
+    print("\n" + bad(problem))
+
+    if source_line:
+        print(secondary(source_line))
+    if column:
+        print(" " * (column - 1) + neutral("^"))
+
+    print(suggested_fix + "\n")
+    sys.exit(1)
+
+
+def exit_bug(msg_or_exc, *, data=None, traceback=None):
+    """Something broke unexpectedly while running"""
+    print(bad("\nUnexpected error 💔. " + str(msg_or_exc)))  # absolutely heartbreaking
+
+    if hasattr(msg_or_exc, "suggested_fix"):
+        print(msg_or_exc.suggested_fix)
+
+    source = "".join(format_stack(limit=2))
+
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+
+    if exc_type:
+        traceback = format_exception(exc_type, exc_value, exc_traceback)
+        traceback_tail = format_tb(exc_traceback, limit=2)
+    elif traceback:
+        traceback_tail = "...\n" + "".join(traceback[-2:])
+    else:
+        traceback_tail = "No traceback"
 
     if traceback:
         print("\n" + "".join(traceback))
@@ -89,15 +134,16 @@ def exit_fail(err, *, data=None, traceback=None):
     if data:
         print(f"Associated Data:\n{data}")
 
-    # If no traceback or data, it's assumed this is a general error and not a
-    # bug.
-    if traceback or data:
-        # TODO sadface ascii art
-        print("If this persists, please let us know:")
-        params = "?" + urllib.parse.urlencode(dict(title=err))
-        print(f"https://github.com/condense9/teal-lang/issues/new{params}")
+    # TODO sadface ascii art
+    print("\nIf this persists, please let us know:")
+    issue_body = "Source:\n" + source + "\n" + traceback_tail
+    params = urllib.parse.urlencode(dict(title=str(msg_or_exc), body=issue_body))
+    print(dim(f"https://github.com/condense9/teal-lang/issues/new?{params}\n"))
 
     sys.exit(1)
+
+
+## UI elements
 
 
 class DummySpinner:
@@ -115,8 +161,8 @@ class DummySpinner:
         pass
 
 
-def spin(args, text):
-    if args["--quiet"] or args["--verbose"] or args["--vverbose"]:
+def spin(text):
+    if QUIET or VERBOSE:
         return contextlib.nullcontext(DummySpinner())
     else:
         return yaspin(Spinners.dots, text=str(text))
@@ -133,9 +179,14 @@ def check(question: str, default=False) -> bool:
 def select(question: str, options: list) -> str:
     """Choose one from a list"""
     answers = prompt(
-        {"type": "list", "name": "select", "message": question, "choices": options,},
+        {"type": "list", "name": "select", "message": question, "choices": options},
     )
-    return answers.get("select", None)
+    return answers.get("select")
+
+
+def get_input(question: str) -> str:
+    answers = prompt({"type": "input", "name": "input", "message": question})
+    return answers.get("input")
 
 
 # TODO types for these interfaces - they're outputs from awslambda.py
@@ -146,12 +197,16 @@ def print_outputs(success_result: dict):
     output = success_result["output"]
 
     if output:
-        table = Texttable()
-        table.set_cols_align(["l", "l", "l"])
-        table.add_row(["Thread", "Time", "Output"])
+        table = Texttable(max_width=100)
+        alignment = ["r", "l", "l"]
+        table.set_cols_align(alignment)
+        table.set_header_align(alignment)
+        table.header(["Thread", "Time", ""])
+        table.set_deco(Texttable.HEADER)
+        start = datetime.datetime.fromisoformat(output[0]["time"])
         for o in output:
-            # TODO make time print nicer
-            table.add_row([o["thread"], o["time"], o["text"].strip()])
+            offset = datetime.datetime.fromisoformat(o["time"]) - start
+            table.add_row([o["thread"], "+" + str(offset), o["text"].strip()])
 
     print("\n" + table.draw() + "\n")
 
@@ -192,3 +247,15 @@ def print_events_unified(success_result: dict):
         thread = event["thread"]
         data = event["data"] if len(event["data"]) else ""
         print(f"{time:^}  {thread:^7}  {name} {data}")
+
+
+def format_source_problem(obj):
+    return (
+        f"{type(obj).__name__}\n"
+        + f"{obj.msg}\n\n"
+        + f"{obj.source_filename}\n"
+        + "...\n"
+        + f"{obj.source_lineno}: {obj.source_line}\n"
+        + " " * (obj.source_column + len(str(obj.source_lineno)) + 1)
+        + "^\n"
+    )

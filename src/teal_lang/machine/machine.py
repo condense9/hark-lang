@@ -18,6 +18,7 @@ from functools import singledispatchmethod
 from io import StringIO
 from typing import Any, Dict, List
 
+from ..exceptions import TealError
 from . import types as mt
 from .arec import ActivationRecord
 from .controller import Controller
@@ -31,11 +32,11 @@ from .stdout_item import StdoutItem
 LOG = logging.getLogger(__name__)
 
 
-class ImportPyError(Exception):
+class ImportPyError(TealError):
     """Error importing some code from Python"""
 
 
-class TealRuntimeError(Exception):
+class TealRuntimeError(TealError):
     """Error while executing Teal code"""
 
     def __init__(self, msg):
@@ -45,7 +46,7 @@ class TealRuntimeError(Exception):
         return f"Runtime Error: {self.msg}"
 
 
-class UnhandledError(Exception):
+class UnhandledError(TealError):
     """Some Teal code signaled an error which was not handled"""
 
     def __init__(self, msg):
@@ -55,7 +56,7 @@ class UnhandledError(Exception):
         return f'error("{self.msg}")'
 
 
-class ForeignError(Exception):
+class ForeignError(TealError):
     """An error occured in a foreign call"""
 
     def __init__(self, exc):
@@ -90,10 +91,16 @@ def import_python_function(fnname, modname):
     else:
         spec = importlib.util.find_spec(modname)
         if not spec:
-            raise ImportPyError(f"Could not find module `{modname}`")
-        m = spec.loader.load_module()
+            raise ImportPyError(f"Could not find Python module `{modname}'")
+        try:
+            m = spec.loader.load_module()
+            fn = getattr(m, fnname)
+        except Exception as exc:
+            tb = "".join(traceback.format_exception(*sys.exc_info()))
+            raise ImportPyError(
+                f"Could not load Python function `{fnname}'.\n{tb}"
+            ) from exc
 
-    fn = getattr(m, fnname)
     LOG.debug("Loaded %s", fn)
     return fn
 

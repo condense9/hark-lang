@@ -6,6 +6,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
+from ..exceptions import TealError
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
@@ -31,11 +32,11 @@ class DeployConfig:
     source_layer_url: str = None
 
 
-class DeploymentFailed(Exception):
+class DeploymentFailed(TealError):
     """Failed to deploy"""
 
 
-class InvokeError(Exception):
+class InvokeError(TealError):
     "Failed to invoke function"
 
 
@@ -121,7 +122,7 @@ class DataBucket:
             client.create_bucket(
                 Bucket=name, ACL="private", CreateBucketConfiguration=location
             )
-            LOG.info(f"created bucket {name}")
+            LOG.info(f"[+] Created bucket {name}")
         except ClientError as exc:
             raise DeploymentFailed(exc) from exc
 
@@ -177,7 +178,7 @@ def upload_if_necessary(client, bucket, key, filename: Path):
             response = client.put_object(
                 Body=f, Bucket=bucket, Key=key, Metadata={hash_key: new_hashsum}
             )
-            LOG.info(f"Uploaded {filename}")
+            LOG.info(f"[+] Uploaded {filename}")
 
     except ClientError as exc:
         raise DeploymentFailed(exc) from exc
@@ -261,7 +262,7 @@ class DataTable:
 
         waiter = client.get_waiter("table_exists")
         waiter.wait(TableName=name)
-        LOG.info(f"Created Table {name}")
+        LOG.info(f"[+] Created Table {name}")
 
     @staticmethod
     def destroy_if_exists(config):
@@ -379,7 +380,8 @@ class ExecutionRole:
                 PolicyName="s3_access",
                 PolicyDocument=json.dumps(s3_access_policy),
             )
-            LOG.info(f"Updated S3 bucket access for {name}")
+            time.sleep(5)  # Allow propagation (see notes in create_or_update...)
+            LOG.info(f"[+] Updated S3 bucket access for {name}")
 
     @staticmethod
     def create_or_update(config):
@@ -450,6 +452,7 @@ class ExecutionRole:
         # https://github.com/Miserlou/Zappa/commit/fa1b224fc43c7c8739dd179f9a038d31e13911e9
         # Hack for now:
         time.sleep(10)
+        LOG.info(f"[+] Created {self}")
 
 
 class SourceLayer:
@@ -491,7 +494,7 @@ class SourceLayer:
             s3_key = f"automated/source_{config.source_layer_hash}.zip"
             client = get_client("s3")
             upload_if_necessary(client, s3_bucket, s3_key, config.source_layer_file)
-            LOG.info(f"Uploaded source layer {config.source_layer_file}")
+            LOG.info(f"[+] Uploaded source layer {config.source_layer_file}")
         else:
             s3_bucket, s3_key = get_bucket_and_key(config.source_layer_url)
 
@@ -502,7 +505,7 @@ class SourceLayer:
         )
         current_sha = SourceLayer.get_latest_sha256(config)
         assert current_sha == local_sha
-        LOG.info(f"Published new version of layer {name}")
+        LOG.info(f"[+] Published new version of layer {name}")
 
     @staticmethod
     def destroy_if_exists(config):
@@ -586,7 +589,7 @@ class TealFunction:
         required_sha = TealPackage.local_sha(config)
 
         if current_sha != required_sha:
-            LOG.info(f"Code for {name} changed, updating function")
+            LOG.info(f"[+] Code for {name} changed, updating function")
             client.update_function_code(
                 FunctionName=name,
                 S3Bucket=DataBucket.resource_name(config),
@@ -606,7 +609,7 @@ class TealFunction:
             or (cls.needs_src_layer and current_layers != required_layers)
             or current_config["Environment"]["Variables"] != env_vars
         ):
-            LOG.info(f"Configuration for {name} changed, updating function")
+            LOG.info(f"[+] Configuration for {name} changed, updating function")
             client.update_function_configuration(
                 FunctionName=name,
                 Layers=required_layers,
@@ -642,7 +645,7 @@ class TealFunction:
             Layers=cls.src_layers_list(config) if cls.needs_src_layer else [],
             Environment=dict(Variables=cls.get_environment_variables(config)),
         )
-        LOG.info(f"Created function {name}")
+        LOG.info(f"[+] Created function {name}")
 
     @classmethod
     def get_environment_variables(cls, config):
@@ -872,7 +875,7 @@ class BucketTrigger:
         if needed:
             if not exists:
                 self.create(config)
-                LOG.info(f"Created/updated {self}")
+                LOG.info(f"[+] Created/updated {self}")
         else:
             self.destroy_if_exists(config)
 
@@ -968,13 +971,13 @@ class SharedAPIGateway:
             Principal="apigateway.amazonaws.com",
             SourceArn=f"arn:aws:execute-api:{region}:{account_id}:{api_id}/*/$default",
         )
-        LOG.info(f"Created API {name}")
+        LOG.info(f"[+] Created API {name}")
         return response
 
     @staticmethod
     def update(config, api):
         name = api["Name"]
-        LOG.info(f"Updated API {name}")
+        LOG.info(f"[+] Updated API {name}")
         # TODO ?? Will become relevant when auth is configurable.
 
 

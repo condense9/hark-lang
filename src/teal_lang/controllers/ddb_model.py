@@ -24,6 +24,7 @@ from pynamodb.attributes import (
 from pynamodb.exceptions import UpdateError
 from pynamodb.models import Model
 
+from ..exceptions import TealError
 from ..machine.arec import ActivationRecord
 from ..machine.future import Future
 from ..machine.state import State
@@ -241,7 +242,7 @@ def try_lock(session, thread_lock) -> bool:
         raise
 
 
-class LockTimeout(Exception):
+class LockTimeout(TealError):
     """Timeout trying to lock item"""
 
 

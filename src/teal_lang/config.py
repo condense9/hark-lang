@@ -1,6 +1,5 @@
 """Load Teal configuration"""
 
-import functools
 import logging
 import os
 import uuid
@@ -12,6 +11,7 @@ from typing import Tuple, Union
 import boto3
 import toml
 
+from .exceptions import TealError
 from .config_classes import InstanceConfig, ProjectConfig
 
 LOG = logging.getLogger(__name__)
@@ -21,8 +21,15 @@ DEFAULT_UUID_FILENAME = "instance_uuid.txt"
 DEFAULT_PROJECTID_FILENAME = "project_id.txt"
 
 
-class ConfigError(Exception):
+class ConfigError(TealError):
     """Error loading configuration"""
+
+    def __init__(self, error, suggested_fix):
+        self.error = error
+        self.suggested_fix = suggested_fix
+
+    def __str__(self):
+        return f"Configuration Error: {self.error}"
 
 
 LAST_LOADED = None
@@ -32,21 +39,25 @@ LAST_LOADED = None
 class Config:
     root: str
     config_file: Path
+    # The following two options determine whether the deployment target is
+    # self-hosted or teal cloud
+    project_id: Union[str, None]
+    instance_uuid: Union[uuid.UUID, None]
     project: ProjectConfig
     instance: InstanceConfig
-    endpoint: Union[str, None]
-    instance_uuid: Union[uuid.UUID, None]
-    project_id: Union[str, None]
+    endpoint: Union[str, None]  # TODO provide a default
+    instance_name: str = "dev"
 
 
 def get_last_loaded() -> Config:
     return LAST_LOADED
 
 
-@functools.lru_cache
-def load(config_file: Path = None) -> Config:
+def load(args: dict) -> Config:
     """Load the configuration, creating a new deployment ID if desired"""
-    if not config_file:
+    if args["--config"]:
+        config_file = Path(args["--config"])
+    else:
         config_file = DEFAULT_CONFIG_FILEPATH
 
     project_root = config_file.parent.resolve()
@@ -54,10 +65,17 @@ def load(config_file: Path = None) -> Config:
     try:
         data = toml.load(config_file)
     except FileNotFoundError:
-        raise ConfigError(f"{config_file} not found")
+        raise ConfigError(
+            f"{config_file} not found",
+            "Either create it manually, or use `teal init' to generate a new one.",
+        )
 
     if "project" not in data:
-        raise ConfigError(f"No [project] section in {config_file}")
+        raise ConfigError(
+            f"No [project] section in {config_file}",
+            "Check out an example of what the config file should look like:\n"
+            "https://github.com/condense9/teal-lang/blob/master/examples/fractals/teal.toml",
+        )
 
     project_config = ProjectConfig(**data.pop("project"))
     instance_config = InstanceConfig(**data.pop("instance", {}))
@@ -79,6 +97,7 @@ def load(config_file: Path = None) -> Config:
         endpoint=os.environ.get("TEAL_CLOUD_ENDPOINT", None),
         instance_uuid=_try_get_instance_uuid(project_config.data_dir),
         project_id=_try_get_project_id(project_config.data_dir),
+        instance_name=args["--name"],
     )
     return LAST_LOADED
 
@@ -91,20 +110,22 @@ def _try_get_instance_uuid(data_dir: Path) -> Union[uuid.UUID, None]:
             return uuid.UUID(f.read().strip())
 
 
+def save_instance_uuid(config: Config, value: str):
+    """Save an instance UUID in the project data"""
+    data_dir = config.project.data_dir
+    if not data_dir.exists():
+        os.makedirs(data_dir)
+    uuid_file = data_dir / DEFAULT_UUID_FILENAME
+    with open(uuid_file, "w") as f:
+        f.write(str(value))
+
+
 def new_instance_uuid(config: Config) -> uuid.UUID:
     """Make and save an instance UUID"""
     data_dir = config.project.data_dir
     value = uuid.uuid4()
-
-    if not data_dir.exists():
-        os.makedirs(data_dir)
-
-    uuid_file = data_dir / DEFAULT_UUID_FILENAME
-
-    with open(uuid_file, "w") as f:
-        f.write(str(value))
-
-    LOG.info("New instance: %s", cfg.instance_uuid)
+    save_instance_uuid(config, value)
+    LOG.info("New instance: %s", value)
     return value
 
 
@@ -116,7 +137,7 @@ def _try_get_project_id(data_dir: Path) -> Union[str, None]:
             return f.read().strip()
 
 
-def set_project_id(config: Config, project_id: int):
+def save_project_id(config: Config, project_id: int):
     """Save the project ID in the project data"""
     data_dir = config.project.data_dir
     filename = data_dir / DEFAULT_PROJECTID_FILENAME

@@ -21,42 +21,47 @@ import functools
 import logging
 import sys
 import time
+import warnings
 from typing import List, Tuple
 
 from ..machine import future as fut
 from ..machine.controller import Controller, ControllerError
-from ..machine.executable import Executable
-from ..machine.probe import ProbeEvent, ProbeLog
-from ..machine.state import State
-from ..machine.stdout_item import StdoutItem
 from . import ddb_model as db
-from .ddb_model import FUTURE, META, AREC, STATE, PLOGS, PEVENTS, STDOUT
+from .ddb_model import AREC, FUTURE, META, PEVENTS, PLOGS, STATE, STDOUT
+
+try:
+    from ..machine.executable import Executable
+    from ..machine.probe import ProbeEvent, ProbeLog
+    from ..machine.state import State
+    from ..machine.stdout_item import StdoutItem
+except ModuleNotFoundError:
+    warnings.warn(
+        "Could not import some components - controller won't be fully functional."
+    )
 
 
 LOG = logging.getLogger(__name__)
-
-# Alias
-SI = db.SessionItem
 
 
 class DataController(Controller):
     supports_plugins = True
 
     @classmethod
-    def with_new_session(cls):
+    def with_new_session(cls, **kwargs):
         """Create a data controller for a new session"""
         db.init_base_session()
-        return cls(db.new_session())
+        return cls(db.new_session(), **kwargs)
 
     @classmethod
-    def with_session_id(cls, session_id: str):
+    def with_session_id(cls, session_id: str, db_cls=db.SessionItem):
         try:
-            session = SI.get(session_id, META)
-        except SI.DoesNotExist as exc:
+            session = db_cls.get(session_id, META)
+        except db_cls.SI.DoesNotExist as exc:
             raise ControllerError("Session does not exist") from exc
-        return cls(session)
+        return cls(session, db_cls=db_cls)
 
-    def __init__(self, session_meta):
+    def __init__(self, session_meta, db_cls=db.SessionItem):
+        self.SI = db_cls
         self.session_id = session_meta.session_id
         if session_meta.meta.exe:
             self.executable = Executable.deserialise(session_meta.meta.exe)
@@ -67,8 +72,8 @@ class DataController(Controller):
         """Retrieve the specified group:item_id"""
         _key = f"{group}:{item_id}" if item_id is not None else group
         try:
-            return SI.get(self.session_id, _key)
-        except SI.DoesNotExist as exc:
+            return self.SI.get(self.session_id, _key)
+        except self.SI.DoesNotExist as exc:
             raise ControllerError(
                 f"Item {_key} does not exist in {self.session_id}"
             ) from exc
@@ -83,19 +88,13 @@ class DataController(Controller):
         self.executable = exe
         s = self._qry(META)
         s.meta.exe = exe.serialise()
-        try:
-            s.save()
-        except SI.UpdateError as exc:
-            raise ControllerError("Could not update session executable") from exc
+        s.save()
         LOG.info("Updated session code")
 
     def set_entrypoint(self, fn_name: str):
         s = self._qry(META)
         s.meta.entrypoint = fn_name
-        try:
-            s.save()
-        except SI.UpdateError as exc:
-            raise ControllerError from exc
+        s.save()
 
     ## Threads
 
@@ -190,11 +189,11 @@ class DataController(Controller):
 
     def increment_ref(self, ptr):
         s = self._qry(AREC, ptr)
-        s.update(actions=[SI.arec.ref_count.set(SI.arec.ref_count + 1)])
+        s.update(actions=[self.SI.arec.ref_count.set(self.SI.arec.ref_count + 1)])
 
     def decrement_ref(self, ptr):
         s = self._qry(AREC, ptr)
-        s.update(actions=[SI.arec.ref_count.set(SI.arec.ref_count - 1)])
+        s.update(actions=[self.SI.arec.ref_count.set(self.SI.arec.ref_count - 1)])
         return s.arec
 
     def delete_arec(self, ptr):
@@ -209,11 +208,11 @@ class DataController(Controller):
     def set_probe_data(self, vmid, probe):
         events = [item.serialise() for item in probe.events]
         s = self._qry(PEVENTS)
-        s.update(actions=[SI.pevents.set(SI.pevents.append(events))])
+        s.update(actions=[self.SI.pevents.set(self.SI.pevents.append(events))])
 
         logs = [item.serialise() for item in probe.logs]
         s = self._qry(PLOGS)
-        s.update(actions=[SI.plogs.set(SI.plogs.append(logs))])
+        s.update(actions=[self.SI.plogs.set(self.SI.plogs.append(logs))])
 
     def get_probe_logs(self):
         s = self._qry(PLOGS)
@@ -238,13 +237,15 @@ class DataController(Controller):
         s = self._qry(FUTURE, fut_ptr)
         s.update(
             actions=[
-                SI.future.continuations.set(SI.future.continuations.append([vmid]))
+                self.SI.future.continuations.set(
+                    self.SI.future.continuations.append([vmid])
+                )
             ]
         )
 
     def set_future_chain(self, fut_ptr, chain):
         s = self._qry(FUTURE, fut_ptr)
-        s.update(actions=[SI.future.chain.set(chain)])
+        s.update(actions=[self.SI.future.chain.set(chain)])
 
     def lock_future(self, ptr):
         return self._lock_item(FUTURE, ptr)
@@ -260,7 +261,9 @@ class DataController(Controller):
         if item.text:
             sys.stdout.write(item.text)
             s = self._qry(STDOUT)
-            s.update(actions=[SI.stdout.set(SI.stdout.append([item.serialise()]))])
+            s.update(
+                actions=[self.SI.stdout.set(self.SI.stdout.append([item.serialise()]))]
+            )
 
     @property  # Legacy. TODO: remove
     def stdout(self):
@@ -291,7 +294,7 @@ class DataController(Controller):
     ) -> Tuple[str, str]:
         future_id = f"{plugin_name}:{plugin_value_id}"
         try:
-            s = SI.get(PLUGINS_HASH_KEY, future_id)
-        except SI.DoesNotExist:
+            s = self.SI.get(PLUGINS_HASH_KEY, future_id)
+        except self.SI.DoesNotExist:
             raise ControllerError("Future does not exist") from exc
         return (s.plugin_future_session, future_id)

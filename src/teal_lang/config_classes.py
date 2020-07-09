@@ -19,6 +19,7 @@ class ProjectConfig:
     python_src: Path = Path(DEFAULT_PYTHON_SOURCE_DIR)
     python_requirements: Path = Path(DEFAULT_REQUIREMENTS_FILE)
     data_dir: Path = Path(DEFAULT_DATA_DIR)
+    provider: str = "aws"  # | azure | gcp. Not implemented yet.
 
     def __post_init__(self):
         # ensure some keys are paths
@@ -43,7 +44,6 @@ class InstanceConfig:
     managed_buckets: tuple = ()
     upload_triggers: Tuple[BucketTriggerConfig] = ()
     enable_api: bool = False
-    name: str = "dev"
 
     def __post_init__(self):
         # ensure some keys are paths

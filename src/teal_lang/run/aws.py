@@ -10,12 +10,12 @@ from .. import __version__, load
 from ..controllers import ddb as ddb_controller
 from ..controllers import ddb_model as db
 from ..executors.awslambda import Invoker
-from ..machine import TlMachine
+from ..machine.machine import TlMachine
 from ..machine import types as mt
 from ..machine.controller import ControllerError
 from ..machine.executable import Executable
-from ..teal_compiler.compiler import CompileError
-from ..teal_parser.parser import TealSyntaxError
+from ..teal_compiler.compiler import TealCompileError
+from ..teal_parser.parser import TealParseError
 
 from . import lambda_handlers
 
@@ -67,8 +67,8 @@ def set_exe(event, context):
 
     try:
         exe = load.compile_text(content)
-    except Exception as exc:
-        return _fail(f"Error compiling code", exception=exc)
+    except TealCompileError as exc:
+        return _fail(f"Error compiling code.", suggested_fix=str(exc))
 
     db.set_base_exe(exe)
     return _success(message="Base Executable set successfully")
@@ -126,7 +126,7 @@ def _new_session(
     else:
         try:
             exe = load.compile_text(code_override)
-        except (TealSyntaxError, CompileError) as exc:
+        except (TealParseError, TealCompileError) as exc:
             # TODO use load.msg to print this nicely
             return _fail(f"Code error", exception=exc)
         except Exception as exc:
@@ -148,6 +148,7 @@ def _new_session(
         machine = TlMachine(vmid, invoker)
     except Exception as exc:
         try:
+            # FIXME the exception message is lost.
             controller.broken = True
         except ControllerError:
             pass
@@ -189,7 +190,13 @@ def _success(code=200, **body_data):
     )
 
 
-def _fail(msg, code=400, exception=None, **body_data):
+def _fail(
+    msg,
+    code=400,
+    exception=None,
+    suggested_fix="No resolution suggestions, sorry.",
+    **body_data,
+):
     """Return an error message"""
     # 400 = client error
     # 500 = server error
@@ -206,5 +213,5 @@ def _fail(msg, code=400, exception=None, **body_data):
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Credentials": True,
         },
-        body=json.dumps({"message": msg, **body_data}),
+        body=json.dumps({"message": msg, "suggested_fix": suggested_fix, **body_data}),
     )

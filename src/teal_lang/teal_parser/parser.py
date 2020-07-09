@@ -1,21 +1,47 @@
 import os
 from ast import literal_eval
-from typing import Any
 from itertools import chain
+from typing import Any
 
 from sly import Lexer, Parser
 from sly.lex import Token
 
-from . import nodes
+from ..cli.interface import format_source_problem
+from ..exceptions import TealError
+from . import nodes as n
 
 
-class TealSyntaxError(Exception):
-    def __init__(self, token, msg):
-        self.token = token
+class TealParseError(TealError):
+    def __init__(self, msg, filename, source_text, token):
         self.msg = msg
+        self.filename = filename
+        self.source_text = source_text
+        self.lineno = token.lineno
+        self.index = token.index
+        self.source_filename = filename
+        self.source_lineno = token.lineno
+        self.source_line = source_text.split("\n")[token.lineno - 1]
+        self.source_column = index_column(self.source_text, self.index)
+
+    def __str__(self):
+        return format_source_problem(self)
+
+
+def index_column(text, index):
+    """Compute column position of a token index in text"""
+    last_cr = text.rfind("\n", 0, index)
+    if last_cr < 0:
+        last_cr = 0
+    column = index - last_cr
+    return column
 
 
 class TealLexer(Lexer):
+    def __init__(self, filename, source_text):
+        super().__init__()
+        self.filename = filename
+        self.source_text = source_text
+
     tokens = {
         ATTRIBUTE,
         TERM,
@@ -58,7 +84,7 @@ class TealLexer(Lexer):
     # Must come before DIV (same starting char)
     @_(r"(/\*(.|\n)*?\*/)|(//.*)")
     def COMMENT(self, t):
-        t.lineno += t.value.count("\n")
+        self.lineno += t.value.count("\n")
 
     # Not a token used by parsing, but used in post_lex as an alternative
     # terminator.
@@ -101,7 +127,9 @@ class TealLexer(Lexer):
     TERM = r";+"
 
     def error(self, t):
-        raise TealSyntaxError(t, f"Illegal character `{t.value[0]}`")
+        raise TealParseError(
+            f"Illegal character `{t.value[0]}`", self.filename, self.source_text, t
+        )
 
 
 def post_lex(toks):
@@ -137,8 +165,28 @@ def post_lex(toks):
 ### PARSER
 
 
+def N(parser, parse_item, node_cls: n.Node, *args):
+    """Factory for nodes with source text line and column information"""
+    try:
+        lineno = parser.source_text[: parse_item.index].count("\n")
+        line = parser.source_text[lineno]
+        column = index_column(parser.source_text, parse_item.index)
+    except AttributeError:
+        lineno = None
+        line = None
+        column = None
+
+    return node_cls(parser.filename, lineno, line, column, *args)
+
+
 class TealParser(Parser):
     # debugfile = "parser.out"
+
+    def __init__(self, filename, source_text):
+        super().__init__()
+        self.filename = filename
+        self.source_text = source_text
+
     tokens = TealLexer.tokens
     precedence = (
         ("nonassoc", LT, GT),
@@ -165,7 +213,7 @@ class TealParser(Parser):
         if not p.expressions:
             # TODO parser error framework
             raise Exception("Empty block expression")
-        return nodes.N_Progn(p.index, p.expressions)
+        return N(self, p, n.N_Progn, p.expressions)
 
     @_("terminated_expr more_expressions")
     def expressions(self, p):
@@ -201,8 +249,8 @@ class TealParser(Parser):
 
     @_("maybe_attribute FN ID '(' paramlist ')' block_expr")
     def expr(self, p):
-        return nodes.N_Definition(
-            p.index, p.ID, p.paramlist, p.block_expr, p.maybe_attribute
+        return N(
+            self, p, n.N_Definition, p.ID, p.paramlist, p.block_expr, p.maybe_attribute,
         )
 
     @_("nothing")
@@ -215,7 +263,7 @@ class TealParser(Parser):
 
     @_("LAMBDA '(' paramlist ')' block_expr")
     def expr(self, p):
-        return nodes.N_Lambda(p.index, p.paramlist, p.block_expr)
+        return N(self, p, n.N_Lambda, p.paramlist, p.block_expr)
 
     @_("nothing")
     def paramlist(self, p):
@@ -239,7 +287,8 @@ class TealParser(Parser):
     # NOTE:
     @_("ID '(' arglist ')'")
     def expr(self, p):
-        return nodes.N_Call(p.index, nodes.N_Id(p.index, p.ID), p.arglist)
+        identifier = N(self, p, n.N_Id, p.ID)
+        return N(self, p, n.N_Call, identifier, p.arglist)
 
     @_("nothing")
     def arglist(self, p):
@@ -255,13 +304,14 @@ class TealParser(Parser):
 
     @_("expr")
     def arg_item(self, p):
-        return nodes.N_Argument(None, None, p.expr)
+        return N(self, p, n.N_Argument, None, p.expr)
 
     @_("SYMBOL expr")
     def arg_item(self, p):
         # named arguments.
         # A bit icky - conflicts with SYMBOL
-        return nodes.N_Argument(p.index, nodes.N_Symbol(p.index, p.SYMBOL), p.expr)
+        symbol = N(self, p, n.N_Symbol, p.SYMBOL)
+        return N(self, p, n.N_Argument, symbol, p.expr)
 
     # sub
 
@@ -273,11 +323,11 @@ class TealParser(Parser):
 
     @_("IF expr block_expr TERM rest_if")
     def expr(self, p):
-        return nodes.N_If(p.index, p.expr, p.block_expr, p.rest_if)
+        return N(self, p, n.N_If, p.expr, p.block_expr, p.rest_if)
 
     @_("ELIF expr block_expr TERM rest_if")
     def rest_if(self, p):
-        return nodes.N_If(p.index, p.expr, p.block_expr, p.rest_if)
+        return N(self, p, n.N_If, p.expr, p.block_expr, p.rest_if)
 
     @_("ELSE block_expr")
     def rest_if(self, p):
@@ -287,11 +337,11 @@ class TealParser(Parser):
 
     @_("ASYNC expr")
     def expr(self, p):
-        return nodes.N_Async(p.index, p.expr)
+        return N(self, p, n.N_Async, p.expr)
 
     @_("AWAIT expr")
     def expr(self, p):
-        return nodes.N_Await(p.index, p.expr)
+        return N(self, p, n.N_Await, p.expr)
 
     # binops
 
@@ -308,13 +358,14 @@ class TealParser(Parser):
         "expr SET expr",
     )
     def expr(self, p):
-        return nodes.N_Binop(p.index, p[0], p[1], p[2])
+        return N(self, p, n.N_Binop, p[0], p[1], p[2])
 
     # compound
 
     @_("'[' maybe_term list_items maybe_term ']'")
     def expr(self, p):
-        return nodes.N_Call(p.index, nodes.N_Id(p.index, "list"), p.list_items)
+        identifier = N(self, p, n.N_Id, "list")
+        return N(self, p, n.N_Call, identifier, p.list_items)
 
     @_("nothing")
     def list_items(self, p):
@@ -330,7 +381,8 @@ class TealParser(Parser):
 
     @_("'{' maybe_term dict_items maybe_term '}'")
     def expr(self, p):
-        return nodes.N_Call(p.index, nodes.N_Id(p.index, "hash"), p.dict_items)
+        identifier = N(self, p, n.N_Id, "hash")
+        return N(self, p, n.N_Call, identifier, p.dict_items)
 
     # TODO fix, this is icky - TERM can either be ';' or '\n'
     @_("nothing")
@@ -353,51 +405,44 @@ class TealParser(Parser):
 
     @_("ID")
     def expr(self, p):
-        return nodes.N_Id(p.index, p.ID)
+        return N(self, p, n.N_Id, p.ID)
 
     @_("SYMBOL")
     def expr(self, p):
-        return nodes.N_Symbol(p.index, p.SYMBOL)
+        return N(self, p, n.N_Symbol, p.SYMBOL)
 
     @_("TRUE")
     def expr(self, p):
-        return nodes.N_Literal(p.index, True)
+        return N(self, p, n.N_Literal, True)
 
     @_("FALSE")
     def expr(self, p):
-        return nodes.N_Literal(p.index, False)
+        return N(self, p, n.N_Literal, False)
 
     @_("NULL")
     def expr(self, p):
-        return nodes.N_Literal(p.index, None)
+        return N(self, p, n.N_Literal, None)
 
     @_("NUMBER")
     def expr(self, p):
-        return nodes.N_Literal(p.index, literal_eval(p.NUMBER))
+        return N(self, p, n.N_Literal, literal_eval(p.NUMBER))
 
     @_("STRING")
     def expr(self, p):
-        return nodes.N_Literal(p.index, literal_eval(p.STRING))
+        return N(self, p, n.N_Literal, literal_eval(p.STRING))
 
     def error(self, p):
-        raise TealSyntaxError(p, f"Unexpected token `{p.value}`")
+        raise TealParseError(
+            f"Unexpected token `{p.value}`", self.filename, self.source_text, p
+        )
 
 
 ###
 
 
-def token_column(text, index):
-    """Compute column position of token in text"""
-    last_cr = text.rfind("\n", 0, index)
-    if last_cr < 0:
-        last_cr = 0
-    column = (index - last_cr) + 1
-    return column
-
-
-def tl_parse(text, debug_lex=False):
-    parser = TealParser()
-    lexer = TealLexer()
+def tl_parse(filename: str, text: str, debug_lex=False):
+    parser = TealParser(filename, text)
+    lexer = TealLexer(filename, text)
     if debug_lex:
         toks = list(post_lex(lexer.tokenize(text)))
         indent = 0

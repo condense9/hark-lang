@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..cloud import aws
 from ..config import Config
+from ..exceptions import TealError
 from . import hosted_query as q
 from . import interface as ui
 from .utils import make_python_layer_zip
@@ -16,25 +17,40 @@ from .utils import make_python_layer_zip
 LOG = logging.getLogger(__name__)
 
 
+class TealCloudTookTooLong(TealError):
+    """Something took too long in Teal Cloud"""
+
+    suggested_fix = "Check Teal Cloud for issues, and try again."
+
+
 def deploy(args, config: Config):
     """Deploy to Teal Cloud"""
 
-    with ui.spin(args, "Getting instance details ") as sp:
-        instance = q.get_instance(config.project_id, config.instance.name)
-        sp.text += ui.dim(instance.uuid)
+    with ui.spin("Getting project and instance details ") as sp:
+        try:
+            instance = q.get_instance(config.project_id, config.instance_name)
+        except IndexError:
+            exit_problem(
+                f"Can't find an instance called {config.instance_name}.",
+                f"Is the project ID ({config.project_id}) correct?",
+            )
+        sp.text += ui.dim(f"{instance.project.name} :: {instance.uuid} ")
         sp.ok(ui.TICK)
 
     # 1. Build {python, teal, config} packages
     # 2. Compute the hashes
-    with ui.spin(args, "Building source package") as sp:
+    with ui.spin("Building source package") as sp:
         python_zip = config.project.data_dir / "python.zip"
         make_python_layer_zip(config, python_zip)
         sp.ok(ui.TICK)
 
     # 3. Request a new package with the hashes
-    with ui.spin(args, "Checking for differences") as sp:
+    with ui.spin("Checking for differences") as sp:
         if not instance.ready:
-            ui.exit_fail(f"Instance {config.instance.name} isn't ready yet.")
+            ui.exit_problem(
+                f"Instance {config.instance.name} isn't ready yet.",
+                "Please wait a few minutes and try again.",
+            )
         python_hash = aws.hash_file(python_zip)
         teal_hash = aws.hash_file(config.project.teal_file)
         config_hash = aws.hash_file(config.config_file)
@@ -42,7 +58,7 @@ def deploy(args, config: Config):
         sp.ok(ui.TICK)
 
     # 4. Upload the files that have changed
-    with ui.spin(args, "Uploading modified code") as sp:
+    with ui.spin("Uploading modified code") as sp:
         if package.new_python:
             _upload_to_s3(package.python_url, python_zip)
         if package.new_teal:
@@ -52,14 +68,14 @@ def deploy(args, config: Config):
         sp.ok(ui.TICK)
 
     # 5. Create a deployment
-    with ui.spin(args, f"Deploying {config.instance.name}") as sp:
+    with ui.spin(f"Deploying {config.instance.name}") as sp:
         deployment = q.new_deployment(instance.id, package.id)
         q.switch(instance.id, deployment.id)
 
         start = time.time()
         while True:
             if time.time() - start > 120:
-                ui.exit_fail("Deployment took too long - something didn't work :(")
+                raise TealCloudTookTooLong()
 
             status = q.status(deployment.id)
             if status.active:
@@ -83,7 +99,7 @@ def invoke(args, config: Config, payload: dict) -> dict:
 
 
 def destroy(args, config: Config):
-    with ui.spin(args, f"Destroying {config.instance.name}") as sp:
+    with ui.spin(f"Destroying {config.instance.name}") as sp:
         instance = q.get_instance(config.project_id, config.instance.name)
         q.destroy(instance.id)
 
@@ -91,7 +107,7 @@ def destroy(args, config: Config):
         start = time.time()
         while True:
             if time.time() - start > 120:
-                ui.exit_fail("Took too long - something didn't work :(")
+                raise TealCloudTookTooLong()
 
             ready = q.is_instance_ready(instance.id)
             if not ready:

@@ -5,13 +5,14 @@ import traceback
 from typing import List
 
 from .. import load
-from ..machine import types as mt
 from ..cli import interface as ui
+from ..exceptions import TealError
+from ..machine import types as mt
 
 LOG = logging.getLogger(__name__)
 
 
-class ThreadDied(Exception):
+class ThreadDied(TealError):
     """A Thread died (Teal machine thread, not necessarily a Python thread)"""
 
 

@@ -24,19 +24,19 @@ def deploy(args, config: Config):
         source_layer_file=layer_zip,
     )
 
-    with ui.spin(args, "Deploying infrastructure") as sp:
+    with ui.spin("Deploying infrastructure") as sp:
         # this is idempotent
         aws.deploy(deploy_config)
-        sp.text += ui.dim(f" {config.project.data_dir}/")
+        sp.text += ui.dim(f" Build data: {config.project.data_dir}/")
         sp.ok(ui.TICK)
 
-    with ui.spin(args, "Checking API") as sp:
+    with ui.spin("Checking API") as sp:
         api = aws.get_api()
         response = _call_cloud_api("version", {}, deploy_config)
         sp.text += " Teal " + ui.dim(response["version"])
         sp.ok(ui.TICK)
 
-    with ui.spin(args, f"Deploying {config.project.teal_file}") as sp:
+    with ui.spin(f"Deploying {config.project.teal_file}") as sp:
         # See teal_lang/executors/awslambda.py
         with open(config.project.teal_file) as f:
             content = f.read()
@@ -54,7 +54,7 @@ def destroy(args, config: Config):
         uuid=config.instance_uuid, instance=config.instance,
     )
 
-    with ui.spin(args, "Destroying") as sp:
+    with ui.spin("Destroying") as sp:
         aws.destroy(deploy_config)
         sp.ok(ui.TICK)
 
@@ -109,20 +109,23 @@ def _call_cloud_api(function: str, args: dict, config: aws.DeployConfig, as_json
     # This is when there's an unhandled exception in the Lambda.
     if "errorMessage" in response:
         msg = response["errorMessage"]
-        ui.exit_fail(msg, traceback=response.get("stackTrace", None))
+        ui.exit_bug(msg, traceback=response.get("stackTrace", None))
 
     code = response.get("statusCode", None)
     if code == 400:
-        # This is when there's a (handled) error
+        # This is when there's a (handled) error.
         err = json.loads(response["body"])
-        ui.exit_fail(
-            err.get("message", "StatusCode 400"), traceback=err.get("traceback", None)
-        )
+        if "traceback" in err:
+            ui.exit_bug(
+                err.get("message"), traceback=err.get("traceback", None),
+            )
+        else:
+            ui.exit_problem(err["message"], err["suggested_fix"])
 
     if code != 200:
         print("\n")
         msg = f"Unexpected response code from AWS: {code}"
-        ui.exit_fail(msg, data=response)
+        ui.exit_bug(msg, data=response)
 
     body = json.loads(response["body"]) if as_json else response["body"]
     LOG.info(body)
