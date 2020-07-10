@@ -82,8 +82,9 @@ fn build_fractal_async(fractal_spec) {
  * Entrypoint. Get some random fractal specs, and then render them in parallel.
 **/
 fn main() {
-  fractal_specs = random_fractals(2)
+  fractal_specs = random_fractals(10)
   results = map_wait(build_fractal_async, fractal_specs)
+  // results = map(build_fractal, fractal_specs)
   print("Done")
   results
 }

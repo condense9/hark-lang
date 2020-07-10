@@ -131,7 +131,7 @@ def random_fractals(num) -> list:
     """Create a list of random fractals to generate"""
     fractals = [getattr(Fractals, x) for x in dir(Fractals) if not x.startswith("_")]
     return [
-        [fractal.name, random.randint(fractal.min_iter, fractal.max_iter)]
+        [fractal.name, random.randint(fractal.min_iter + 2, fractal.max_iter + 2)]
         for fractal in random.choices(fractals, k=num)
     ]
 

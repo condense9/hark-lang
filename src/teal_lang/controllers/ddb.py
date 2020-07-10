@@ -56,7 +56,7 @@ class DataController(Controller):
     def with_session_id(cls, session_id: str, db_cls=db.SessionItem):
         try:
             session = db_cls.get(session_id, META)
-        except db_cls.SI.DoesNotExist as exc:
+        except db_cls.DoesNotExist as exc:
             raise ControllerError("Session does not exist") from exc
         return cls(session, db_cls=db_cls)
 

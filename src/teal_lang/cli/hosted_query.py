@@ -9,6 +9,7 @@ from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
 
 from .. import config
+from ..exceptions import UserResolvableError
 from . import interface as ui
 
 LOG = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ def _init(endpoint: str):
     try:
         HASURA_SECRET = os.environ["HASURA_ADMIN_SECRET"]
     except KeyError:
-        ui.exit_problem(
+        raise UserResolvableError(
             "HASURA_ADMIN_SECRET is not set",
             "This is a temporary problem and will disappear in future versions",
         )
@@ -46,10 +47,7 @@ def _query(s: str, **kwargs) -> dict:
         cfg = config.get_last_loaded()
         _init(cfg.endpoint)
     LOG.info("Query args: %s", kwargs)
-    try:
-        return CLIENT.execute(gql(s), variable_values=kwargs)
-    except Exception as exc:
-        ui.exit_bug(exc)
+    return CLIENT.execute(gql(s), variable_values=kwargs)
 
 
 ## Pythonic queries:

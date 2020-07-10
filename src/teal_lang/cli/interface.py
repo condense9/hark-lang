@@ -96,35 +96,28 @@ def neutral(string):
 ## graceful exits
 
 
-def exit_problem(problem: str, suggested_fix: str, *, source_line=None, column=None):
+def exit_problem(problem: str, suggested_fix: str):
     """Exit because of a user-correctable problem"""
     print("\n" + bad(problem))
-
-    if source_line:
-        print(secondary(source_line))
-    if column:
-        print(" " * (column - 1) + neutral("^"))
-
-    print(suggested_fix + "\n")
+    print(suggested_fix)
+    if not suggested_fix.endswith("\n"):
+        print("")
     sys.exit(1)
 
 
-def exit_bug(msg_or_exc, *, data=None, traceback=None):
+def exit_bug(msg, *, data=None, traceback=None):
     """Something broke unexpectedly while running"""
-    print(bad("\nUnexpected error 💔. " + str(msg_or_exc)))  # absolutely heartbreaking
+    print(bad("\nUnexpected error 💔. " + str(msg)))  # absolutely heartbreaking
 
-    if hasattr(msg_or_exc, "suggested_fix"):
-        print(msg_or_exc.suggested_fix)
-
-    source = "".join(format_stack(limit=2))
+    source = "".join(format_stack(limit=4))
 
     exc_type, exc_value, exc_traceback = sys.exc_info()
 
     if exc_type:
         traceback = format_exception(exc_type, exc_value, exc_traceback)
-        traceback_tail = format_tb(exc_traceback, limit=2)
+        traceback_tail = "".join(format_tb(exc_traceback, limit=4))
     elif traceback:
-        traceback_tail = "...\n" + "".join(traceback[-2:])
+        traceback_tail = "...\n" + "".join(traceback[-4:])
     else:
         traceback_tail = "No traceback"
 
@@ -137,7 +130,7 @@ def exit_bug(msg_or_exc, *, data=None, traceback=None):
     # TODO sadface ascii art
     print("\nIf this persists, please let us know:")
     issue_body = "Source:\n" + source + "\n" + traceback_tail
-    params = urllib.parse.urlencode(dict(title=str(msg_or_exc), body=issue_body))
+    params = urllib.parse.urlencode(dict(title=str(msg), body=issue_body))
     print(dim(f"https://github.com/condense9/teal-lang/issues/new?{params}\n"))
 
     sys.exit(1)
@@ -249,13 +242,16 @@ def print_events_unified(success_result: dict):
         print(f"{time:^}  {thread:^7}  {name} {data}")
 
 
-def format_source_problem(obj):
+def format_source_problem(
+    source_filename, source_lineno, source_line, source_column,
+):
+    if any(
+        x is None for x in (source_filename, source_lineno, source_line, source_column)
+    ):
+        return "<unknown>"
+
     return (
-        f"{type(obj).__name__}\n"
-        + f"{obj.msg}\n\n"
-        + f"{obj.source_filename}\n"
-        + "...\n"
-        + f"{obj.source_lineno}: {obj.source_line}\n"
-        + " " * (obj.source_column + len(str(obj.source_lineno)) + 1)
+        f"{source_filename}\n...\n{source_lineno}: {source_line}\n"
+        + " " * (source_column + len(str(source_lineno)) + 1)
         + "^\n"
     )

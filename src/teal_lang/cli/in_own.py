@@ -6,10 +6,19 @@ import botocore
 
 from ..cloud import aws
 from ..config import Config
+from ..exceptions import UserResolvableError, UnexpectedError
 from . import interface as ui
 from .utils import make_python_layer_zip
 
 LOG = logging.getLogger(__name__)
+
+
+def _update_sp(prefix, sp):
+    def update(resource):
+        item = ui.dim(resource.__name__ + "...")
+        sp.text = f"{prefix} {item}"
+
+    return update
 
 
 def deploy(args, config: Config):
@@ -24,10 +33,11 @@ def deploy(args, config: Config):
         source_layer_file=layer_zip,
     )
 
-    with ui.spin("Deploying infrastructure") as sp:
+    spin_msg = "Deploying infrastructure"
+    with ui.spin(spin_msg) as sp:
         # this is idempotent
-        aws.deploy(deploy_config)
-        sp.text += ui.dim(f" Build data: {config.project.data_dir}/")
+        aws.deploy(deploy_config, callback_start=_update_sp(spin_msg, sp))
+        sp.text = spin_msg + ui.dim(f" Build data: {config.project.data_dir}/")
         sp.ok(ui.TICK)
 
     with ui.spin("Checking API") as sp:
@@ -54,8 +64,10 @@ def destroy(args, config: Config):
         uuid=config.instance_uuid, instance=config.instance,
     )
 
-    with ui.spin("Destroying") as sp:
-        aws.destroy(deploy_config)
+    spin_msg = "Destroying infrastructure"
+    with ui.spin(spin_msg) as sp:
+        aws.destroy(deploy_config, callback_start=_update_sp(spin_msg, sp))
+        sp.text = spin_msg
         sp.ok(ui.TICK)
 
     print(ui.good(f"\nDone. You can safely `rm -rf {config.project.data_dir}`."))
@@ -98,10 +110,10 @@ def _call_cloud_api(function: str, args: dict, config: aws.DeployConfig, as_json
         logs, response = getattr(api, function).invoke(config, args)
     except botocore.exceptions.ClientError as exc:
         if exc.response["Error"]["Code"] == "KMSAccessDeniedException":
-            msg = "\nAWS is not ready (KMSAccessDeniedException). Please try again in a few minutes."
-            print(ui.bad(msg))
-            ui.let_us_know("Invoke failed (KMSAccessDeniedException)")
-            sys.exit(1)
+            raise UserResolvableError(
+                "AWS is not ready (KMSAccessDeniedException)",
+                "Please try again in a few minutes, and let us know if it persists.",
+            )
         raise
 
     LOG.info(logs)
@@ -109,23 +121,24 @@ def _call_cloud_api(function: str, args: dict, config: aws.DeployConfig, as_json
     # This is when there's an unhandled exception in the Lambda.
     if "errorMessage" in response:
         msg = response["errorMessage"]
-        ui.exit_bug(msg, traceback=response.get("stackTrace", None))
+        if "Task timed out" in msg:
+            raise UserResolvableError(msg, "Let us know if this persists.")
+        raise UnexpectedError(msg + "\n" + "".join(response.get("stackTrace", "")))
 
     code = response.get("statusCode", None)
     if code == 400:
         # This is when there's a (handled) error.
         err = json.loads(response["body"])
         if "traceback" in err:
-            ui.exit_bug(
-                err.get("message"), traceback=err.get("traceback", None),
+            raise UserResolvableError(
+                err.get("message"), err.get("traceback", None),
             )
         else:
-            ui.exit_problem(err["message"], err["suggested_fix"])
+            raise UserResolvableError(err["message"], err["suggested_fix"])
 
     if code != 200:
-        print("\n")
-        msg = f"Unexpected response code from AWS: {code}"
-        ui.exit_bug(msg, data=response)
+        msg = f"Unexpected response code from AWS: {code}\n"
+        raise UnexpectedError(msg + response)
 
     body = json.loads(response["body"]) if as_json else response["body"]
     LOG.info(body)

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 import uuid
 from collections import namedtuple
 from dataclasses import dataclass
@@ -11,25 +12,19 @@ from typing import Tuple, Union
 import boto3
 import toml
 
-from .exceptions import TealError
 from .config_classes import InstanceConfig, ProjectConfig
+from .exceptions import UserResolvableError
 
 LOG = logging.getLogger(__name__)
 
+TEAL_DIST_DATA = Path(__file__).parents[2] / "dist_data"
 DEFAULT_CONFIG_FILEPATH = Path("teal.toml")
 DEFAULT_UUID_FILENAME = "instance_uuid.txt"
 DEFAULT_PROJECTID_FILENAME = "project_id.txt"
 
 
-class ConfigError(TealError):
+class ConfigError(UserResolvableError):
     """Error loading configuration"""
-
-    def __init__(self, error, suggested_fix):
-        self.error = error
-        self.suggested_fix = suggested_fix
-
-    def __str__(self):
-        return f"Configuration Error: {self.error}"
 
 
 LAST_LOADED = None
@@ -143,3 +138,13 @@ def save_project_id(config: Config, project_id: int):
     filename = data_dir / DEFAULT_PROJECTID_FILENAME
     with open(filename, "w") as f:
         return f.write(str(project_id))
+
+
+def create_skeleton(dest="."):
+    """Create a skeleton (template) config file in the given dir"""
+    filename = Path(dest) / DEFAULT_CONFIG_FILEPATH
+    if filename.exists():
+        raise UserResolvableError(
+            f"{filename} already exists", "Cowardly refusing to clobber it...",
+        )
+    shutil.copyfile(TEAL_DIST_DATA / DEFAULT_CONFIG_FILEPATH, filename)

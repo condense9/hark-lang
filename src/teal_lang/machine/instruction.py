@@ -1,15 +1,29 @@
 """The Teal Machine Instruction class"""
 
 from .types import TlType
-from ..exceptions import TealError
+from ..exceptions import UnexpectedError
 
 
-class BadOperandsLength(TealError):
+class BadOperandsLength(UnexpectedError):
     """Wrong number of operands for instruction"""
 
+    def __init__(self, instr_name: str, num_ops: int, expected_num: int):
+        msg = (
+            f"Wrong number of operands ({num_ops}, expected {expected_num}) "
+            f"for {instr_name.upper()}."
+        )
+        super().__init__(msg)
 
-class BadOperandsType(TealError):
+
+class BadOperandsType(UnexpectedError):
     """Bad operand type(s) for instruction"""
+
+    def __init__(self, instr_name: str, got, expected, pos: int):
+        msg = (
+            f"Wrong operand type (got {got}, expected {expected} "
+            f"in position {pos}) for {instr_name.upper()}."
+        )
+        super().__init__(msg)
 
 
 class Instruction:
@@ -19,25 +33,35 @@ class Instruction:
     op_types = None
     check_op_types = True
 
-    def __init__(self, *operands, source: list = []):
+    @classmethod
+    def from_node(cls, ast_node, *operands):
+        source = [
+            str(ast_node.source_filename),  # ensure types are correct
+            int(ast_node.source_lineno),
+            str(ast_node.source_line),
+            int(ast_node.source_column),
+        ]
+        return cls(*operands, source=source)
+
+    def __init__(self, *operands, source: list = None):
         self.name = type(self).__name__
-        self.source = [str(x) for x in source]
+        self.source = source or [None, None, None, None]
 
         # All operands *must* be TlType so that the instruction can be
         # serialised
-        for o in operands:
+        for idx, o in enumerate(operands):
             if not isinstance(o, TlType):
-                raise BadOperandsType(self.name, o, TlType)
+                raise BadOperandsType(self.name, type(o), TlType, idx)
 
         if self.num_ops:
             if len(operands) != self.num_ops:
                 raise BadOperandsLength(self.name, len(operands), self.num_ops)
 
         if self.op_types:
-            for a, b in zip(operands, self.op_types):
+            for idx, (a, b) in enumerate(zip(operands, self.op_types)):
                 ok = callable(a) if b == callable else isinstance(a, b)
                 if not ok:
-                    raise BadOperandsType(self.name, a, b)
+                    raise BadOperandsType(self.name, type(a), b, idx)
 
         self.operands = operands
 

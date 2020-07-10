@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# npm install -g dynamodb-admin
 # docker pull amazon/dynamodb-local
 
 set -x
@@ -10,6 +11,7 @@ PORT=9000
 TABLE=TealSessions
 
 AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-eu-west-2}
+export AWS_DEFAULT_REGION
 
 CID=$(docker run --rm -d -p ${PORT}:8000 amazon/dynamodb-local)
 
@@ -40,6 +42,8 @@ echo
 echo "export DYNAMODB_TABLE=${TABLE}"
 echo
 echo "And make sure your region is correct! ${AWS_DEFAULT_REGION}"
+echo
+echo "Also make sure AWS_PROFILE is not set!"
 echo
 
 DYNAMO_ENDPOINT=http://localhost:${PORT} dynamodb-admin

@@ -2,6 +2,7 @@
 
 Usage:
   teal [options] info
+  teal [options] init
   teal [options] asm FILE
   teal [options] deploy
   teal [options] destroy
@@ -61,7 +62,7 @@ from pathlib import Path
 from docopt import docopt
 
 from .. import __version__, config
-from ..exceptions import TealError
+from ..exceptions import UserResolvableError, UnexpectedError
 from . import interface as ui
 from . import utils
 from .interface import (
@@ -71,6 +72,7 @@ from .interface import (
     check,
     dim,
     exit_problem,
+    exit_bug,
     good,
     init,
     neutral,
@@ -102,12 +104,7 @@ def need_cfg(fn):
 
     @wraps(fn)
     def _wrapped(args):
-
-        try:
-            cfg = config.load(args)
-        except config.ConfigError as exc:
-            exit_problem(str(exc), exc.suggested_fix)
-
+        cfg = config.load(args)
         return fn(args, cfg=cfg)
 
     return _wrapped
@@ -149,21 +146,15 @@ def _run(args):
 
         from ..run.local import run_local
 
-        try:
-            result = run_local(filename, fn, fn_args, timeout)
-        except TealError as exc:
-            exit_problem("Error:", str(exc))
+        result = run_local(filename, fn, fn_args, timeout)
 
     elif args["--storage"] == "dynamodb":
         from ..run.dynamodb import run_ddb_local, run_ddb_processes
 
-        try:
-            if args["--concurrency"] == "processes":
-                result = run_ddb_processes(filename, fn, fn_args, timeout)
-            else:
-                result = run_ddb_local(filename, fn, fn_args, timeout)
-        except TealError as exc:
-            exit_problem("Error:", str(exc))
+        if args["--concurrency"] == "processes":
+            result = run_ddb_processes(filename, fn, fn_args, timeout)
+        else:
+            result = run_ddb_local(filename, fn, fn_args, timeout)
 
     else:
         raise ValueError(args["--storage"])
@@ -198,66 +189,62 @@ def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
         return do_in_hosted
 
     # Neither. Ask what the user wants
-    else:
-        print(
-            ui.primary(
-                "\n"
-                "No deployment target found - checked command line flags and config files."
-                "\n"
-            )
+    print(
+        ui.primary(
+            "\n"
+            "No deployment target found - checked command line flags and config files."
+            "\n"
         )
-        CREATE_NEW = "Create a new self-hosted instance (using local AWS credentials)."
-        USE_EXISTING = "Use an existing self hosted instance."
-        TEAL_CLOUD = "Choose a project in Teal Cloud."
+    )
+    CREATE_NEW = "Create a new self-hosted instance (using local AWS credentials)."
+    USE_EXISTING = "Use an existing self hosted instance."
+    TEAL_CLOUD = "Choose a project in Teal Cloud."
 
-        options = [TEAL_CLOUD, USE_EXISTING]
-        if can_create_uuid:
-            options += [CREATE_NEW]
+    options = [TEAL_CLOUD, USE_EXISTING]
+    if can_create_uuid:
+        options += [CREATE_NEW]
 
-        choice = ui.select("What would you like to do?", options)
+    choice = ui.select("What would you like to do?", options)
 
-        if choice is None:
+    if choice is None:
+        sys.exit(1)
+
+    elif choice == CREATE_NEW:
+        cfg.instance_uuid = config.new_instance_uuid(cfg)
+        return do_in_own
+
+    elif choice == USE_EXISTING:
+        # TODO scan account and look for likely UUIDs...
+        value = ui.get_input("Instance UUID?")
+        if not value:
             sys.exit(1)
+        cfg.instance_uuid = value
+        config.save_instance_uuid(cfg, value)
+        return do_in_own
 
-        elif choice == CREATE_NEW:
-            cfg.instance_uuid = config.new_instance_uuid(cfg)
-            return do_in_own
+    elif choice == TEAL_CLOUD:
+        from . import hosted_query
 
-        elif choice == USE_EXISTING:
-            # TODO scan account and look for likely UUIDs...
-            value = ui.get_input("Instance UUID?")
-            if not value:
-                sys.exit(1)
-            cfg.instance_uuid = value
-            config.save_instance_uuid(cfg, value)
-            return do_in_own
+        with ui.spin("Retrieving your projects..."):
+            projects = hosted_query.list_projects()
 
-        elif choice == TEAL_CLOUD:
-            from . import hosted_query
+        options = [p.name for p in projects]
+        choice = ui.select("Which project would you like?", options)
+        if not choice:
+            sys.exit(1)
+        project_id = next(p.id for p in projects if p.name == choice)
+        cfg.project_id = project_id
+        config.save_project_id(cfg, project_id)
+        return do_in_hosted
 
-            with ui.spin("Retrieving your projects..."):
-                projects = hosted_query.list_projects()
-
-            options = [p.name for p in projects]
-            choice = ui.select("Which project would you like?", options)
-            if not choice:
-                sys.exit(1)
-            project_id = next(p.id for p in projects if p.name == choice)
-            cfg.project_id = project_id
-            config.save_project_id(cfg, project_id)
-            return do_in_hosted
-
-        else:
-            exit_bug(Exception(f"Unexpected choice {choice}"))
+    else:
+        assert False, "Not reachable"
 
 
 @timed
 @need_cfg
 def _deploy(args, cfg):
     from . import in_own, in_hosted
-
-    # TODO prompt when it looks like this is a new instance. Make sure! Need an
-    # AWS method (e.g. check whether the first/last resources exist)
 
     deployer = _local_or_cloud(
         cfg, in_own.deploy, in_hosted.deploy, can_create_uuid=True
@@ -345,8 +332,8 @@ def _stdout(args, cfg):
         ui.print_outputs(data)
 
 
-@timed
-def _info(args):
+@need_cfg
+def _info(args, cfg):
     # API URL
     # deployment ID
     # deployed teal version
@@ -355,13 +342,16 @@ def _info(args):
     raise NotImplementedError
 
 
-def main():
-    args = docopt(__doc__, version=__version__)
-    init(args)
-    LOG.debug("CLI args: %s", args)
+def _init(args):
+    config.create_skeleton()
+    print("\n" + TICK + good(f" Created ./{config.DEFAULT_CONFIG_FILEPATH}\n"))
 
+
+def dispatch(args):
     if args["info"]:
         _info(args)
+    elif args["init"]:
+        _init(args)
     elif args["asm"]:
         _asm(args)
     elif args["deploy"]:
@@ -378,6 +368,19 @@ def main():
         _run(args)
     else:
         exit_problem("Invalid command line.", __doc__)
+
+
+def main():
+    args = docopt(__doc__, version=__version__)
+    init(args)
+    LOG.debug("CLI args: %s", args)
+
+    try:
+        dispatch(args)
+    except UserResolvableError as exc:
+        exit_problem(exc.msg, exc.suggested_fix)
+    except UnexpectedError as exc:
+        exit_bug(str(exc))
 
 
 if __name__ == "__main__":

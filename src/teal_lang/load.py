@@ -19,11 +19,7 @@ def compile_file(filename: Path) -> Executable:
     with open(filename, "r") as f:
         text = f.read()
 
-    try:
-        return tl_compile(tl_parse(filename, text))
-    except (TealParseError, TealCompileError) as exc:
-        print(str(exc))
-        sys.exit(1)
+    return tl_compile(tl_parse(filename, text))
 
 
 if __name__ == "__main__":

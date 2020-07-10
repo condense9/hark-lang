@@ -3,7 +3,7 @@
 import logging
 from typing import List
 
-from ..exceptions import TealError
+from ..exceptions import UnexpectedError
 from . import types as mt
 from .arec import ActivationRecord
 from .future import Future
@@ -14,7 +14,7 @@ from .thread_failure import StackTraceItem, ThreadFailure
 LOG = logging.getLogger(__name__)
 
 
-class ControllerError(TealError):
+class ControllerError(UnexpectedError):
     """A general controller error"""
 
 

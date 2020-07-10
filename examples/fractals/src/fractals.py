@@ -67,6 +67,8 @@ class Fractals:
         rules={"F": "F+F--F+F"},
         iterations=5,
         angle=60,
+        min_iter=3,
+        max_iter=8,
     )
 
     koch_island = Params(

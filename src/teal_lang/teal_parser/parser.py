@@ -1,30 +1,27 @@
 import os
 from ast import literal_eval
 from itertools import chain
+from pathlib import Path
 from typing import Any
 
 from sly import Lexer, Parser
 from sly.lex import Token
 
 from ..cli.interface import format_source_problem
-from ..exceptions import TealError
+from ..exceptions import UserResolvableError
 from . import nodes as n
 
 
-class TealParseError(TealError):
-    def __init__(self, msg, filename, source_text, token):
-        self.msg = msg
-        self.filename = filename
-        self.source_text = source_text
-        self.lineno = token.lineno
-        self.index = token.index
-        self.source_filename = filename
-        self.source_lineno = token.lineno
-        self.source_line = source_text.split("\n")[token.lineno - 1]
-        self.source_column = index_column(self.source_text, self.index)
+class TealParseError(UserResolvableError):
+    """Parse error"""
 
-    def __str__(self):
-        return format_source_problem(self)
+    def __init__(self, msg, filename, source_text, token):
+        source_line = source_text.split("\n")[token.lineno - 1]
+        source_column = index_column(source_text, token.index)
+        explanation = format_source_problem(
+            filename, token.lineno, source_line, source_column,
+        )
+        super().__init__(msg, explanation)
 
 
 def index_column(text, index):
@@ -168,8 +165,8 @@ def post_lex(toks):
 def N(parser, parse_item, node_cls: n.Node, *args):
     """Factory for nodes with source text line and column information"""
     try:
-        lineno = parser.source_text[: parse_item.index].count("\n")
-        line = parser.source_text[lineno]
+        lineno = parser.source_text[: parse_item.index].count("\n") + 1
+        line = parser.source_text.split("\n")[lineno - 1]
         column = index_column(parser.source_text, parse_item.index)
     except AttributeError:
         lineno = None
@@ -441,6 +438,7 @@ class TealParser(Parser):
 
 
 def tl_parse(filename: str, text: str, debug_lex=False):
+    filename = str(Path(filename).absolute())
     parser = TealParser(filename, text)
     lexer = TealLexer(filename, text)
     if debug_lex:

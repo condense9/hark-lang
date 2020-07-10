@@ -18,7 +18,7 @@ extra_layers = [
 # python_requirements = "requirements.txt"
 
 ## optional, lambda function timeout (s)
-lambda_timeout = 20
+lambda_timeout = 30
 
 ## optional, lambda function memory (MB)
 lambda_memory = 512

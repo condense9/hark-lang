@@ -24,7 +24,7 @@ packages = [
     { include = "teal_lang", from = "src" },
 ]
 
-include = ["teal_lambda.zip"]
+include = ["dist_data"]
 exclude = ["teal_lang/examples/**.*"]
 
 [tool.poetry.urls]

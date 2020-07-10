@@ -18,7 +18,7 @@ from functools import singledispatchmethod
 from io import StringIO
 from typing import Any, Dict, List
 
-from ..exceptions import TealError
+from ..exceptions import TealError, UserResolvableError, UnexpectedError
 from . import types as mt
 from .arec import ActivationRecord
 from .controller import Controller
@@ -32,39 +32,24 @@ from .stdout_item import StdoutItem
 LOG = logging.getLogger(__name__)
 
 
-class ImportPyError(TealError):
+class ImportPyError(UserResolvableError):
     """Error importing some code from Python"""
 
 
-class TealRuntimeError(TealError):
-    """Error while executing Teal code"""
+class UnhandledError(UserResolvableError):
+    """Unhandled Teal error()"""
 
     def __init__(self, msg):
-        self.msg = msg
-
-    def __str__(self):
-        return f"Runtime Error: {self.msg}"
+        super().__init__(msg, "")
 
 
-class UnhandledError(TealError):
-    """Some Teal code signaled an error which was not handled"""
-
-    def __init__(self, msg):
-        self.msg = msg
-
-    def __str__(self):
-        return f'error("{self.msg}")'
-
-
-class ForeignError(TealError):
+class ForeignError(UserResolvableError):
     """An error occured in a foreign call"""
 
     def __init__(self, exc):
-        self.exc = exc
-
-    def __str__(self):
-        data = "".join(traceback.format_exception(*self.exc))
-        return f"Python Error:\n\n{data}"
+        info = sys.exc_info()
+        tb = "".join(traceback.format_exception(*info))
+        super().__init__(str(exc), tb)
 
 
 def traverse(o, tree_types=(list, tuple)):
@@ -98,7 +83,7 @@ def import_python_function(fnname, modname):
         except Exception as exc:
             tb = "".join(traceback.format_exception(*sys.exc_info()))
             raise ImportPyError(
-                f"Could not load Python function `{fnname}'.\n{tb}"
+                f"Could not load Python function `{fnname}'.", tb
             ) from exc
 
     LOG.debug("Loaded %s", fn)
@@ -162,12 +147,6 @@ class TlMachine:
         LOG.debug("foreign %s", self._foreign.keys())
         # No entrypoint argument - just set the IP in the state
 
-    def error(self, original, msg):
-        if original:
-            raise TealRuntimeError(msg) from original
-        else:
-            raise TealRuntimeError(msg)
-
     @property
     def stopped(self):
         return self.state.stopped
@@ -179,7 +158,7 @@ class TlMachine:
     def step(self):
         """Execute the current instruction and increment the IP"""
         if self.state.ip >= len(self.exe.code):
-            self.error(None, "Instruction Pointer out of bounds")
+            raise UnexpectedError("Instruction Pointer out of bounds")
         instr = self.exe.code[self.state.ip]
         self.probe.event(
             "step",
@@ -209,7 +188,7 @@ class TlMachine:
         while not self.state.stopped:
             try:
                 self.step()
-            except (UnhandledError, TealRuntimeError, ForeignError) as exc:
+            except TealError as exc:
                 broken = True
                 self.state.stopped = True
                 self.state.error_msg = str(exc)
@@ -246,9 +225,13 @@ class TlMachine:
             val = self.state.ds_peek(0)
         except IndexError as exc:
             # FIXME this should be a compile time check
-            self.error(exc, "Missing argument to Bind!")
+            raise UserResolvableError(
+                "Missing argument to Bind!",
+                "Usually this is because not enough arguments have been passed "
+                f"to a function. Last instruction address: {self.state.ip - 1}",
+            )
         if not isinstance(val, mt.TlType):
-            raise TypeError(val)
+            raise UnexpectedError(f"Bad value to Bind: {val} ({type(val)})")
         self.state.bindings[ptr] = val
 
     @evali.register
@@ -260,7 +243,7 @@ class TlMachine:
         # local binding -> exe global bindings -> builtins
         sym = i.operands[0]
         if not isinstance(sym, mt.TlSymbol):
-            raise ValueError(sym, type(sym))
+            raise UnexpectedError(str(ValueError(sym, type(sym))))
 
         ptr = str(sym)
         if ptr in self.state.bindings:
@@ -271,7 +254,7 @@ class TlMachine:
             val = mt.TlInstruction(ptr)
         else:
             # FIXME should be a compile time check
-            raise NameError(f"'{ptr}' is not defined")
+            raise UserResolvableError(f"'{ptr}' is not defined", "")
 
         self.state.ds_push(val)
 
@@ -357,10 +340,14 @@ class TlMachine:
             try:
                 py_result = foreign_f(*py_args)
             except Exception as e:
-                raise ForeignError(sys.exc_info()) from e
+                out = capstdout.getvalue()
+                self.dc.write_stdout(StdoutItem(self.vmid, out))
+                raise ForeignError(e) from e
             finally:
                 sys.stdout = sys.__stdout__
 
+            # These aren't included in the finally clause because that really
+            # slows down the cleanup
             out = capstdout.getvalue()
             self.dc.write_stdout(StdoutItem(self.vmid, out))
 
@@ -374,7 +361,7 @@ class TlMachine:
 
         else:
             # FIXME this should be a compile time check
-            self.error(None, f"Don't know how to call {fn} ({type(fn)})")
+            raise UnexpectedError(f"Don't know how to call `{fn}' of type {type(fn)}.")
 
     @evali.register
     def _(self, i: ACall):
@@ -384,11 +371,13 @@ class TlMachine:
         fn_ptr = self.state.ds_pop()
 
         if not isinstance(fn_ptr, mt.TlFunctionPtr):
-            raise ValueError(fn_ptr)
+            raise UnexpectedError(str(ValueError(fn_ptr)))
 
         if fn_ptr.identifier not in self.exe.locations:
             # FIXME this should be a compile time check
-            self.error(None, f"Function `{fn_ptr}` doesn't exist")
+            raise UserResolvableError(
+                f"Can't find function `{fn_ptr}'.", "Does it really exist?"
+            )
 
         args = reversed([self.state.ds_pop() for _ in range(num_args)])
         machine = self.dc.thread_machine(
@@ -425,7 +414,11 @@ class TlMachine:
             # of lists.
             # NOTE - we don't try to detect futures hidden in other
             # kinds of structured data, which could cause runtime bugs!
-            self.error(error, "Waiting on a list that contains futures!")
+            raise UserResolvableError(
+                "Waiting on a list that contains futures!",
+                "For now, you (the programmer) are responsible for waiting on all "
+                "elements of structured data. For example, use map and await.",
+            )
 
         else:
             # Not an exception. This can happen if a wait is generated for a
@@ -476,7 +469,8 @@ class TlMachine:
         b = mt.TlList([]) if isinstance(b, mt.TlNull) else b
 
         if not isinstance(b, mt.TlList):
-            self.error(None, f"b ({b}, {type(b)}) is not a list")
+            # TODO compile time checks...
+            raise UserResolvableError(f"b ({b}, {type(b)}) is not a list", "")
 
         if isinstance(a, mt.TlList):
             self.state.ds_push(mt.TlList(a + b))
@@ -491,7 +485,8 @@ class TlMachine:
         a = mt.TlList([]) if isinstance(a, mt.TlNull) else a
 
         if not isinstance(a, mt.TlList):
-            self.error(None, f"{a} ({type(a)}) is not a list")
+            # TODO compile time checks...
+            raise UserResolvableError(f"{a} ({type(a)}) is not a list", "")
 
         self.state.ds_push(mt.TlList(a + [b]))
 
@@ -499,14 +494,14 @@ class TlMachine:
     def _(self, i: First):
         lst = self.state.ds_pop()
         if not isinstance(lst, mt.TlList):
-            self.error(None, f"{lst} ({type(lst)}) is not a list")
+            raise UserResolvableError(f"{lst} ({type(lst)}) is not a list", "")
         self.state.ds_push(lst[0])
 
     @evali.register
     def _(self, i: Rest):
         lst = self.state.ds_pop()
         if not isinstance(lst, mt.TlList):
-            self.error(None, f"{lst} ({type(lst)}) is not a list")
+            raise UserResolvableError(f"{lst} ({type(lst)}) is not a list", "")
         self.state.ds_push(lst[1:])
 
     @evali.register
@@ -514,14 +509,14 @@ class TlMachine:
         n = self.state.ds_pop()
         lst = self.state.ds_pop()
         if not isinstance(lst, mt.TlList):
-            self.error(None, f"{lst} ({type(lst)}) is not a list")
+            raise UserResolvableError(f"{lst} ({type(lst)}) is not a list", "")
         self.state.ds_push(lst[n])
 
     @evali.register
     def _(self, i: Length):
         lst = self.state.ds_pop()
         if not isinstance(lst, mt.TlList):
-            self.error(None, f"{lst} ({type(lst)}) is not a list")
+            raise UserResolvableError(f"{lst} ({type(lst)}) is not a list", "")
         self.state.ds_push(mt.TlInt(len(lst)))
 
     @evali.register
@@ -537,7 +532,7 @@ class TlMachine:
         key = self.state.ds_pop()
         obj = self.state.ds_pop()
         if not isinstance(obj, mt.TlHash):
-            self.error(None, f"{obj} ({type(obj)}) is not a hash")
+            raise UserResolvableError(f"{obj} ({type(obj)}) is not a hash", "")
         try:
             res = obj[key]
         except KeyError:
@@ -550,7 +545,7 @@ class TlMachine:
         key = self.state.ds_pop()
         obj = self.state.ds_pop()
         if not isinstance(obj, mt.TlHash):
-            self.error(None, f"{obj} ({type(obj)}) is not a hash")
+            raise UserResolvableError(f"{obj} ({type(obj)}) is not a hash", "")
         # Create a new object, overwriting the old key
         self.state.ds_push(mt.TlHash({**obj, key: value}))
 

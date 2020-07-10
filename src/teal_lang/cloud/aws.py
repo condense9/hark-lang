@@ -4,9 +4,10 @@ import base64
 import json
 import logging
 import os
+import sys
 import time
+import traceback
 from dataclasses import dataclass
-from ..exceptions import TealError
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
@@ -17,6 +18,9 @@ import botocore
 from botocore.client import ClientError
 
 from teal_lang.config_classes import InstanceConfig
+
+from ..config import TEAL_DIST_DATA
+from ..exceptions import UnexpectedError, UserResolvableError
 
 LOG = logging.getLogger(__name__)
 
@@ -32,11 +36,16 @@ class DeployConfig:
     source_layer_url: str = None
 
 
-class DeploymentFailed(TealError):
-    """Failed to deploy"""
+class DeploymentFailed(UnexpectedError):
+    """Failed to deploy because of some unhandled 3rd party exception"""
+
+    def __init__(self, exc):
+        info = sys.exc_info()
+        tb = "".join(traceback.format_exception(*info))
+        super().__init__(tb)
 
 
-class InvokeError(TealError):
+class InvokeError(UnexpectedError):
     "Failed to invoke function"
 
 
@@ -71,7 +80,10 @@ def get_region():
     elif "AWS_REGION" in os.environ:
         return os.environ["AWS_REGION"]  # Preset in the Lambda env
     else:
-        raise DeploymentFailed("AWS_DEFAULT_REGION or AWS_REGION must be set")
+        raise UserResolvableError(
+            "Could not determine deployment region.",
+            "AWS_DEFAULT_REGION or AWS_REGION must be set.",
+        )
 
 
 def hash_file(filename: Path) -> str:
@@ -211,7 +223,7 @@ class S3File:
 
 class TealPackage(S3File):
     key = "teal_lambda.zip"
-    local_file = THIS_DIR / "teal_lambda.zip"
+    local_file = TEAL_DIST_DATA / "teal_lambda.zip"
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#client
@@ -452,7 +464,7 @@ class ExecutionRole:
         # https://github.com/Miserlou/Zappa/commit/fa1b224fc43c7c8739dd179f9a038d31e13911e9
         # Hack for now:
         time.sleep(10)
-        LOG.info(f"[+] Created {self}")
+        LOG.info(f"[+] Created Execution Role")
 
 
 class SourceLayer:
@@ -865,7 +877,8 @@ class BucketTrigger:
         )
         LOG.info(f"Destroyed {self}")
 
-    def create_or_update_or_destroy(self, config):
+    def create_or_update(self, config):
+        """Create or update (or destroy) this"""
         exists = self.exists(config)
         needed = False
         for bucket in config.instance.upload_triggers:
@@ -902,13 +915,16 @@ class SharedAPIGateway:
 
     @staticmethod
     def create_or_update(config):
-        api = SharedAPIGateway.retrieve(config)
-        if api:
-            SharedAPIGateway.update(config, api)
+        if not config.instance.enable_api:
+            SharedAPIGateway.destroy_if_exists(config)
         else:
-            api = SharedAPIGateway.create(config)
-        endpoint = api["ApiEndpoint"]
-        LOG.info(f"API Endpoint: {endpoint}")
+            api = SharedAPIGateway.retrieve(config)
+            if api:
+                SharedAPIGateway.update(config, api)
+            else:
+                api = SharedAPIGateway.create(config)
+            endpoint = api["ApiEndpoint"]
+            LOG.info(f"API Endpoint: {endpoint}")
 
     @staticmethod
     def destroy_if_exists(config):
@@ -929,7 +945,7 @@ class SharedAPIGateway:
         name = api["Name"]
         LOG.info(f"Deleted API {name}")
 
-    @staticmethod
+    @staticmethod  # It might depend on config in the future
     def trigger_permission_id(config):
         return "teal-apigateway"
 
@@ -994,59 +1010,64 @@ CORE_RESOURCES = [
     FnGetOutput,
     FnGetEvents,
     FnVersion,
+    SharedAPIGateway,
 ]
 
 
-def deploy(config):
+def deploy(config, callback_start=None):
     """Deploy (or update) infrastructure for this config"""
     if not config.uuid:
-        raise DeploymentFailed("Need Instance UUID")
+        raise UnexpectedError("No Instance UUID configured")
 
     # One of these must be set...
     if config.source_layer_url is None and config.source_layer_file is None:
-        raise DeploymentFailed("No source layer configured")
+        raise UnexpectedError("No source layer configured")
 
     # Vague file-format validation
     if config.source_layer_file and not str(config.source_layer_file).endswith(".zip"):
-        raise DeploymentFailed(f"{source_layer_file} is not a .zip file")
+        raise UserResolvableError(
+            f"{source_layer_file} is not a .zip file",
+            "The Python source layer must be packaged as a zip file.",
+        )
 
     LOG.info(f"Deploying Instance: {config.uuid}")
 
     # TODO - could make this faster by letting resource return a list of waiters
     # which are waited on at the end.
 
-    for res in CORE_RESOURCES:
-        LOG.info(f"Resource: {res}")
-        res.create_or_update(config)
-
-    if config.instance.enable_api:
-        SharedAPIGateway.create_or_update(config)
-    else:
-        SharedAPIGateway.destroy_if_exists(config)
+    resources = CORE_RESOURCES
 
     for bucket in config.instance.managed_buckets:
         # TODO s3_access should be here too.
-        res = BucketTrigger(bucket)
-        res.create_or_update_or_destroy(config)
+        resources.append(BucketTrigger(bucket))
+
+    for res in CORE_RESOURCES:
+        LOG.info(f"Resource: {res}")
+        if callback_start:
+            callback_start(res)
+        res.create_or_update(config)
 
 
-def destroy(config):
+def destroy(config, callback_start):
     """Destroy infrastructure created for this config"""
     if not config.uuid:
-        raise DeploymentFailed("Need Instance UUID")
+        raise UnexpectedError("No Instance UUID configured")
 
     LOG.info(f"Destroying Instance: {config.uuid}")
     # destroy in reverse order so dependencies go first
 
+    resources = []
+
     for bucket in config.instance.managed_buckets:
         # TODO s3_access should be here too.
-        res = BucketTrigger(bucket)
-        res.destroy_if_exists(config)
+        resources.append(BucketTrigger(bucket))
 
-    SharedAPIGateway.destroy_if_exists(config)
+    resources.extend(reversed(CORE_RESOURCES))
 
-    for res in reversed(CORE_RESOURCES):
+    for res in resources:
         LOG.info(f"Resource: {res}")
+        if callback_start:
+            callback_start(res)
         res.destroy_if_exists(config)
 
 

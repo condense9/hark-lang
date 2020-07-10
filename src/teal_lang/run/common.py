@@ -6,14 +6,16 @@ from typing import List
 
 from .. import load
 from ..cli import interface as ui
-from ..exceptions import TealError
+from ..exceptions import UnexpectedError
 from ..machine import types as mt
 
 LOG = logging.getLogger(__name__)
 
 
-class ThreadDied(TealError):
+class ThreadDied(UnexpectedError):
     """A Thread died (Teal machine thread, not necessarily a Python thread)"""
+
+    msg = ""
 
 
 def wait_for_finish(check_period, timeout, data_controller, invoker):
@@ -32,7 +34,7 @@ def wait_for_finish(check_period, timeout, data_controller, invoker):
             # This should never happen - we catch runtime errors and print them
             # nicely in machine
             if invoker.exception:
-                raise ThreadDied from invoker.exception.exc_value
+                raise ThreadDied() from invoker.exception.exc_value
 
     except Exception as e:
         LOG.warn("Unexpected Exception!! Returning controller for analysis")
@@ -87,31 +89,29 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
     if not controller.broken:
         return controller.result
 
-    with open(filename, "r") as f:
-        text = f.read()
-
-    # It broke - print traceback
-    print_traceback(controller, text)
+    # Something broke
+    print_traceback(controller)
+    sys.exit(1)
 
 
-def print_traceback(controller, source_text: str, stream=sys.stdout):
+def print_traceback(controller, stream=sys.stdout):
     """Print the traceback for a controller"""
-    lines = source_text.split("\n")
     for failure in controller.get_failures():
         # TODO - print a separator when the thread changes, to make it easier to
         # see where contexts change.
-        msg = f"\nError [Thread {failure.thread}]: {failure.error_msg}\n\n"
+        msg = f"\nError [Thread {failure.thread}]: {failure.error_msg}\n"
         stream.write(str(ui.bad(msg)))
-        stream.write("Teal Traceback (most recent call last):\n")
-        for item in failure.stacktrace:
+        stream.write("Traceback:\n")
+        for idx, item in enumerate(failure.stacktrace):
             instr = controller.executable.code[item.caller_ip]
-            if instr.source is not None:
-                idx = source_text[: instr.source].count("\n")
-                line = lines[idx]
-            else:
-                idx = "<unknown line>"
-                line = "--"
+            filename, lineno, line, column = instr.source
 
-            prefix = f"[{item.caller_thread}] in {item.caller_fn}, line {idx}:"
-            stream.write(f"~ {prefix:<25} {line}\n")
+            stream.write(
+                f"{idx:>3}: [Thread={item.caller_thread}, IP={item.caller_ip}] in {item.caller_fn}(): {line.strip()}\n"
+            )
+            stream.write(f"     at {filename}:{lineno}\n")
         stream.write("\n")
+
+        # Print the code at the last one
+        instr = controller.executable.code[failure.stacktrace[-1].caller_ip]
+        stream.write(ui.format_source_problem(*instr.source) + "\n")

@@ -5,7 +5,7 @@ from functools import singledispatch, singledispatchmethod, wraps
 from typing import Dict, Tuple
 
 from ..cli.interface import format_source_problem
-from ..exceptions import TealError
+from ..exceptions import UserResolvableError
 from ..machine import instructionset as mi
 from ..machine import types as mt
 from ..machine.executable import Executable
@@ -25,18 +25,17 @@ def flatten(list_of_lists: list) -> list:
     return list(itertools.chain.from_iterable(list_of_lists))
 
 
-class TealCompileError(TealError):
+class TealCompileError(UserResolvableError):
     def __init__(self, node: nodes.Node, msg):
         if not isinstance(node, nodes.Node):
             raise TypeError(node)
-        self.msg = msg
-        self.source_filename = node.source_filename
-        self.source_lineno = node.source_lineno
-        self.source_line = node.source_line
-        self.source_column = node.source_column
-
-    def __str__(self):
-        return format_source_problem(self)
+        explanation = format_source_problem(
+            node.source_filename,
+            node.source_lineno,
+            node.source_line,
+            node.source_column,
+        )
+        super().__init__(msg, explanation)
 
 
 def optimise_block(n: nodes.N_Definition, block: nodes.N_Progn):
@@ -88,7 +87,7 @@ def replace_gotos(code: list):
             # + 1 to compensate for the fact that the IP is advanced before
             # the current instruction is evaluated.
             offset = labels[instr.name] - (idx + 1)
-            code[idx] = mi.Jump(mt.TlInt(offset))
+            code[idx] = mi.Jump.from_node(instr, mt.TlInt(offset))
 
     return code
 
@@ -118,10 +117,13 @@ class CompileToplevel:
     def compile_function(self, n: nodes.N_Definition) -> list:
         """Compile a function into executable code"""
         bindings = flatten(
-            [[mi.Bind(mt.TlSymbol(arg)), mi.Pop()] for arg in reversed(n.paramlist)]
+            [
+                [mi.Bind.from_node(n, mt.TlSymbol(arg)), mi.Pop.from_node(n)]
+                for arg in reversed(n.paramlist)
+            ]
         )
         body = self.compile_expr(n.body)
-        return bindings + body + [mi.Return()]
+        return bindings + body + [mi.Return.from_node(n)]
 
     ## At the toplevel, no executable code is created - only bindings
 
@@ -189,21 +191,23 @@ class CompileToplevel:
         # TODO?! closures! Need a mi.MakeClosure instruction that updates the
         # top value (TlFunctionPtr) on the stack to reference the current
         # activation record. The Call logic would be different too.
-        return [mi.PushV(mt.TlFunctionPtr(identifier, stack))]
+        return [mi.PushV.from_node(n, mt.TlFunctionPtr(identifier, stack))]
 
     @compile_expr.register
     def _(self, n: nodes.N_Literal):
         val = mt.to_teal_type(n.value)
-        return [mi.PushV(val)]
+        return [mi.PushV.from_node(n, val)]
 
     @compile_expr.register
     def _(self, n: nodes.N_Id):
-        return [mi.PushB(mt.TlSymbol(n.name))]
+        return [mi.PushB.from_node(n, mt.TlSymbol(n.name))]
 
     @compile_expr.register
     def _(self, n: nodes.N_Progn):
         # only keep the last result
-        discarded = flatten(self.compile_expr(exp) + [mi.Pop()] for exp in n.exprs[:-1])
+        discarded = flatten(
+            self.compile_expr(exp) + [mi.Pop.from_node(n)] for exp in n.exprs[:-1]
+        )
         return discarded + self.compile_expr(n.exprs[-1])
 
     @compile_expr.register
@@ -216,16 +220,10 @@ class CompileToplevel:
         # arbitrary expressions, so no need to check the type of n.fn
         arg_code = flatten(self.compile_expr(arg) for arg in n.args)
         instr = mi.ACall if is_async else mi.Call
-        source_info = [
-            n.source_filename,
-            n.source_lineno,
-            n.source_line,
-            n.source_column,
-        ]
         return (
             arg_code
             + self.compile_expr(n.fn)
-            + [instr(mt.TlInt(len(n.args)), source=source_info)]
+            + [instr.from_node(n, mt.TlInt(len(n.args)))]
         )
 
     @compile_expr.register
@@ -248,7 +246,7 @@ class CompileToplevel:
         if not isinstance(n.expr, (nodes.N_Call, nodes.N_Id)):
             raise ValueError(f"Can't use await with {n.expr} - {type(n.expr)}")
         val = self.compile_expr(n.expr)
-        return val + [mi.Wait(mt.TlInt(0))]
+        return val + [mi.Wait.from_node(n, mt.TlInt(0))]
 
     @compile_expr.register
     def _(self, n: nodes.N_If):
@@ -258,9 +256,9 @@ class CompileToplevel:
         return [
             # --
             *cond_code,
-            mi.JumpIf(mt.TlInt(len(else_code) + 1)),  # to then_code
+            mi.JumpIf.from_node(n, mt.TlInt(len(else_code) + 1)),  # to then_code
             *else_code,
-            mi.Jump(mt.TlInt(len(then_code))),  # to Return
+            mi.Jump.from_node(n, mt.TlInt(len(then_code))),  # to Return
             *then_code,
         ]
 
@@ -271,12 +269,19 @@ class CompileToplevel:
         if n.op == "=":
             if not isinstance(n.lhs, nodes.N_Id):
                 raise ValueError(f"Can't assign to non-identifier {n.lhs}")
-            return rhs + [mi.Bind(mt.TlSymbol(str(n.lhs.name)))]
+            return rhs + [mi.Bind.from_node(n, mt.TlSymbol(str(n.lhs.name)))]
 
         else:
             lhs = self.compile_expr(n.lhs)
             # TODO check arg order. Reverse?
-            return rhs + lhs + [mi.PushB(mt.TlSymbol(str(n.op))), mi.Call(mt.TlInt(2))]
+            return (
+                rhs
+                + lhs
+                + [
+                    mi.PushB.from_node(n, mt.TlSymbol(str(n.op))),
+                    mi.Call.from_node(n, mt.TlInt(2)),
+                ]
+            )
 
 
 ###

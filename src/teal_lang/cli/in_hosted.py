@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ..cloud import aws
 from ..config import Config
-from ..exceptions import TealError
+from ..exceptions import UserResolvableError
 from . import hosted_query as q
 from . import interface as ui
 from .utils import make_python_layer_zip
@@ -17,10 +17,11 @@ from .utils import make_python_layer_zip
 LOG = logging.getLogger(__name__)
 
 
-class TealCloudTookTooLong(TealError):
+class TealCloudTookTooLong(UserResolvableError):
     """Something took too long in Teal Cloud"""
 
-    suggested_fix = "Check Teal Cloud for issues, and try again."
+    def __init__(self, msg):
+        super().__init__("Check Teal Cloud for issues, and try again.")
 
 
 def deploy(args, config: Config):
@@ -30,7 +31,7 @@ def deploy(args, config: Config):
         try:
             instance = q.get_instance(config.project_id, config.instance_name)
         except IndexError:
-            exit_problem(
+            raise UserResolvableError(
                 f"Can't find an instance called {config.instance_name}.",
                 f"Is the project ID ({config.project_id}) correct?",
             )
@@ -47,8 +48,8 @@ def deploy(args, config: Config):
     # 3. Request a new package with the hashes
     with ui.spin("Checking for differences") as sp:
         if not instance.ready:
-            ui.exit_problem(
-                f"Instance {config.instance.name} isn't ready yet.",
+            raise UserResolvableError(
+                f"Instance {config.instance_name} isn't ready yet.",
                 "Please wait a few minutes and try again.",
             )
         python_hash = aws.hash_file(python_zip)
@@ -58,24 +59,28 @@ def deploy(args, config: Config):
         sp.ok(ui.TICK)
 
     # 4. Upload the files that have changed
-    with ui.spin("Uploading modified code") as sp:
-        if package.new_python:
+    if package.new_python:
+        with ui.spin("Uploading new Python") as sp:
             _upload_to_s3(package.python_url, python_zip)
-        if package.new_teal:
+            sp.ok(ui.TICK)
+    if package.new_teal:
+        with ui.spin("Uploading new Teal") as sp:
             _upload_to_s3(package.teal_url, config.project.teal_file)
-        if package.new_config:
+            sp.ok(ui.TICK)
+    if package.new_config:
+        with ui.spin("Updating configuration") as sp:
             _upload_to_s3(package.config_url, config.config_file)
-        sp.ok(ui.TICK)
+            sp.ok(ui.TICK)
 
     # 5. Create a deployment
-    with ui.spin(f"Deploying {config.instance.name}") as sp:
+    with ui.spin(f"Deploying {config.instance_name}") as sp:
         deployment = q.new_deployment(instance.id, package.id)
         q.switch(instance.id, deployment.id)
 
         start = time.time()
         while True:
             if time.time() - start > 120:
-                raise TealCloudTookTooLong()
+                raise TealCloudTookTooLong("Waiting for deployment to complete")
 
             status = q.status(deployment.id)
             if status.active:
@@ -86,7 +91,7 @@ def deploy(args, config: Config):
             else:
                 info = ui.dim(f"waiting")
 
-            sp.text = f"Deploying {config.instance.name}... {info}"
+            sp.text = f"Deploying {config.instance_name}... {info}"
             time.sleep(0.5)
 
         sp.ok(ui.TICK)
@@ -99,15 +104,15 @@ def invoke(args, config: Config, payload: dict) -> dict:
 
 
 def destroy(args, config: Config):
-    with ui.spin(f"Destroying {config.instance.name}") as sp:
-        instance = q.get_instance(config.project_id, config.instance.name)
+    with ui.spin(f"Destroying {config.instance_name}") as sp:
+        instance = q.get_instance(config.project_id, config.instance_name)
         q.destroy(instance.id)
 
         # And poll
         start = time.time()
         while True:
             if time.time() - start > 120:
-                raise TealCloudTookTooLong()
+                raise TealCloudTookTooLong("Waiting for destroy to complete")
 
             ready = q.is_instance_ready(instance.id)
             if not ready:
