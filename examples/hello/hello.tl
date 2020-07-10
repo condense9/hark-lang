@@ -6,9 +6,9 @@ fn main() {
   print([1,
          2,
          3]);
-  "Hello world!";
+  "Hello world!"
 }
 
 fn more() {
-  print("MORE");
+  print("MORE")
 }
