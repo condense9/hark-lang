@@ -44,7 +44,7 @@ class UnhandledError(UserResolvableError):
 
 
 class ForeignError(UserResolvableError):
-    """An error occured in a foreign call"""
+    """Python code error"""
 
     def __init__(self, exc):
         info = sys.exc_info()

@@ -1,4 +1,5 @@
 import os
+import logging
 from ast import literal_eval
 from itertools import chain
 from pathlib import Path
@@ -40,8 +41,8 @@ class TealLexer(Lexer):
         self.source_text = source_text
 
     tokens = {
-        ATTRIBUTE,
         TERM,
+        ATTRIBUTE,
         SYMBOL,
         ID,
         # keywords
@@ -88,7 +89,6 @@ class TealLexer(Lexer):
     @_(r"\n+")
     def NL(self, t):
         self.lineno = t.lineno + t.value.count("\n")
-        return t
 
     # Identifiers and keywords
     ID = "[a-z_][a-zA-Z0-9_?.]*"
@@ -130,33 +130,25 @@ class TealLexer(Lexer):
 
 
 def post_lex(toks):
-    # Add the optional terminators after lines/blocks
+    """Tweak the token stream to simplify the grammar"""
     term = Token()
     term.value = ";"
     term.type = "TERM"
-    nl = Token()
-    nl.type = "NL"
 
     t = next(toks)
-    last = None
-    for next_tok in chain(toks, [nl]):
-        if t.type != "NL":
-            yield t
-            last = t
+    for next_tok in chain(toks, [term]):
+        yield t
 
         term.lineno = t.lineno
         term.index = t.index
 
-        if last and last.type != "TERM":
-            if (
-                (t.type == "}" and next_tok.type != "TERM")
-                or (next_tok.type == "}" and t.type != "TERM")
-                or (next_tok.type == "NL" and t.type != "TERM")
-            ):
-                yield term
-                last = term
+        # TERMs after blocks and after the last expression in a block are
+        # optional. Fill them in here to make the grammar simpler.
+        if (t.type == "}") or (next_tok.type == "}" and t.type != "TERM"):
+            yield term
 
         t = next_tok
+    yield t
 
 
 ### PARSER
@@ -178,6 +170,7 @@ def N(parser, parse_item, node_cls: n.Node, *args):
 
 class TealParser(Parser):
     # debugfile = "parser.out"
+    log = logging.getLogger(__name__)
 
     def __init__(self, filename, source_text):
         super().__init__()
@@ -202,15 +195,6 @@ class TealParser(Parser):
     @_("")
     def nothing(self, p):
         pass
-
-    # blocks
-
-    @_("'{' expressions '}'")
-    def block_expr(self, p):
-        if not p.expressions:
-            # TODO parser error framework
-            raise Exception("Empty block expression")
-        return N(self, p, n.N_Progn, p.expressions)
 
     @_("terminated_expr more_expressions")
     def expressions(self, p):
@@ -273,6 +257,13 @@ class TealParser(Parser):
     @_("ID ',' paramlist")
     def paramlist(self, p):
         return [p.ID] + p.paramlist
+
+    @_("'{' expressions '}'")
+    def block_expr(self, p):
+        if not p.expressions:
+            # TODO parser error framework
+            raise Exception("Empty block expression")
+        return N(self, p, n.N_Progn, p.expressions)
 
     # function call
 
@@ -359,7 +350,7 @@ class TealParser(Parser):
 
     # compound
 
-    @_("'[' maybe_term list_items maybe_term ']'")
+    @_("'[' list_items ']'")
     def expr(self, p):
         identifier = N(self, p, n.N_Id, "list")
         return N(self, p, n.N_Call, identifier, p.list_items)
@@ -372,31 +363,26 @@ class TealParser(Parser):
     def list_items(self, p):
         return [p.expr]
 
-    @_("expr ',' maybe_term list_items")
+    @_("expr ',' list_items")
     def list_items(self, p):
         return [p.expr] + p.list_items
 
-    @_("'{' maybe_term dict_items maybe_term '}'")
+    @_("'{' dict_items TERM '}' TERM")
     def expr(self, p):
         identifier = N(self, p, n.N_Id, "hash")
         return N(self, p, n.N_Call, identifier, p.dict_items)
 
-    # TODO fix, this is icky - TERM can either be ';' or '\n'
     @_("nothing")
     def dict_items(self, p):
         return []
 
-    @_("expr ':' expr maybe_term")
+    @_("expr ':' expr")
     def dict_items(self, p):
         return [p[0], p[2]]
 
-    @_("expr ':' expr maybe_term ',' maybe_term dict_items")
+    @_("expr ':' expr ',' dict_items")
     def dict_items(self, p):
         return [p[0], p[2]] + p.dict_items
-
-    @_("nothing", "TERM")
-    def maybe_term(self, p):
-        pass
 
     # literals
 
@@ -438,7 +424,7 @@ class TealParser(Parser):
 
 
 def tl_parse(filename: str, text: str, debug_lex=False):
-    filename = str(Path(filename).absolute())
+    filename = str(Path(filename).absolute().resolve())
     parser = TealParser(filename, text)
     lexer = TealLexer(filename, text)
     if debug_lex:

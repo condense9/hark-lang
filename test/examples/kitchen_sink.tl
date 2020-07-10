@@ -2,13 +2,13 @@
 
 fn hello_int() {
   v = 5;
-  print(v)
-  v;
+  print(v);
+  v
 }
 
-fn hello() { "hello world"; /* inline comment */ }
+fn hello() { "hello world" /* inline comment */ }
 
 fn ident(x) {
-  x;
+  x
 }
 

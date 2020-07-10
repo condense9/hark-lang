@@ -1,17 +1,17 @@
-/* Lists and Hashes! */
+/* Lists and Hashes! -*- mode: javascript -*- */
 
 fn lists() {
-  lst = [1, 2, 3]
+  lst = [1, 2, 3];
   // Multi-line is ok:
   lst2 = [
     4,
     5
-  ]
+  ];
   length(lst) + length(lst2)
 }
 
 fn hashes(key) {
-  h = {"hello": "world", "foo": "bar"}
+  h = {"hello": "world", "foo": "bar"};
   get(h, key)
 }
 
@@ -20,14 +20,14 @@ fn modify() {
   h = {
     "hello": "world",
     "foo": "bar"
-  }
-  h = set(h, "monkey", "tree")
+  };
+  h = set(h, "monkey", "tree");
   get(h, "monkey")
 }
 
 fn main() {
-  print(lists())
-  print(hashes("hello"))
-  print(modify())
+  print(lists());
+  print(hashes("hello"));
+  print(modify());
   "Done :)"
 }
