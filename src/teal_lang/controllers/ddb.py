@@ -47,10 +47,10 @@ class DataController(Controller):
     supports_plugins = True
 
     @classmethod
-    def with_new_session(cls, **kwargs):
+    def with_new_session(cls):
         """Create a data controller for a new session"""
         db.init_base_session()
-        return cls(db.new_session(), **kwargs)
+        return cls(db.new_session())
 
     @classmethod
     def with_session_id(cls, session_id: str, db_cls=db.SessionItem):
@@ -72,7 +72,7 @@ class DataController(Controller):
         """Retrieve the specified group:item_id"""
         _key = f"{group}:{item_id}" if item_id is not None else group
         try:
-            return self.SI.get(self.session_id, _key)
+            return self.SI.get(self.session_id, _key, consistent_read=True)
         except self.SI.DoesNotExist as exc:
             raise ControllerError(
                 f"Item {_key} does not exist in {self.session_id}"
@@ -118,6 +118,9 @@ class DataController(Controller):
         s = self._qry(META)
         return list(range(s.meta.num_threads))
 
+    def get_top_level_future(self):
+        return self.get_future(0)
+
     def is_top_level(self, vmid):
         return vmid == 0
 
@@ -149,10 +152,22 @@ class DataController(Controller):
 
     @broken.setter
     def broken(self, value):
-        with self._lock_item(META):
-            s = self._qry(META)
-            s.meta.broken = True
-            s.save()
+        try:
+            with self._lock_item(META):
+                s = self._qry(META)
+                s.meta.broken = True
+                s.save()
+        except db.LockTimeout:
+            # If a thread dies while updating META, this will timeout. However,
+            # in that case, broken is True and we *should* ignore the lock and
+            # carry on. If it's broken, the lock doesn't matter anyway.
+            # Hopefully this isn't a genuine race condition.
+            if value:
+                s = self._qry(META)
+                s.meta.broken = True
+                s.save()
+            else:
+                raise
 
     @property
     def result(self):
