@@ -31,6 +31,30 @@ conditional:
     - [0.1]
     - "nah"
 
+  multi:
+    - [1]
+    - 1.0
+
+  multi:
+    - [2]
+    - 4.0
+
+  multi:
+    - [5]
+    - 15.0
+
+  multi:
+    - [10]
+    - 40.0
+
+
+
+
+
+
+
+
+
 kitchen_sink:
   hello:
     - []

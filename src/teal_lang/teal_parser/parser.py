@@ -49,7 +49,6 @@ class TealLexer(Lexer):
         FN,
         LAMBDA,
         IF,
-        ELIF,
         ELSE,
         ASYNC,
         AWAIT,
@@ -95,7 +94,6 @@ class TealLexer(Lexer):
     ID["fn"] = FN
     ID["lambda"] = LAMBDA
     ID["if"] = IF
-    ID["elif"] = ELIF
     ID["else"] = ELSE
     ID["async"] = ASYNC
     ID["await"] = AWAIT
@@ -313,9 +311,13 @@ class TealParser(Parser):
     def expr(self, p):
         return N(self, p, n.N_If, p.expr, p.block_expr, p.rest_if)
 
-    @_("ELIF expr block_expr TERM rest_if")
+    @_("ELSE IF expr block_expr TERM rest_if")
     def rest_if(self, p):
-        return N(self, p, n.N_If, p.expr, p.block_expr, p.rest_if)
+        # Tail-call recursion expects the body of an if-expression to be a
+        # Progn. It's much easier and cleaner to just wrap with an implicit
+        # progn here, than to "fix" the tail-call recursion logic.
+        body = N(self, p, n.N_If, p.expr, p.block_expr, p.rest_if)
+        return N(self, p, n.N_Progn, [body])
 
     @_("ELSE block_expr")
     def rest_if(self, p):
