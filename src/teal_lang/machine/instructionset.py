@@ -177,6 +177,14 @@ class LessThan(I):
     pass
 
 
+class OpAnd(I):
+    pass
+
+
+class OpOr(I):
+    pass
+
+
 class Atomp(I):
     """Check whether something is an atom"""
 

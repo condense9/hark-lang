@@ -6,7 +6,7 @@ from typing import List
 
 from .. import load
 from ..cli import interface as ui
-from ..exceptions import UnexpectedError
+from ..exceptions import UnexpectedError, UserResolvableError
 from ..machine import types as mt
 
 LOG = logging.getLogger(__name__)
@@ -63,8 +63,9 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
     try:
         fn_ptr = exe.bindings[function]
     except KeyError:
-        print(f"ERROR: Function `{function}` does not exist in {filename}!")
-        return None
+        raise UserResolvableError(
+            f"Can't run function `{function}'.", f"Does it exist in {filename}?"
+        )
 
     try:
         m = controller.toplevel_machine(fn_ptr, args)

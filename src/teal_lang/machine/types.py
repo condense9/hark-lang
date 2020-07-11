@@ -14,6 +14,10 @@ from collections import UserList, UserDict
 class TlType:
     """Base class"""
 
+    @property
+    def __tlname__(self):
+        return type(self).__name__
+
     def __repr__(self):
         return f"<{type(self).__name__}>"
 
@@ -50,6 +54,9 @@ class TlTrue(TlAtomic):
 
 class TlFalse(TlAtomic):
     """Represent False"""
+
+
+BOOLEANS = (TlTrue, TlFalse)
 
 
 class TlNull(TlAtomic):

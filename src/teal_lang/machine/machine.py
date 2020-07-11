@@ -71,12 +71,15 @@ def import_python_function(fnname, modname):
     """
     if modname == "__builtins__":
         if not os.getenv("ENABLE_IMPORT_BUILTIN", False):
-            raise ImportPyError("Cannot import from builtins")
+            raise ImportPyError(
+                "Cannot import from builtins.",
+                "ENABLE_IMPORT_BUILTIN must be set to enable this.",
+            )
         m = builtins
     else:
         spec = importlib.util.find_spec(modname)
         if not spec:
-            raise ImportPyError(f"Could not find Python module `{modname}'")
+            raise ImportPyError(f"Cannot import Python module `{modname}'", "")
         try:
             m = spec.loader.load_module()
             fn = getattr(m, fnname)
@@ -126,6 +129,8 @@ class TlMachine:
         "*": Multiply,
         ">": GreaterThan,
         "<": LessThan,
+        "&&": OpAnd,
+        "||": OpOr,
         "parse_float": ParseFloat,
         "signal": Signal,
     }
@@ -228,7 +233,7 @@ class TlMachine:
             raise UserResolvableError(
                 "Missing argument to Bind!",
                 "Usually this is because not enough arguments have been passed "
-                f"to a function. Last instruction address: {self.state.ip - 1}",
+                f"to a function.",
             )
         if not isinstance(val, mt.TlType):
             raise UnexpectedError(f"Bad value to Bind: {val} ({type(val)})")
@@ -581,6 +586,33 @@ class TlMachine:
         b = self.state.ds_pop()
         self.state.ds_push(tl_bool(a < b))
 
+    def _check_bools(self, op, a, b):
+        if not isinstance(a, mt.BOOLEANS) or not isinstance(b, mt.BOOLEANS):
+            raise UserResolvableError(
+                f"Operands to {op} must both be booleans",
+                f"Got {a.__tlname__} and {b.__tlname__}",
+            )
+
+    @evali.register
+    def _(self, i: OpAnd):
+        # FIXME no short-circuit behaviour
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self._check_bools("&&", a, b)
+        self.state.ds_push(
+            tl_bool(isinstance(a, mt.TlTrue) and isinstance(b, mt.TlTrue))
+        )
+
+    @evali.register
+    def _(self, i: OpOr):
+        # FIXME no short-circuit behaviour
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self._check_bools("||", a, b)
+        self.state.ds_push(
+            tl_bool(isinstance(a, mt.TlTrue) or isinstance(b, mt.TlTrue))
+        )
+
     @evali.register
     def _(self, i: ParseFloat):
         x = self.state.ds_pop()
@@ -614,6 +646,8 @@ class TlMachine:
 
 def tl_bool(val):
     """Make a Teal bool-ish from val"""
+    if val not in (True, False):
+        raise UnexpectedError(str(ValueError(val)))
     return mt.TlTrue() if val is True else mt.TlFalse()
 
 

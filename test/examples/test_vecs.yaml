@@ -90,3 +90,21 @@ compound:
   modify:
     - []
     - "tree"
+
+
+operators:
+  yup:
+    - []
+    - True
+  nope1:
+    - []
+    - False
+  nope2:
+    - []
+    - False
+  yup_or:
+    - []
+    - True
+  nope_or:
+    - []
+    - False
