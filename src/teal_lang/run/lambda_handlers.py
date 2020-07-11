@@ -109,12 +109,9 @@ class HttpHandler(TealEventHandler):
 
     @classmethod
     def handle(cls, event: dict, new_session, UserResolvableError) -> dict:
-        path = event["rawPath"]
-        query = event["rawQueryString"]
-
         controller = new_session(
             function="on_http",  # constant
-            args=[mt.TlString(path), mt.TlString(query), mt.TlString("aws")],
+            args=[mt.to_teal_type(event)],
             wait_for_finish=True,  # FIXME...
             check_period=0.02,
             timeout=10.0,  # TODO? make configurable
