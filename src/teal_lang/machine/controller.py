@@ -68,6 +68,14 @@ class Controller:
 
     ##
 
+    def get_top_level_result(self):
+        """Get the return value of the top-level thread"""
+        # NOTE: if it's not resolved, value will be None
+        value = self.get_top_level_future().value
+        return mt.to_py_type(value)
+
+    ##
+
     def push_arec(self, vmid, rec):
         ptr = self.new_arec()
         self.set_arec(ptr, rec)

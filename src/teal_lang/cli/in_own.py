@@ -4,11 +4,13 @@ import logging
 
 import botocore
 
+from .. import __version__
 from ..cloud import aws
 from ..config import Config
-from ..exceptions import UserResolvableError, UnexpectedError
+from ..exceptions import UnexpectedError, UserResolvableError
 from . import interface as ui
-from .utils import make_python_layer_zip
+from .main import TEAL_CLI_VERSION_KEY
+from .utils import get_layer_zip_path
 
 LOG = logging.getLogger(__name__)
 
@@ -21,10 +23,8 @@ def _update_sp(prefix, sp):
     return update
 
 
-def deploy(args, config: Config):
-    layer_zip = config.project.data_dir / "python_layer.zip"
-
-    make_python_layer_zip(config, layer_zip)
+def deploy(config: Config):
+    layer_zip = get_layer_zip_path(config)
 
     deploy_config = aws.DeployConfig(
         uuid=config.instance_uuid,
@@ -59,7 +59,7 @@ def deploy(args, config: Config):
     print(ui.good(f"\nDone. `teal invoke` to run main()."))
 
 
-def destroy(args, config: Config):
+def destroy(config: Config):
     deploy_config = aws.DeployConfig(
         uuid=config.instance_uuid, instance=config.instance,
     )
@@ -73,7 +73,14 @@ def destroy(args, config: Config):
     print(ui.good(f"\nDone. You can safely `rm -rf {config.project.data_dir}`."))
 
 
-def invoke(args, config: Config, payload: dict) -> dict:
+def invoke(config: Config, function, args, timeout, wait_for_finish) -> dict:
+    payload = {
+        TEAL_CLI_VERSION_KEY: __version__,
+        "function": function,
+        "args": args,
+        "timeout": timeout,
+        "wait_for_finish": wait_for_finish,
+    }
     deploy_config = aws.DeployConfig(
         uuid=config.instance_uuid, instance=config.instance,
     )
@@ -102,8 +109,8 @@ def logs(args, config: Config, session_id: str) -> dict:
 
 
 def _call_cloud_api(function: str, args: dict, config: aws.DeployConfig, as_json=True):
-    """Call a teal API endpoint and handle errors"""
-    LOG.debug("Calling Teal cloud: %s %s", function, args)
+    """Call an instance control function and handle errors"""
+    LOG.info("Calling Teal cloud: %s %s", function, args)
 
     try:
         api = aws.get_api()
@@ -116,6 +123,7 @@ def _call_cloud_api(function: str, args: dict, config: aws.DeployConfig, as_json
             )
         raise
 
+    LOG.info(response)
     LOG.info(logs)
 
     # This is when there's an unhandled exception in the Lambda.
@@ -125,22 +133,19 @@ def _call_cloud_api(function: str, args: dict, config: aws.DeployConfig, as_json
             raise UserResolvableError(msg, "Let us know if this persists.")
         raise UnexpectedError(msg + "\n" + "".join(response.get("stackTrace", "")))
 
-    code = response.get("statusCode", None)
-    if code == 400:
+    if "errorType" in response:
+        raise UnexpectedError(
+            response["errorType"] + "\n" + "".join(response.get("stackTrace", ""))
+        )
+
+    if not response["teal_ok"]:
         # This is when there's a (handled) error.
-        err = json.loads(response["body"])
-        if "traceback" in err:
+        if "traceback" in response:
             raise UserResolvableError(
-                err.get("message"), err.get("traceback", None),
+                response.get("message"), response.get("traceback", None),
             )
         else:
-            raise UserResolvableError(err["message"], err["suggested_fix"])
+            raise UserResolvableError(response["message"], response["suggested_fix"])
 
-    if code != 200:
-        msg = f"Unexpected response code from AWS: {code}\n"
-        raise UnexpectedError(msg + response)
-
-    body = json.loads(response["body"]) if as_json else response["body"]
-    LOG.info(body)
-
-    return body
+    response.pop("teal_ok")
+    return response

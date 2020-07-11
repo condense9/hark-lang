@@ -16,3 +16,6 @@ fn yup_or() {
   true || false
 }
 
+fn nope_or() {
+  false || false
+}

@@ -6,7 +6,7 @@ Usage:
   teal [options] asm FILE
   teal [options] deploy
   teal [options] destroy
-  teal [options] invoke [-f FUNCTION] [ARG...]
+  teal [options] invoke [-f FUNCTION] [--async] [ARG...]
   teal [options] events [--unified | --json] [SESSION_ID]
   teal [options] stdout [--json] [SESSION_ID]
   teal [options] FILE [-f FUNCTION] [-s MODE] [-c MODE] [ARG...]
@@ -241,7 +241,6 @@ def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
         assert False, "Not reachable"
 
 
-@timed
 @need_cfg
 def _deploy(args, cfg):
     from . import in_own, in_hosted
@@ -249,34 +248,27 @@ def _deploy(args, cfg):
     deployer = _local_or_cloud(
         cfg, in_own.deploy, in_hosted.deploy, can_create_uuid=True
     )
-    deployer(args, cfg)
+    deployer(cfg)
 
 
-@timed
 @need_cfg
 def _destroy(args, cfg):
     from . import in_own, in_hosted
 
     destroyer = _local_or_cloud(cfg, in_own.destroy, in_hosted.destroy)
-    destroyer(args, cfg)
+    destroyer(cfg)
 
 
-@timed
 @need_cfg
 def _invoke(args, cfg):
     from . import in_own, in_hosted
 
     function = args["--function"]
-    payload = {
-        TEAL_CLI_VERSION_KEY: __version__,
-        "function": function,
-        "args": args["ARG"],
-        "timeout": cfg.instance.lambda_timeout - 3,  # FIXME why is -3 needed?
-    }
-    invoker = _local_or_cloud(cfg, in_own.invoke, in_hosted.invoke)
+    timeout = cfg.instance.lambda_timeout - 3  # FIXME why is -3 needed?
+    method = _local_or_cloud(cfg, in_own.invoke, in_hosted.invoke)
 
     with spin(str(primary(f"{function}(...)"))) as sp:
-        data = invoker(args, cfg, payload)
+        data = method(cfg, function, args["ARG"], timeout, not args["--async"])
         sp.text += " " + dim(data["session_id"])
 
         if data["broken"]:
@@ -287,28 +279,28 @@ def _invoke(args, cfg):
     utils.save_last_session_id(cfg, data["session_id"])
 
     # Print the standard output and result immediately
-    if data["finished"]:
-        if not args["--quiet"]:
-            _stdout(args)
-            print(dim("\n=>"))
-        print(data["result"])
+    if not args["--quiet"]:
+        _stdout(args)
+        print(dim("\n=>"))
+    print(data["result"])
+    if not data["finished"]:
+        print("(Continuing async...)")
 
 
-@timed
 @need_cfg
 def _events(args, cfg):
     from . import in_own, in_hosted
 
     sid = utils.get_session_id(args, cfg)
-    invoker = _local_or_cloud(cfg, in_own.events, in_hosted.events)
+    method = _local_or_cloud(cfg, in_own.events, in_hosted.events)
 
     if args["--json"]:
         # Don't show the spinner in JSON mode
-        data = invoker(args, cfg, sid)
+        data = method(args, cfg, sid)
         print(json.dumps(data, indent=2))
     else:
         with spin(f"Getting events {dim(sid)}"):
-            data = invoker(args, cfg, sid)
+            data = method(args, cfg, sid)
         if args["--unified"]:
             ui.print_events_unified(data)
         else:
@@ -320,14 +312,14 @@ def _stdout(args, cfg):
     from . import in_own, in_hosted
 
     sid = utils.get_session_id(args, cfg)
-    invoker = _local_or_cloud(cfg, in_own.stdout, in_hosted.stdout)
+    method = _local_or_cloud(cfg, in_own.stdout, in_hosted.stdout)
 
     if args["--json"]:
-        data = invoker(args, cfg, sid)
+        data = method(args, cfg, sid)
         print(json.dumps(data, indent=2))
     else:
         with spin(f"Getting stdout {dim(sid)}") as sp:
-            data = invoker(args, cfg, sid)
+            data = method(args, cfg, sid)
             sp.ok(TICK)
         ui.print_outputs(data)
 
@@ -347,6 +339,7 @@ def _init(args):
     print("\n" + TICK + good(f" Created ./{config.DEFAULT_CONFIG_FILEPATH}\n"))
 
 
+@timed
 def dispatch(args):
     if args["info"]:
         _info(args)

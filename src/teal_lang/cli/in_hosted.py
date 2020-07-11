@@ -99,10 +99,6 @@ def deploy(args, config: Config):
     print(ui.good(f"\nDone. `teal invoke` to run main()."))
 
 
-def invoke(args, config: Config, payload: dict) -> dict:
-    raise NotImplementedError
-
-
 def destroy(args, config: Config):
     with ui.spin(f"Destroying {config.instance_name}") as sp:
         instance = q.get_instance(config.project_id, config.instance_name)
@@ -121,6 +117,10 @@ def destroy(args, config: Config):
             time.sleep(0.5)
 
         sp.ok(ui.TICK)
+
+
+def invoke(config: Config, function, args, timeout) -> dict:
+    raise NotImplementedError
 
 
 def stdout(args, config: Config, session_id: str) -> dict:

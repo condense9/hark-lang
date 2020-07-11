@@ -45,8 +45,9 @@ class Fractals:
         name="twin_dragon",
         axiom="FX+FX",
         rules={"X": "X+YF+", "Y": "-FX-Y"},
-        iterations=12,
+        iterations=9,
         angle=90,
+        max_iter=10,
     )
 
     ter_dragon = Params(
@@ -65,10 +66,10 @@ class Fractals:
         name="koch_snowflake",
         axiom="F--F--F",
         rules={"F": "F+F--F+F"},
-        iterations=5,
+        iterations=4,
         angle=60,
         min_iter=3,
-        max_iter=8,
+        max_iter=5,
     )
 
     koch_island = Params(
@@ -288,10 +289,10 @@ class Fractals:
         name="hilberts",
         axiom="L",
         rules={"L": "+RF-LFL-FR+", "R": "-LF+RFR+FL-"},
-        iterations=8,
+        iterations=4,
         angle=90,
         min_iter=2,
-        max_iter=9,
+        max_iter=7,
     )
 
     hilbert2 = Params(

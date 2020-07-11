@@ -177,3 +177,72 @@ query IsInstanceReady($id: Int!) {
     """
     data = _query(qry, id=instance_id)
     return data["instance_by_pk"]["ready"]
+
+
+def invoke(instance_id: int):
+    qry = """
+mutation Invoke($ver: String!, $id: Int!, $function: String!, $args: [String]) {
+  invoke(id: $id, cli_version: $version) {
+    ok
+  }
+}
+    """
+    data = _query(qry, ver=__version__, function=function, args=args)
+    return data["invoke"]
+
+
+def is_session_finished(instance_uuid: str, session_id: str) -> bool:
+    qry = """
+query IsSessionFinished($uuid: String!, $id: String!) {
+  session(instanceUuid: $uuid, id: $id) {
+    meta {
+      finished
+    }
+  }
+}
+    """
+    data = _query(qry, uuid=instance_uuid, id=session_id)
+    return data["session"]["meta"]["finished"]
+
+
+def get_session_data(instance_uuid: str, session_id: str):
+    qry = """
+query sessionData($uuid: String!, $id: String!) {
+  session(instanceUuid: $uuid, id: $id) {
+    meta {
+      finished
+      broken
+      createdAt
+      numThreads
+      result
+    }
+    stdout {
+      thread
+      time
+      text
+    }
+    failures {
+      thread
+      errorMsg
+      stacktrace {
+        callerThread
+        callerIp
+        callerFn
+      }
+    }
+    events {
+      thread
+      time
+      event
+      data
+    }
+    logs {
+      thread
+      time
+      text
+    }
+  }
+}
+    """
+    data = _query(qry, uuid=instance_uuid, id=session_id)
+    return data["session"]

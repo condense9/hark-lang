@@ -206,26 +206,32 @@ class TlForeignPtr(TlType):
 # NOTE - no conversion to/from Symbols
 
 
-def to_teal_type_list(lst: list) -> TlList:
+def py_list_to_tl(lst: list) -> TlList:
     """Recursively convert list to TlList"""
-    if type(lst) != list:
-        raise ValueError(lst)
     return TlList([to_teal_type(x) for x in lst])
 
 
-def to_teal_type_dict(dct: dict) -> TlHash:
+def tl_list_to_py(lst: TlList) -> list:
+    """Recursively convert TlList to list"""
+    return [to_py_type(v) for v in lst]
+
+
+def py_dict_to_tl(dct: dict) -> TlHash:
     """Recursively convert dict to TlHash"""
-    if type(dct) != dict:
-        raise ValueError(dct)
     return TlHash({to_teal_type(k): to_teal_type(v) for k, v in dct.items()})
+
+
+def tl_hash_to_py(hsh: TlHash) -> dict:
+    """Recursively convert TlHash to dict"""
+    return {to_py_type(k): to_py_type(v) for k, v in hsh.items()}
 
 
 PY_TO_TL = {
     int: TlInt,
     float: TlFloat,
     str: TlString,
-    list: to_teal_type_list,
-    dict: to_teal_type_dict,
+    list: py_list_to_tl,
+    dict: py_dict_to_tl,
 }
 
 
@@ -236,8 +242,8 @@ Tl_TO_PY = {
     TlInt: int,
     TlFloat: float,
     TlString: str,
-    TlList: list,
-    TlHash: dict,
+    TlList: tl_list_to_py,
+    TlHash: tl_hash_to_py,
 }
 
 

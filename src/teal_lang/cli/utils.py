@@ -89,3 +89,27 @@ def make_python_layer_zip(config: Config, dest: Path):
         f.write("Packed by Teal :)")
 
     zip_dir(workdir, dest)
+
+
+def get_layer_zip_path(config: Config) -> Path:
+    """Get path to the source layer package"""
+    # user specified a build command
+    if config.project.build_cmd:
+        if not config.project.package:
+            raise UserResolvableError(
+                "config.project.package cannot be empty.",
+                "This must be set when config.project.build_cmd is set",
+            )
+        subprocess.check_call(config.project.build_cmd.split(" "))
+        layer_zip = config.project.package
+
+    # no build command, but there's a package
+    elif config.project.package:
+        layer_zip = config.project.package
+
+    # nothing - we'll handle it
+    else:
+        layer_zip = config.project.data_dir / "python_layer.zip"
+        make_python_layer_zip(config, layer_zip)
+
+    return layer_zip

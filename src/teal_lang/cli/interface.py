@@ -99,7 +99,8 @@ def neutral(string):
 def exit_problem(problem: str, suggested_fix: str):
     """Exit because of a user-correctable problem"""
     print("\n" + bad(problem))
-    print(suggested_fix)
+    if suggested_fix:
+        print(suggested_fix)
     if not suggested_fix.endswith("\n"):
         print("")
     sys.exit(1)
@@ -212,11 +213,14 @@ def print_outputs(success_result: dict):
 def print_events_by_machine(success_result: dict):
     """Print the results of `getevents`, grouped by machine"""
     elist = success_result["events"]
-    lowest_time = min(float(event["time"]) for event in elist)
+    for event in elist:
+        event["time"] = datetime.datetime.fromisoformat(event["time"])
+
+    lowest_time = min(event["time"] for event in elist)
 
     for event in sorted(elist, key=itemgetter("thread")):
-        offset_time = float(event["time"]) - lowest_time
-        time = dim("{:.3f}".format(offset_time))
+        offset_time = event["time"] - lowest_time
+        time = dim("{:>16}".format(str(offset_time)))
         name = event["event"]
         thread = event["thread"]
         name = event["event"]
@@ -227,19 +231,22 @@ def print_events_by_machine(success_result: dict):
 def print_events_unified(success_result: dict):
     """Print the results of `getevents`, in one table"""
     elist = success_result["events"]
-    lowest_time = min(float(event["time"]) for event in elist)
+    for event in elist:
+        event["time"] = datetime.datetime.fromisoformat(event["time"])
+
+    lowest_time = min(event["time"] for event in elist)
 
     for event in elist:
-        offset_time = float(event["time"]) - lowest_time
+        offset_time = event["time"] - lowest_time
         event["offset_time"] = offset_time
 
-    print(cf.bold("{:>8}  {}  {}".format("Time", "Thread", "Event")))
+    print(cf.bold("{:>14}  {}  {}".format("Time", "Thread", "Event")))
     for event in sorted(elist, key=itemgetter("offset_time")):
-        time = dim("{:8.3f}".format(event["offset_time"]))
+        time = dim(str(event["offset_time"]))
         name = event["event"]
         thread = event["thread"]
         data = event["data"] if len(event["data"]) else ""
-        print(f"{time:^}  {thread:^7}  {name} {data}")
+        print(f"{time:>16}  {thread:^7}  {name} {data}")
 
 
 def format_source_problem(

@@ -154,7 +154,7 @@ class DataBucket:
 
         try:
             destroy_bucket(client, name)
-            LOG.info(f"Deleted bucket {name}")
+            LOG.info(f"[-] Deleted bucket {name}")
         except client.exceptions.NoSuchBucket:
             pass
 
@@ -216,7 +216,7 @@ class S3File:
         bucket = DataBucket.resource_name(config)
         try:
             client.delete_object(Bucket=bucket, Key=cls.key)
-            LOG.info(f"Deleted {cls.key} from {bucket}")
+            LOG.info(f"[-] Deleted {cls.key} from {bucket}")
         except (client.exceptions.NoSuchKey, client.exceptions.NoSuchBucket):
             pass
 
@@ -284,13 +284,24 @@ class DataTable:
             client.delete_table(TableName=name)
             waiter = client.get_waiter("table_not_exists")
             waiter.wait(TableName=name)
-            LOG.info(f"Deleted Table {name}")
+            LOG.info(f"[-] Deleted Table {name}")
         except client.exceptions.ResourceNotFoundException:
             pass
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam.html#client
 class ExecutionRole:
+    s3_access_policy_name = "s3_access"
+    user_policy_name = "user_policy"
+
+    @staticmethod
+    def all_managed_policies():
+        return [
+            "default",
+            ExecutionRole.s3_access_policy_name,
+            ExecutionRole.user_policy_name,
+        ]
+
     @staticmethod
     def resource_name(config):
         return f"teal-{config.uuid}"
@@ -318,15 +329,11 @@ class ExecutionRole:
         client = get_client("iam")
         name = ExecutionRole.resource_name(config)
 
-        try:
-            client.delete_role_policy(RoleName=name, PolicyName="default")
-        except client.exceptions.NoSuchEntityException:
-            pass
-
-        try:
-            client.delete_role_policy(RoleName=name, PolicyName="s3_access")
-        except client.exceptions.NoSuchEntityException:
-            pass
+        for policy_name in ExecutionRole.all_managed_policies():
+            try:
+                client.delete_role_policy(RoleName=name, PolicyName=policy_name)
+            except client.exceptions.NoSuchEntityException:
+                pass
 
         try:
             client.detach_role_policy(
@@ -337,7 +344,47 @@ class ExecutionRole:
             pass
 
         client.delete_role(RoleName=name)
-        LOG.info(f"Deleted execution role {name}")
+        LOG.info(f"[-] Deleted execution role {name}")
+
+    @staticmethod
+    def update_policy(role_name, policy_name, desired) -> bool:
+        """Update (or delete) a role's policy"""
+        client = get_client("iam")
+        try:
+            current = client.get_role_policy(RoleName=role_name, PolicyName=policy_name)
+            current_statement = current["PolicyDocument"]["Statement"]
+        except client.exceptions.NoSuchEntityException:
+            current = None
+
+        # Nothing to do
+        if current is None and desired is None:
+            return False
+
+        # should not exist, but does:
+        if current is not None and desired is None:
+            client.delete_role_policy(RoleName=role_name, PolicyName=policy_name)
+            LOG.info(
+                f"[-] Removed policy '{policy_name}' for Execution Role {role_name}"
+            )
+            return True
+
+        should_exist = current is None and desired is not None
+        is_different = current and current_statement != desired["Statement"]
+
+        if is_different:
+            client.delete_role_policy(RoleName=role_name, PolicyName=policy_name)
+
+        if should_exist or is_different:
+            client.put_role_policy(
+                RoleName=role_name,
+                PolicyName=policy_name,
+                PolicyDocument=json.dumps(desired),
+            )
+            LOG.info(
+                f"[+] Updated policy '{policy_name}' for Execution Role {role_name}"
+            )
+            return True
+        return False
 
     @staticmethod
     def get_s3_access_policy(config) -> dict:
@@ -358,54 +405,48 @@ class ExecutionRole:
         }
 
     @staticmethod
-    def update_s3_access_policy(config):
-        client = get_client("iam")
+    def update_s3_access_policy(config) -> bool:
         name = ExecutionRole.resource_name(config)
-        try:
-            current = client.get_role_policy(
-                RoleName=ExecutionRole.resource_name(config), PolicyName="s3_access"
+        policy = ExecutionRole.get_s3_access_policy(config)
+        return ExecutionRole.update_policy(
+            name, ExecutionRole.s3_access_policy_name, policy
+        )
+
+    @staticmethod
+    def get_user_policy(config) -> Union[dict, None]:
+        if not config.instance.policy_file:
+            return None
+        if not config.instance.policy_file.exists():
+            raise UserResolvableError(
+                f"Cannot find policy_file `{config.instance.policy_file}'.",
+                "Check configuration.",
             )
-            current_statement = current["PolicyDocument"]["Statement"]
-        except client.exceptions.NoSuchEntityException:
-            current = None
+        with open(config.instance.policy_file) as f:
+            return json.loads(f.read())
 
-        s3_access_policy = ExecutionRole.get_s3_access_policy(config)
-
-        if current is None and s3_access_policy is None:
-            return
-
-        # shoudl not exist, but does:
-        if current is not None and s3_access_policy is None:
-            client.delete_role_policy(RoleName=name, PolicyName="s3_access")
-            LOG.info(f"Removed S3 bucket access for {name}")
-            return
-
-        should_exist = current is None and s3_access_policy is not None
-        is_different = current_statement != s3_access_policy["Statement"]
-
-        if is_different:
-            client.delete_role_policy(RoleName=name, PolicyName="s3_access")
-
-        if should_exist or is_different:
-            client.put_role_policy(
-                RoleName=name,
-                PolicyName="s3_access",
-                PolicyDocument=json.dumps(s3_access_policy),
-            )
-            time.sleep(5)  # Allow propagation (see notes in create_or_update...)
-            LOG.info(f"[+] Updated S3 bucket access for {name}")
+    @staticmethod
+    def update_user_policy(config) -> bool:
+        """Update the policy from config.instance.policy_file"""
+        name = ExecutionRole.resource_name(config)
+        policy = ExecutionRole.get_user_policy(config)
+        return ExecutionRole.update_policy(name, ExecutionRole.user_policy_name, policy)
 
     @staticmethod
     def create_or_update(config):
         if ExecutionRole.exists(config):
-            ExecutionRole.update_s3_access_policy(config)
+            updates = [
+                ExecutionRole.update_s3_access_policy(config),
+                ExecutionRole.update_user_policy(config),
+            ]
+            if any(updates):
+                time.sleep(5)  # Allow propagation (see notes below...)
             return
 
         client = get_client("iam")
         name = ExecutionRole.resource_name(config)
         table_arn = DataTable.get_arn(config)
 
-        policy = {
+        basic_policy = {
             "Version": "2012-10-17",
             "Statement": [
                 {
@@ -444,15 +485,11 @@ class ExecutionRole:
             RoleName=name, AssumeRolePolicyDocument=json.dumps(assume_role_policy),
         )
         client.put_role_policy(
-            RoleName=name, PolicyName="default", PolicyDocument=json.dumps(policy)
+            RoleName=name, PolicyName="default", PolicyDocument=json.dumps(basic_policy)
         )
-        s3_access_policy = ExecutionRole.get_s3_access_policy(config)
-        if s3_access_policy:
-            client.put_role_policy(
-                RoleName=name,
-                PolicyName="s3_access",
-                PolicyDocument=json.dumps(s3_access_policy),
-            )
+        # User configurable policies
+        ExecutionRole.update_s3_access_policy(config)
+        ExecutionRole.update_user_policy(config)
         # Basic Lambda policy - logs, etc
         client.attach_role_policy(
             RoleName=name,
@@ -530,7 +567,7 @@ class SourceLayer:
             for v in versions["LayerVersions"]:
                 number = v["Version"]
                 client.delete_layer_version(LayerName=name, VersionNumber=number)
-                LOG.info(f"Deleted layer {name} v{number}")
+                LOG.info(f"[-] Deleted layer {name} v{number}")
 
 
 # Client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#client
@@ -682,7 +719,7 @@ class TealFunction:
         name = cls.resource_name(config)
         try:
             client.delete_function(FunctionName=name)
-            LOG.info(f"Deleted function {name}")
+            LOG.info(f"[-] Deleted function {name}")
         except client.exceptions.ResourceNotFoundException:
             pass
 
@@ -943,7 +980,7 @@ class SharedAPIGateway:
         )
 
         name = api["Name"]
-        LOG.info(f"Deleted API {name}")
+        LOG.info(f"[-] Deleted API {name}")
 
     @staticmethod  # It might depend on config in the future
     def trigger_permission_id(config):

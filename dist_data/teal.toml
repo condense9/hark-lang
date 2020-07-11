@@ -15,8 +15,17 @@
 ## Location of Teal build data
 # data_dir = ".teal"
 
+## Path to the Python source lambda layer package (zip)
+# package = ""
+
+## The command to build project.package (optional)
+# build_cmd = ""
+
 
 [instance]
+
+## Additional AWS IAM policy statements to attach to the instance role
+# policy_file = <file.json>
 
 ## Extra source layers to use (maximum of 4)
 ## e.g., from: https://github.com/keithrozario/Klayers
