@@ -105,7 +105,7 @@ class TealLexer(Lexer):
 
     # values
     NUMBER = r"[+-]?[\d]+[\d.]*"
-    STRING = r'"[^\"]+"'  # FIXME escaped
+    STRING = r'"[^\"]*"'  # FIXME escaped
 
     # Special symbols
     ADD = r"\+"
