@@ -21,7 +21,7 @@ def _init(endpoint: str):
     global CLIENT
 
     if not endpoint:
-        raise ValueError(endpoint)
+        raise UserResolvableError("Teal Cloud endpoint not set", "")
 
     try:
         HASURA_SECRET = os.environ["HASURA_ADMIN_SECRET"]
