@@ -57,6 +57,7 @@ class TealLexer(Lexer):
         # values
         NUMBER,
         STRING,
+        SQ_STRING,
         NULL,
         # operators
         ADD,
@@ -105,7 +106,8 @@ class TealLexer(Lexer):
 
     # values
     NUMBER = r"[+-]?[\d]+[\d.]*"
-    STRING = r'"[^\"]*"'  # FIXME escaped
+    STRING = r'"(?:[^"\\]|\\.)*"'
+    SQ_STRING = r"'(?:[^'\\]|\\.)*'"
 
     # Special symbols
     ADD = r"\+"
@@ -425,9 +427,9 @@ class TealParser(Parser):
     def expr(self, p):
         return N(self, p, n.N_Literal, literal_eval(p.NUMBER))
 
-    @_("STRING")
+    @_("STRING", "SQ_STRING")
     def expr(self, p):
-        return N(self, p, n.N_Literal, literal_eval(p.STRING))
+        return N(self, p, n.N_Literal, literal_eval(p[0]))
 
     def error(self, p):
         raise TealParseError(

@@ -49,12 +49,6 @@ conditional:
 
 
 
-
-
-
-
-
-
 kitchen_sink:
   hello:
     - []
@@ -67,6 +61,15 @@ kitchen_sink:
   ident:
     - ["foo"]
     - "foo"
+
+  sq_strings:
+    - []
+    - "hello \"quotes\""
+
+  escaped:
+    - []
+    - "hello \"escapes\""
+
 
 
 pythonimport:

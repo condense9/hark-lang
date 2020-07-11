@@ -12,3 +12,11 @@ fn ident(x) {
   x
 }
 
+fn sq_strings() {
+  // follows Python's string escaping semantics
+  'hello \"quotes"'
+}
+
+fn escaped() {
+  "hello \"escapes\""
+}
