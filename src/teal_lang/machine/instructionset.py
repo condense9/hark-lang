@@ -268,3 +268,7 @@ class Print(I):
 
 class Sleep(I):
     """Sleep for some time"""
+
+
+class GetSessionId(I):
+    """Get the current session ID"""

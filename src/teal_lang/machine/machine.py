@@ -133,6 +133,7 @@ class TlMachine:
         "||": OpOr,
         "parse_float": ParseFloat,
         "signal": Signal,
+        "sid": GetSessionId,
     }
 
     def __init__(self, vmid, invoker):
@@ -639,6 +640,10 @@ class TlMachine:
         if str(val) == "error":
             raise UnhandledError(msg)
         # other kinds of signals don't need special handling
+
+    @evali.register
+    def _(self, i: GetSessionId):
+        self.state.ds_push(mt.TlString(self.dc.session_id))
 
     def __repr__(self):
         return f"<Machine {id(self)}>"
