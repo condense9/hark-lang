@@ -72,7 +72,10 @@ class Controller:
         """Get the return value of the top-level thread"""
         # NOTE: if it's not resolved, value will be None
         value = self.get_top_level_future().value
-        return mt.to_py_type(value)
+        try:
+            return mt.to_py_type(value)
+        except TypeError:  # it's None or TlFunctionPtr, for example
+            return None
 
     ##
 

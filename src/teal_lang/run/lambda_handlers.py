@@ -45,7 +45,7 @@ class CliHandler(TealEventHandler):
             controller = new_session(
                 function=event.get("function", "main"),
                 args=[mt.TlString(a) for a in event.get("args", [])],
-                check_period=event.get("check_period", 1),
+                check_period=event.get("check_period", 0.2),
                 wait_for_finish=event.get("wait_for_finish", True),
                 timeout=timeout,
                 code_override=event.get("code", None),
@@ -112,8 +112,8 @@ class HttpHandler(TealEventHandler):
         controller = new_session(
             function="on_http",  # constant
             args=[mt.to_teal_type(event)],
-            wait_for_finish=True,  # FIXME...
-            check_period=0.02,
+            wait_for_finish=True,
+            check_period=0.1,
             timeout=10.0,  # TODO? make configurable
         )
 
