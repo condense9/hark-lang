@@ -142,7 +142,20 @@ def post_lex(toks):
 
         # TERMs after blocks and after the last expression in a block are
         # optional. Fill them in here to make the grammar simpler.
-        if (t.type == "}") or (next_tok.type == "}" and t.type != "TERM"):
+        #
+        # There are two places where '}' is used, and so there are two places
+        # terminators must be consumed: block expressions and hashes.
+        #
+        # block: { a; b; c } -> { a; b; c; };
+        #
+        # hashes: { a: b, c: d } -> { a: b, c: d; };
+
+        # Closing a block or hash
+        if t.type == "}" and next_tok.type != ";":
+            yield term
+
+        # Last expression in a block or hash
+        if next_tok.type == "}" and t.type != "TERM":
             yield term
 
         t = next_tok
@@ -354,7 +367,7 @@ class TealParser(Parser):
 
     @_("'[' list_items ']'")
     def expr(self, p):
-        identifier = N(self, p, n.N_Id, "list")
+        identifier = N(self, p, n.N_Id, "list")  # list constructor
         return N(self, p, n.N_Call, identifier, p.list_items)
 
     @_("nothing")
@@ -369,22 +382,22 @@ class TealParser(Parser):
     def list_items(self, p):
         return [p.expr] + p.list_items
 
-    @_("'{' dict_items TERM '}' TERM")
+    @_("'{' hash_items TERM '}' TERM")
     def expr(self, p):
-        identifier = N(self, p, n.N_Id, "hash")
-        return N(self, p, n.N_Call, identifier, p.dict_items)
+        identifier = N(self, p, n.N_Id, "hash")  # hash constructor
+        return N(self, p, n.N_Call, identifier, p.hash_items)
 
     @_("nothing")
-    def dict_items(self, p):
+    def hash_items(self, p):
         return []
 
     @_("expr ':' expr")
-    def dict_items(self, p):
+    def hash_items(self, p):
         return [p[0], p[2]]
 
-    @_("expr ':' expr ',' dict_items")
-    def dict_items(self, p):
-        return [p[0], p[2]] + p.dict_items
+    @_("expr ':' expr ',' hash_items")
+    def hash_items(self, p):
+        return [p[0], p[2]] + p.hash_items
 
     # literals
 

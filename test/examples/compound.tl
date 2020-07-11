@@ -29,5 +29,6 @@ fn main() {
   print(lists());
   print(hashes("hello"));
   print(modify());
-  "Done :)"
+  print({1: 2, 3: 4});
+  {"Done?": {"hmm...": true}}
 }
