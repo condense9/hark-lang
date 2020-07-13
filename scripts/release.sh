@@ -54,8 +54,8 @@ do_release() {
 
 printf "\nRELEASE CHECKLIST\n"
 printf " - updated CHANGELOG.md?\n"
-printf " - everything green in CI?\n"
-printf " - updated version number?\n"
+printf " - make test and make lint?\n"
+printf " - updated version number in pyproject.toml?\n"
 
 printf "\nReleasing version: %s (from pyproject.toml)\n\n" "${VERSION}"
 
