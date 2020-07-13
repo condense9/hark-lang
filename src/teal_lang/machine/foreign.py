@@ -4,6 +4,7 @@ import builtins
 import importlib
 import logging
 import os
+import sys
 import traceback
 from functools import lru_cache
 
@@ -28,13 +29,13 @@ def _load_module(modname):
     else:
         spec = importlib.util.find_spec(modname)
         if not spec:
-            raise ImportPyError(f"Cannot import Python module `{modname}'", "")
+            raise ImportPyError(f"Cannot find Python module `{modname}'", "")
         try:
             return spec.loader.load_module()
         except Exception as exc:
             tb = "".join(traceback.format_exception(*sys.exc_info()))
             raise ImportPyError(
-                f"Could not load Python function `{fnname}'.", tb
+                f"Could not load Python module `{modname}'.", tb
             ) from exc
 
 

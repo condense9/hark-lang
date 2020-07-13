@@ -1063,7 +1063,7 @@ def deploy(config, callback_start=None):
     # Vague file-format validation
     if config.source_layer_file and not str(config.source_layer_file).endswith(".zip"):
         raise UserResolvableError(
-            f"{source_layer_file} is not a .zip file",
+            f"{config.source_layer_file} is not a .zip file",
             "The Python source layer must be packaged as a zip file.",
         )
 

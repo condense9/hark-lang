@@ -1,8 +1,9 @@
 """Handle different kinds of events"""
+import os
 from abc import ABC, abstractmethod
 
-from ..machine import types as mt
 from ..cli.main import TEAL_CLI_VERSION_KEY
+from ..machine import types as mt
 
 
 class TealEventHandler(ABC):

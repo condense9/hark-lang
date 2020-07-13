@@ -8,7 +8,7 @@ from typing import Union
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
 
-from .. import config
+from .. import config, __version__
 from ..exceptions import UserResolvableError
 from . import interface as ui
 
@@ -179,7 +179,7 @@ query IsInstanceReady($id: Int!) {
     return data["instance_by_pk"]["ready"]
 
 
-def invoke(instance_id: int):
+def invoke(instance_id: int, function: str, args: list):
     qry = """
 mutation Invoke($ver: String!, $id: Int!, $function: String!, $args: [String]) {
   invoke(id: $id, cli_version: $version) {

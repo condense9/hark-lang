@@ -27,7 +27,16 @@ from typing import List, Tuple
 from ..machine import future as fut
 from ..machine.controller import Controller, ControllerError
 from . import ddb_model as db
-from .ddb_model import AREC, FUTURE, META, PEVENTS, PLOGS, STATE, STDOUT
+from .ddb_model import (
+    AREC,
+    FUTURE,
+    META,
+    PEVENTS,
+    PLOGS,
+    STATE,
+    STDOUT,
+    PLUGINS_HASH_KEY,
+)
 
 try:
     from ..machine.executable import Executable
@@ -315,7 +324,7 @@ class DataController(Controller):
     ) -> Tuple[str, str]:
         future_id = f"{plugin_name}:{plugin_value_id}"
         try:
-            s = self.SI.get(PLUGINS_HASH_KEY, future_id)
-        except self.SI.DoesNotExist:
+            s = cls.SI.get(PLUGINS_HASH_KEY, future_id)
+        except cls.SI.DoesNotExist as exc:
             raise ControllerError("Future does not exist") from exc
         return (s.plugin_future_session, future_id)
