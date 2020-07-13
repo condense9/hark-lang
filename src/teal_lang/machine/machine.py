@@ -7,8 +7,6 @@ definitions, or let-bindings.
 
 """
 
-import builtins
-import importlib
 import logging
 import os
 import sys
@@ -28,12 +26,9 @@ from .instructionset import *
 from .probe import Probe
 from .state import State
 from .stdout_item import StdoutItem
+from .foreign import import_python_function
 
 LOG = logging.getLogger(__name__)
-
-
-class ImportPyError(UserResolvableError):
-    """Error importing some code from Python"""
 
 
 class UnhandledError(UserResolvableError):
@@ -60,37 +55,6 @@ def traverse(o, tree_types=(list, tuple)):
                 yield subvalue
     else:
         yield o
-
-
-def import_python_function(fnname, modname):
-    """Load function
-
-    If modname is None, fnname is taken from __builtins__ (e.g. 'print')
-
-    PYTHONPATH must be set up already.
-    """
-    if modname == "__builtins__":
-        if not os.getenv("ENABLE_IMPORT_BUILTIN", False):
-            raise ImportPyError(
-                "Cannot import from builtins.",
-                "ENABLE_IMPORT_BUILTIN must be set to enable this.",
-            )
-        m = builtins
-    else:
-        spec = importlib.util.find_spec(modname)
-        if not spec:
-            raise ImportPyError(f"Cannot import Python module `{modname}'", "")
-        try:
-            m = spec.loader.load_module()
-            fn = getattr(m, fnname)
-        except Exception as exc:
-            tb = "".join(traceback.format_exception(*sys.exc_info()))
-            raise ImportPyError(
-                f"Could not load Python function `{fnname}'.", tb
-            ) from exc
-
-    LOG.debug("Loaded %s", fn)
-    return fn
 
 
 class TlMachine:

@@ -57,7 +57,10 @@ def init(args):
         cf.update_palette(UI_COLORS)
         if level:
             coloredlogs.install(
-                fmt="%(name)-25s %(message)s", level=level, logger=root_logger,
+                fmt="[%(asctime)s.%(msecs)03d] %(name)-25s %(message)s",
+                datefmt="%H:%M:%S",
+                level=level,
+                logger=root_logger,
             )
     else:
         cf.disable()
@@ -258,7 +261,7 @@ def format_source_problem(
         return "<unknown>"
 
     return (
-        f"{source_filename}\n...\n{source_lineno}: {source_line}\n"
+        f"{source_filename}:{source_lineno}\n...\n{source_lineno}: {source_line}\n"
         + " " * (source_column + len(str(source_lineno)) + 1)
         + "^\n"
     )
