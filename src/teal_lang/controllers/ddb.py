@@ -67,8 +67,12 @@ class DataController(Controller):
         self.session_id = this_session.session_id
         if base_session.meta.exe:
             self.executable = Executable.deserialise(base_session.meta.exe)
+        elif this_session.meta.exe:
+            self.executable = Executable.deserialise(this_session.meta.exe)
         else:
             self.executable = None
+            # It's allowed to initialise a controller with no executable, as
+            # long as the user calls set_executable before creating a machine.
 
     def _qry(self, group, item_id=None):
         """Retrieve the specified group:item_id"""

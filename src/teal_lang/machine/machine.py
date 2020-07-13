@@ -108,6 +108,8 @@ class TlMachine:
         self.state = self.dc.get_state(self.vmid)
         self.probe = Probe(self.vmid)
         self.exe = self.dc.executable
+        if not self.exe:
+            raise UnexpectedError("No executable, can't start thread.")
         self._foreign = {
             name: import_python_function(val.identifier, val.module)
             for name, val in self.exe.bindings.items()
