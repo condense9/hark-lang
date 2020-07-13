@@ -49,22 +49,24 @@ class DataController(Controller):
     @classmethod
     def with_new_session(cls):
         """Create a data controller for a new session"""
-        db.init_base_session()
-        return cls(db.new_session())
+        base_session = db.init_base_session()
+        this_session = db.new_session()
+        return cls(this_session, base_session)
 
     @classmethod
     def with_session_id(cls, session_id: str, db_cls=db.SessionItem):
         try:
-            session = db_cls.get(session_id, META)
+            base_session = db.init_base_session()
+            this_session = db_cls.get(session_id, META)
         except db_cls.DoesNotExist as exc:
             raise ControllerError("Session does not exist") from exc
-        return cls(session, db_cls=db_cls)
+        return cls(this_session, base_session, db_cls=db_cls)
 
-    def __init__(self, session_meta, db_cls=db.SessionItem):
+    def __init__(self, this_session, base_session, db_cls=db.SessionItem):
         self.SI = db_cls
-        self.session_id = session_meta.session_id
-        if session_meta.meta.exe:
-            self.executable = Executable.deserialise(session_meta.meta.exe)
+        self.session_id = this_session.session_id
+        if base_session.meta.exe:
+            self.executable = Executable.deserialise(base_session.meta.exe)
         else:
             self.executable = None
 

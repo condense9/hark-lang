@@ -1,6 +1,7 @@
 """AWS Lambda handlers for running and controller Teal"""
 import functools
 import json
+import logging
 import os
 import sys
 import time
@@ -16,6 +17,11 @@ from ..machine.machine import TlMachine
 from ..teal_compiler.compiler import TealCompileError
 from ..teal_parser.parser import TealParseError
 from . import lambda_handlers
+
+# Get logs into cloudwatch
+logging.basicConfig(level=logging.WARNING)
+root_logger = logging.getLogger("teal_lang")
+root_logger.setLevel(level=logging.INFO)
 
 
 def version(event, context):
@@ -129,6 +135,7 @@ def _new_session(
         # the user to override that with custom code. This might not be a good
         # idea...
         exe = load.compile_text(code_override)
+        controller.set_executable(exe)
 
     try:
         fn_ptr = exe.bindings[function]
@@ -136,7 +143,6 @@ def _new_session(
         raise UserResolvableError(f"No such Teal function: `{function}`", "")
 
     try:
-        controller.set_executable(exe)
         vmid = controller.toplevel_machine(fn_ptr, args)
     except Exception as exc:
         # the exception message is lost because we may not even have a top level

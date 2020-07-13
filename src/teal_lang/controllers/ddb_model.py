@@ -140,11 +140,11 @@ class SessionItem(Model):
 ###
 
 
-def init_base_session():
+def init_base_session() -> SessionItem:
     LOG.info("DB %s (%s)", SessionItem.Meta.host, SessionItem.Meta.region)
     LOG.info("DB table %s", SessionItem.Meta.table_name)
     try:
-        SessionItem.get(BASE_SESSION_HASH_KEY, META)
+        s = SessionItem.get(BASE_SESSION_HASH_KEY, META)
     except SessionItem.DoesNotExist as exc:
         LOG.info("Creating base session")
         s = SessionItem(
@@ -156,6 +156,7 @@ def init_base_session():
             meta=MetaAttribute(),
         )
         s.save()
+    return s
 
 
 def set_base_exe(exe):
@@ -174,7 +175,7 @@ def new_session_item(sid, item_id, **extra) -> SessionItem:
         item_id=item_id,
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        expires_on=int(ITEM_TTL + time.time()),
+        expires_on=int(ITEM_TTL + time.time()) if ITEM_TTL else 0,
         **extra,
     )
 
@@ -184,9 +185,7 @@ def new_session() -> SessionItem:
     base_session = SessionItem.get(BASE_SESSION_HASH_KEY, META)
     sid = str(uuid.uuid4())
 
-    s = new_session_item(
-        sid, META, meta=MetaAttribute(exe=base_session.meta.exe, stopped=[]),
-    )
+    s = new_session_item(sid, META, meta=MetaAttribute())
     s.save()
     # Create the empty placeholders for the collections
     new_session_item(sid, PLOGS, plogs=[]).save()
@@ -199,7 +198,7 @@ def new_session() -> SessionItem:
         item_id=str(s.created_at),  # for sorting by created_at
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        expires_on=int(ITEM_TTL + time.time()),
+        expires_on=int(ITEM_TTL + time.time()) if ITEM_TTL else 0,
         new_session_record=sid,
     ).save()
 
