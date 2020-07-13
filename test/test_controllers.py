@@ -18,11 +18,11 @@ def setup_module(module):
     db.SessionItem.create_table(
         read_capacity_units=1, write_capacity_units=1, wait=True
     )
-    db.init_base_session()
 
 
 def NewDdbSession():
-    return DdbController(db.new_session())
+    base = db.init_base_session()
+    return DdbController(db.new_session(), base)
 
 
 CONTROLLERS = [
