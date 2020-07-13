@@ -57,6 +57,12 @@ def traverse(o, tree_types=(list, tuple)):
         yield o
 
 
+def shortstr(obj, maxl=20) -> str:
+    """Convert an object to string and truncate to a maximum length"""
+    s = str(obj)
+    return (s[:maxl] + "...") if len(s) > maxl else s
+
+
 class TlMachine:
     """Virtual Machine to execute Teal bytecode.
 
@@ -136,7 +142,8 @@ class TlMachine:
             "step",
             ip=self.state.ip,
             instr=str(instr),
-            top_of_stack=str(self.state._ds[-3:]),  # str so it's serialisable
+            ops=str(instr.operands),
+            top_of_stack=shortstr(self.state._ds[-3:]),
         )
         self.state.ip += 1  # NOTE - IP incremented before evaluation
         self.evali(instr)
@@ -268,7 +275,7 @@ class TlMachine:
         # Otherwise, this thread has finished!
         self.state.stopped = True
         value = self.state.ds_peek(0)
-        self.probe.log(f"Returning value: {value}")
+        self.probe.log(f"Returning value: {shortstr(value)}")
         value, continuations = self.dc.finish(self.vmid, value)
         for machine in continuations:
             self.dc.set_stopped(machine, False)
@@ -368,7 +375,7 @@ class TlMachine:
         if isinstance(val, mt.TlFuturePtr):
             resolved, result = self.dc.get_or_wait(self.vmid, val)
             if resolved:
-                self.probe.log(f"{val} resolved, got {result}")
+                self.probe.log(f"{val} resolved, got {shortstr(result)}")
                 self.state.ds_set(0, result)
             else:
                 self.probe.log(f"Waiting for {val}")
