@@ -7,6 +7,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [unreleased]
 
+## [0.4.0] (2020-07-13)
+
+### New
+
+- `teal init` to bootstrap new projects
+- Separate project/instance configuration
+- Pretty CLI interface
+- Way better stack traces
+- Unified error reporting
+- The beginnings of Teal Cloud integration
+- &&, || operators
+
+### Changed
+
+- Semi-colons are required now, to simplify the parser
+- Improved Lambda startup time (cache imported modules)
+- Added "full" debug symbols to executables
+
+### Fixed
+
+- Many bugs
+
+
 ## [0.3.0] (2020-06-27)
 
 ### New
@@ -125,7 +148,8 @@ Initial release.
 - A few examples
 
 
-[unreleased]: https://github.com/condense9/teal-lang/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/condense9/teal-lang/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/condense9/teal-lang/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/condense9/teal-lang/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/condense9/teal-lang/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/condense9/teal-lang/compare/v0.2.2...v0.2.3
