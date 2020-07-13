@@ -31,7 +31,7 @@ mkdir -p libs
 
 # SKIP_DEPS=yes to skip installing dependencies if you know they haven't changed
 [[ -z "${SKIP_DEPS}" ]] && \
-    pip install -q --target libs -r requirements.txt 2>/dev/null
+    pip install -q --target libs -r requirements.txt >/dev/null
 rm -rf libs/boto*
 
 # Install Teal manually
