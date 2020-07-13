@@ -10,9 +10,9 @@
 **/
 
 // The Python functions that to do the heavy lifting.
-import(random_fractals,      :python src.draw)
-import(save_fractal_to_file, :python src.draw)
-import(upload_to_bucket,     :python src.store)
+import(random_fractals,      :python src.draw);
+import(save_fractal_to_file, :python src.draw);
+import(upload_to_bucket,     :python src.store);
 
 
 /**
@@ -65,8 +65,8 @@ fn map_wait(func, items) {
 **/
 fn build_fractal(fractal_spec) {
   // fractal_spec :: [fractal_type, fractal_size]
-  print(fractal_spec)
-  result = save_fractal_to_file(nth(fractal_spec, 0), nth(fractal_spec, 1), "/tmp")
+  print(fractal_spec);
+  result = save_fractal_to_file(nth(fractal_spec, 0), nth(fractal_spec, 1), "/tmp");
   upload_to_bucket(result)
 }
 
@@ -82,8 +82,9 @@ fn build_fractal_async(fractal_spec) {
  * Entrypoint. Get some random fractal specs, and then render them in parallel.
 **/
 fn main() {
-  fractal_specs = random_fractals(2)
-  results = map_wait(build_fractal_async, fractal_specs)
-  print("Done")
+  fractal_specs = random_fractals(4);
+  results = map_wait(build_fractal_async, fractal_specs);
+  // results = map(build_fractal, fractal_specs)
+  print("Done");
   results
 }

@@ -8,13 +8,15 @@ See https://docs.python.org/3/library/json.html#py-to-json-table
 from typing import Optional
 from collections import UserList, UserDict
 
-from ..teal_parser.nodes import N_Literal
-
 # TODO Convert these to dataclasses
 
 
 class TlType:
     """Base class"""
+
+    @property
+    def __tlname__(self):
+        return type(self).__name__
 
     def __repr__(self):
         return f"<{type(self).__name__}>"
@@ -52,6 +54,9 @@ class TlTrue(TlAtomic):
 
 class TlFalse(TlAtomic):
     """Represent False"""
+
+
+BOOLEANS = (TlTrue, TlFalse)
 
 
 class TlNull(TlAtomic):
@@ -105,11 +110,11 @@ class TlInstruction(str, TlLiteral):
 class TlFuturePtr(TlLiteral):
     """Pointer to a TlFuture"""
 
-    def __init__(self, value):
-        if type(value) is not int:
-            raise TypeError(value)
-        super().__init__(value)
-        self.vmid = value
+    def __init__(self, future_id):
+        if type(future_id) not in (int, str):
+            raise TypeError(future_id)
+        super().__init__(future_id)
+        self.vmid = future_id
 
 
 ### Complex types
@@ -201,27 +206,32 @@ class TlForeignPtr(TlType):
 # NOTE - no conversion to/from Symbols
 
 
-def to_teal_type_list(lst: list) -> TlList:
+def py_list_to_tl(lst: list) -> TlList:
     """Recursively convert list to TlList"""
-    if type(lst) != list:
-        raise ValueError(lst)
     return TlList([to_teal_type(x) for x in lst])
 
 
-def to_teal_type_dict(dct: dict) -> TlHash:
+def tl_list_to_py(lst: TlList) -> list:
+    """Recursively convert TlList to list"""
+    return [to_py_type(v) for v in lst]
+
+
+def py_dict_to_tl(dct: dict) -> TlHash:
     """Recursively convert dict to TlHash"""
-    if type(dct) != dict:
-        raise ValueError(dct)
     return TlHash({to_teal_type(k): to_teal_type(v) for k, v in dct.items()})
+
+
+def tl_hash_to_py(hsh: TlHash) -> dict:
+    """Recursively convert TlHash to dict"""
+    return {to_py_type(k): to_py_type(v) for k, v in hsh.items()}
 
 
 PY_TO_TL = {
     int: TlInt,
     float: TlFloat,
     str: TlString,
-    list: to_teal_type_list,
-    dict: to_teal_type_dict,
-    N_Literal: lambda x: to_teal_type(x.value),  # special case to handle parser
+    list: py_list_to_tl,
+    dict: py_dict_to_tl,
 }
 
 
@@ -232,8 +242,8 @@ Tl_TO_PY = {
     TlInt: int,
     TlFloat: float,
     TlString: str,
-    TlList: list,
-    TlHash: dict,
+    TlList: tl_list_to_py,
+    TlHash: tl_hash_to_py,
 }
 
 

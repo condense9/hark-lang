@@ -10,8 +10,8 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 
-## Path to the resulting ZIP file
-DEST=${1:-${DIR}/../teal_lambda.zip}
+## Path to the resulting ZIP file, ready for use by aws.py
+DEST=${1:-${DIR}/../dist_data/teal_lambda.zip}
 
 WORKDIR=${2:-${DIR}/../.teal_data}
 
@@ -43,4 +43,4 @@ popd >/dev/null
 
 cp "${WORKDIR}/${FILENAME}" "${DEST}"
 
-printf "Built Teal Lambda zip: %s\n" "${FILENAME}"
+printf "Built Teal Lambda zip: %s\n" "${DEST}"

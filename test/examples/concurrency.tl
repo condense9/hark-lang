@@ -13,13 +13,13 @@
  *
  **/
 
-import(random_sleep, :python pysrc.main)
+import(random_sleep, :python pysrc.main);
 
 
 fn ser_a (x) {
-  print("a starting to sleep")
-  random_sleep(50, 500)
-  print("a finished sleeping")
+  print("a starting to sleep");
+  random_sleep(50, 500);
+  print("a finished sleeping");
   x + 1
 }
 
@@ -28,9 +28,9 @@ fn conc_b(x) {
 }
 
 fn ser_c(x) {
-  print ("c starting to sleep")
-  random_sleep(50, 500)
-  print("c finished sleeping")
+  print ("c starting to sleep");
+  random_sleep(50, 500);
+  print("c finished sleeping");
   x + -1
 }
 
@@ -49,6 +49,6 @@ fn concurrent(x) {
 
 
 fn main() {
-  x = 5
+  x = 5;
   concurrent(x)
 }

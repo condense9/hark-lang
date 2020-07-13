@@ -12,6 +12,7 @@ MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", None)
 
 def _get_s3_bucket():
     """Get the Boto3 Bucket object to upload fractals"""
+    print(f"S3 Endpoint: {MINIO_ENDPOINT}")
     # minio requires special config:
     config = Config(signature_version="s3v4") if MINIO_ENDPOINT else None
     auth = "minioadmin" if MINIO_ENDPOINT else None

@@ -6,16 +6,16 @@
  * Optimise for time by performing each transcoding task in its own thread.
 **/
 
-import(transcode, :python src.video)
-import(correct_format, :python src.video)
-import(save_results, :python src.video)
+import(transcode, :python src.video);
+import(correct_format, :python src.video);
+import(save_results, :python src.video);
 
 
 /**
  * The main transcode task
 **/
 fn transcode_and_save(bucket, key, format, size) {
-  result = transcode(bucket, key, format, size)
+  result = transcode(bucket, key, format, size);
 
   if result {
     save_results(result)
@@ -32,16 +32,16 @@ fn transcode_and_save(bucket, key, format, size) {
 // #[aws_trigger="s3", bucket="upload-bucket"]
 fn on_upload(bucket, key, env) {
   if correct_format(bucket, key) {
-    print("Format ok.")
+    print("Format ok.");
 
-    mp4 = async transcode_and_save(bucket, key, "mp4", "1080p")
-    mp4_2 = async transcode_and_save(bucket, key, "mp4", "720p")
-    hls = async transcode_and_save(bucket, key, "hls", "480")
+    mp4 = async transcode_and_save(bucket, key, "mp4", "1080p");
+    mp4_2 = async transcode_and_save(bucket, key, "mp4", "720p");
+    hls = async transcode_and_save(bucket, key, "hls", "480");
 
     if env == "local" {
-      await mp4
-      await mp4_2
-      await hls
+      await mp4;
+      await mp4_2;
+      await hls;
       "done"
     }
     else {

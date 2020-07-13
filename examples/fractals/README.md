@@ -91,7 +91,7 @@ Point the code at the server (note that the endpoint is **http**):
 ```shell
 $ export FRACTALS_BUCKET=data
 
-$ export MINIO_ENDPOINT=http://localhost:9000
+$ export MINIO_ENDPOINT=http://127.0.0.1:9000
 ```
 
 Generate fractals:

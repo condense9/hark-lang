@@ -20,6 +20,9 @@ scratch
 
 *.zip
 
+# parser debug logs
+parser.out
+
 ## Python template below
 
 # Byte-compiled / optimized / DLL files

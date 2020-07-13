@@ -25,6 +25,7 @@ class DataController(Controller):
         self._probe_events = []
         self._arecs = {}
         self._lock = threading.RLock()
+        self.session_id = 0  # constant for local
         self.executable = None
         self.stdout = []  # shared standard output
         self.broken = False
@@ -45,6 +46,9 @@ class DataController(Controller):
 
     def get_thread_ids(self) -> List[int]:
         return list(range(self._machine_idx))
+
+    def get_top_level_future(self):
+        return self.get_future(0)
 
     def is_top_level(self, vmid):
         return vmid == 0

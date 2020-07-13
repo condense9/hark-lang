@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 
 from ..machine import types as mt
+from ..cli.main import TEAL_CLI_VERSION_KEY
 
 
 class TealEventHandler(ABC):
@@ -19,14 +20,54 @@ class TealEventHandler(ABC):
 
     @classmethod
     @abstractmethod
-    def get_invoke_args(cls, event: dict) -> dict:
-        """Get arguments to start a new session which handles the event.
+    def handle(cls, event: dict, new_session, UserResolvableError) -> dict:
+        """Handle an event"""
 
-        Internally, the dict is passed to aws._new_session.
-        """
+
+## Concrete Implementations
+
+
+class CliHandler(TealEventHandler):
+    """Handle invocations by the Teal CLI"""
+
+    @classmethod
+    def can_handle(cls, event: dict):
+        return TEAL_CLI_VERSION_KEY in event
+
+    @classmethod
+    def handle(cls, event: dict, new_session, UserResolvableError) -> dict:
+        try:
+            timeout = int(event["timeout"])
+        except KeyError:
+            timeout = int(os.getenv("FIXED_TEAL_TIMEOUT", 5))
+
+        try:
+            controller = new_session(
+                function=event.get("function", "main"),
+                args=[mt.TlString(a) for a in event.get("args", [])],
+                check_period=event.get("check_period", 0.2),
+                wait_for_finish=event.get("wait_for_finish", True),
+                timeout=timeout,
+                code_override=event.get("code", None),
+            )
+        except UserResolvableError as exc:
+            return dict(
+                teal_ok=False, message=str(exc), suggested_fix=exc.suggested_fix
+            )
+
+        # The "teal_ok" element is required (see in_own.py)
+        return dict(
+            teal_ok=True,
+            session_id=controller.session_id,
+            finished=controller.all_stopped(),
+            broken=controller.broken,
+            result=controller.get_top_level_result(),
+        )
 
 
 class S3Handler(TealEventHandler):
+    """Handle S3 upload events"""
+
     @classmethod
     def can_handle(cls, event: dict):
         return (
@@ -38,43 +79,46 @@ class S3Handler(TealEventHandler):
         )
 
     @classmethod
-    def get_invoke_args(cls, event: dict) -> dict:
+    def handle(cls, event: dict, new_session, UserResolvableError) -> dict:
         """Get arguments to invoke the upload handler
 
-        NOTE: does not wait for the session to finish!
+        NOTE: does not wait for the session to finish! All exceptions must end
+        up in the machine state.
+
         """
         data = event["Records"][0]["s3"]
 
         bucket = data["bucket"]["name"]
         key = data["object"]["key"]  # NOTE - could check size here
 
-        return dict(
+        new_session(
             function="on_upload",  # constant
-            args=[mt.TlString(bucket), mt.TlString(key), mt.TlString("aws")],
+            args=[mt.TlString(bucket), mt.TlString(key)],
             wait_for_finish=False,
             check_period=None,
             timeout=None,
         )
 
 
-class ApiHandler(TealEventHandler):
+class HttpHandler(TealEventHandler):
+    """API Gateway (v2) HTTP endpoint handler"""
+
     @classmethod
     def can_handle(cls, event: dict):
         return "routeKey" in event and "rawPath" in event and "rawQueryString" in event
 
     @classmethod
-    def get_invoke_args(cls, event: dict) -> dict:
-        path = event["rawPath"]
-        query = event["rawQueryString"]
-
-        return dict(
-            function="on_apicall",  # constant
-            args=[mt.TlString(path), mt.TlString(query), mt.TlString("aws")],
+    def handle(cls, event: dict, new_session, UserResolvableError) -> dict:
+        controller = new_session(
+            function="on_http",  # constant
+            args=[mt.to_teal_type(event)],
             wait_for_finish=True,
-            check_period=0.02,
-            timeout=3.0,  # TODO? make configurable
+            check_period=0.1,
+            timeout=10.0,  # TODO? make configurable
         )
+
+        return controller.get_top_level_result()
 
 
 # List of all available handlers
-ALL_HANDLERS = [S3Handler, ApiHandler]
+ALL_HANDLERS = [CliHandler, S3Handler, HttpHandler]

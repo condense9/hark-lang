@@ -9,6 +9,7 @@ import time
 import uuid
 from contextlib import AbstractContextManager
 from datetime import datetime
+from typing import List
 
 from botocore.exceptions import ClientError
 from pynamodb.attributes import (
@@ -23,6 +24,7 @@ from pynamodb.attributes import (
 from pynamodb.exceptions import UpdateError
 from pynamodb.models import Model
 
+from ..exceptions import TealError
 from ..machine.arec import ActivationRecord
 from ..machine.future import Future
 from ..machine.state import State
@@ -37,7 +39,21 @@ if "DYNAMODB_ENDPOINT" not in os.environ and "USE_LIVE_AWS" not in os.environ:
 # Get the session item time-to-live
 ITEM_TTL = int(os.getenv("TEAL_SESSION_TTL", 0))  # TTL=0 means don't expire
 
-BASE_SESSION_ID = "base"
+# Default Teal sessions table name
+DEFAULT_TABLE_NAME = "TealSessions"
+
+# pseudo-sessions
+BASE_SESSION_HASH_KEY = "base"
+PLUGINS_HASH_KEY = "plugins"
+
+# DDB item type prefix constants
+FUTURE = "future"
+META = "meta"
+AREC = "arec"
+STATE = "state"
+PLOGS = "plogs"
+PEVENTS = "pevents"
+STDOUT = "stdout"
 
 
 class FutureAttribute(MapAttribute):
@@ -97,7 +113,7 @@ class StateAttribute(TealDataAttribute):
 
 class SessionItem(Model):
     class Meta:
-        table_name = os.environ.get("DYNAMODB_TABLE", "TealSessions")
+        table_name = os.environ.get("DYNAMODB_TABLE", DEFAULT_TABLE_NAME)
         host = os.environ.get("DYNAMODB_ENDPOINT", None)
         region = os.environ.get("AWS_DEFAULT_REGION", None)
 
@@ -111,6 +127,7 @@ class SessionItem(Model):
 
     # Only one of these items should actually be set, determined by the item_id
     new_session_record = UnicodeAttribute(null=True)
+    plugin_future_session = UnicodeAttribute(null=True)
     meta = MetaAttribute(null=True)
     stdout = ListAttribute(null=True)
     plogs = ListAttribute(null=True)
@@ -123,26 +140,27 @@ class SessionItem(Model):
 ###
 
 
-def init_base_session():
+def init_base_session() -> SessionItem:
     LOG.info("DB %s (%s)", SessionItem.Meta.host, SessionItem.Meta.region)
     LOG.info("DB table %s", SessionItem.Meta.table_name)
     try:
-        SessionItem.get(BASE_SESSION_ID, "meta")
+        s = SessionItem.get(BASE_SESSION_HASH_KEY, META)
     except SessionItem.DoesNotExist as exc:
         LOG.info("Creating base session")
         s = SessionItem(
-            BASE_SESSION_ID,
-            "meta",
+            BASE_SESSION_HASH_KEY,
+            META,
             created_at=datetime.now(),
             updated_at=datetime.now(),
             expires_on=0,  # ie, don't expire
             meta=MetaAttribute(),
         )
         s.save()
+    return s
 
 
 def set_base_exe(exe):
-    base_session = SessionItem.get(BASE_SESSION_ID, "meta")
+    base_session = SessionItem.get(BASE_SESSION_HASH_KEY, META)
     base_session.meta.exe = exe.serialise()
     base_session.save()
 
@@ -157,36 +175,45 @@ def new_session_item(sid, item_id, **extra) -> SessionItem:
         item_id=item_id,
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        expires_on=int(ITEM_TTL + time.time()),
+        expires_on=int(ITEM_TTL + time.time()) if ITEM_TTL else 0,
         **extra,
     )
 
 
 def new_session() -> SessionItem:
     """Create a new session, returning the 'meta' item for it"""
-    base_session = SessionItem.get(BASE_SESSION_ID, "meta")
+    base_session = SessionItem.get(BASE_SESSION_HASH_KEY, META)
     sid = str(uuid.uuid4())
 
-    s = new_session_item(
-        sid, "meta", meta=MetaAttribute(exe=base_session.meta.exe, stopped=[]),
-    )
+    s = new_session_item(sid, META, meta=MetaAttribute())
     s.save()
     # Create the empty placeholders for the collections
-    new_session_item(sid, "plogs", plogs=[]).save()
-    new_session_item(sid, "pevents", pevents=[]).save()
-    new_session_item(sid, "stdout", stdout=[]).save()
+    new_session_item(sid, PLOGS, plogs=[]).save()
+    new_session_item(sid, PEVENTS, pevents=[]).save()
+    new_session_item(sid, STDOUT, stdout=[]).save()
 
     # Record the new session for cheap retrieval later
     SessionItem(
-        session_id=BASE_SESSION_ID,
+        session_id=BASE_SESSION_HASH_KEY,
         item_id=str(s.created_at),  # for sorting by created_at
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        expires_on=int(ITEM_TTL + time.time()),
+        expires_on=int(ITEM_TTL + time.time()) if ITEM_TTL else 0,
         new_session_record=sid,
     ).save()
 
     return s
+
+
+def list_sessions(cls=SessionItem) -> List[str]:
+    """List existing session IDs"""
+    # TODO pagination
+    # https://pynamodb.readthedocs.io/en/latest/api.html?highlight=scan#pynamodb.models.Model.query
+    return [
+        s.new_session_record
+        for s in cls.query(BASE_SESSION_HASH_KEY, scan_index_forward=False, limit=10)
+        if s.new_session_record
+    ]
 
 
 ###
@@ -214,7 +241,7 @@ def try_lock(session, thread_lock) -> bool:
         raise
 
 
-class LockTimeout(Exception):
+class LockTimeout(TealError):
     """Timeout trying to lock item"""
 
 
@@ -271,3 +298,17 @@ class SessionLocker(AbstractContextManager):
             [SessionItem.locked.set(False)], condition=(SessionItem.locked == True)
         )
         self._thread_lock.release()
+
+
+## TODO programmatic tables
+# See https://github.com/pynamodb/PynamoDB/issues/177#issuecomment-257711255
+#
+# For example:
+#
+# d['Meta'] = type('Meta', (), {
+#     'table_name': table_name(pythonic(name)),
+#     'region': table_region(),
+#     'read_capacity_units': 1,
+#     'write_capacity_units': 1,
+#     'host': "http://localhost:8000" if os.environ.get("ENV") == "test" else None
+# })

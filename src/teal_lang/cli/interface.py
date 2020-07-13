@@ -1,12 +1,16 @@
 """CLI UI related functions"""
 
 import contextlib
+import datetime
 import logging
 import sys
 import urllib.parse
 from operator import itemgetter
+from traceback import format_exception, format_tb, format_stack
 
 import colorful as cf
+from PyInquirer import prompt
+from texttable import Texttable
 from yaspin import yaspin
 from yaspin.spinners import Spinners
 
@@ -23,6 +27,11 @@ UI_COLORS = {
 }
 
 
+# Flags that modify interface displays
+QUIET = False
+VERBOSE = False
+
+
 def init(args):
     """Initialise the UI, including logging"""
 
@@ -32,6 +41,11 @@ def init(args):
         level = "INFO"
     else:
         level = None
+
+    global QUIET
+    global VERBOSE
+    QUIET = args["--quiet"]
+    VERBOSE = args["--verbose"] or args["--vverbose"]
 
     root_logger = logging.getLogger("teal_lang")
 
@@ -43,12 +57,19 @@ def init(args):
         cf.update_palette(UI_COLORS)
         if level:
             coloredlogs.install(
-                fmt="%(name)-25s %(message)s", level=level, logger=root_logger,
+                fmt="[%(asctime)s.%(msecs)03d] %(name)-25s %(message)s",
+                datefmt="%H:%M:%S",
+                level=level,
+                logger=root_logger,
             )
     else:
         cf.disable()
+        # FIXME Logger doesn't have basicConfig
         if level:
             root_logger.basicConfig(level=level)
+
+
+## String colour modifiers
 
 
 def dim(string):
@@ -75,24 +96,51 @@ def neutral(string):
     return cf.bold(string)
 
 
-def let_us_know(error_msg=None, traceback=None):
-    """Print helpful information for bug reporting"""
-    # TODO sadface ascii art
-    print("If this persists, please let us know:")
-    if error_msg:
-        params = "?" + urllib.parse.urlencode(dict(title=error_msg))
+## graceful exits
+
+
+def exit_problem(problem: str, suggested_fix: str):
+    """Exit because of a user-correctable problem"""
+    print("\n" + bad(problem))
+    if suggested_fix:
+        print(suggested_fix)
+    if not suggested_fix.endswith("\n"):
+        print("")
+    sys.exit(1)
+
+
+def exit_bug(msg, *, data=None, traceback=None):
+    """Something broke unexpectedly while running"""
+    print(bad("\nUnexpected error 💔. " + str(msg)))  # absolutely heartbreaking
+
+    source = "".join(format_stack(limit=4))
+
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+
+    if exc_type:
+        traceback = format_exception(exc_type, exc_value, exc_traceback)
+        traceback_tail = "".join(format_tb(exc_traceback, limit=4))
+    elif traceback:
+        traceback_tail = "...\n" + "".join(traceback[-4:])
     else:
-        params = ""
-    print(f"https://github.com/condense9/teal-lang/issues/new{params}")
-    print("")
+        traceback_tail = "No traceback"
 
-
-def exit_fail(err, traceback=None):
-    """Something broke while running"""
-    print(bad(str(err)))
     if traceback:
         print("\n" + "".join(traceback))
+
+    if data:
+        print(f"Associated Data:\n{data}")
+
+    # TODO sadface ascii art
+    print("\nIf this persists, please let us know:")
+    issue_body = "Source:\n" + source + "\n" + traceback_tail
+    params = urllib.parse.urlencode(dict(title=str(msg), body=issue_body))
+    print(dim(f"https://github.com/condense9/teal-lang/issues/new?{params}\n"))
+
     sys.exit(1)
+
+
+## UI elements
 
 
 class DummySpinner:
@@ -110,11 +158,32 @@ class DummySpinner:
         pass
 
 
-def spin(args, text):
-    if args["--quiet"] or args["--verbose"] or args["--vverbose"]:
+def spin(text):
+    if QUIET or VERBOSE:
         return contextlib.nullcontext(DummySpinner())
     else:
         return yaspin(Spinners.dots, text=str(text))
+
+
+def check(question: str, default=False) -> bool:
+    """Check whether the user wants to proceed"""
+    answers = prompt(
+        {"type": "confirm", "name": "check", "message": question, "default": default}
+    )
+    return answers["check"]
+
+
+def select(question: str, options: list) -> str:
+    """Choose one from a list"""
+    answers = prompt(
+        {"type": "list", "name": "select", "message": question, "choices": options},
+    )
+    return answers.get("select")
+
+
+def get_input(question: str) -> str:
+    answers = prompt({"type": "input", "name": "input", "message": question})
+    return answers.get("input")
 
 
 # TODO types for these interfaces - they're outputs from awslambda.py
@@ -124,8 +193,19 @@ def print_outputs(success_result: dict):
     errors = success_result["errors"]
     output = success_result["output"]
 
-    for o in output:
-        sys.stdout.write(o["text"])
+    if output:
+        table = Texttable(max_width=100)
+        alignment = ["r", "l", "l"]
+        table.set_cols_align(alignment)
+        table.set_header_align(alignment)
+        table.header(["Thread", "Time", ""])
+        table.set_deco(Texttable.HEADER)
+        start = datetime.datetime.fromisoformat(output[0]["time"])
+        for o in output:
+            offset = datetime.datetime.fromisoformat(o["time"]) - start
+            table.add_row([o["thread"], "+" + str(offset), o["text"].strip()])
+
+    print("\n" + table.draw() + "\n")
 
     for idx, item in enumerate(errors):
         if item:
@@ -136,11 +216,14 @@ def print_outputs(success_result: dict):
 def print_events_by_machine(success_result: dict):
     """Print the results of `getevents`, grouped by machine"""
     elist = success_result["events"]
-    lowest_time = min(float(event["time"]) for event in elist)
+    for event in elist:
+        event["time"] = datetime.datetime.fromisoformat(event["time"])
+
+    lowest_time = min(event["time"] for event in elist)
 
     for event in sorted(elist, key=itemgetter("thread")):
-        offset_time = float(event["time"]) - lowest_time
-        time = dim("{:.3f}".format(offset_time))
+        offset_time = event["time"] - lowest_time
+        time = dim("{:>16}".format(str(offset_time)))
         name = event["event"]
         thread = event["thread"]
         name = event["event"]
@@ -151,16 +234,34 @@ def print_events_by_machine(success_result: dict):
 def print_events_unified(success_result: dict):
     """Print the results of `getevents`, in one table"""
     elist = success_result["events"]
-    lowest_time = min(float(event["time"]) for event in elist)
+    for event in elist:
+        event["time"] = datetime.datetime.fromisoformat(event["time"])
+
+    lowest_time = min(event["time"] for event in elist)
 
     for event in elist:
-        offset_time = float(event["time"]) - lowest_time
+        offset_time = event["time"] - lowest_time
         event["offset_time"] = offset_time
 
-    print(cf.bold("{:>8}  {}  {}".format("Time", "Thread", "Event")))
+    print(cf.bold("{:>14}  {}  {}".format("Time", "Thread", "Event")))
     for event in sorted(elist, key=itemgetter("offset_time")):
-        time = dim("{:8.3f}".format(event["offset_time"]))
+        time = dim(str(event["offset_time"]))
         name = event["event"]
         thread = event["thread"]
         data = event["data"] if len(event["data"]) else ""
-        print(f"{time:^}  {thread:^7}  {name} {data}")
+        print(f"{time:>16}  {thread:^7}  {name} {data}")
+
+
+def format_source_problem(
+    source_filename, source_lineno, source_line, source_column,
+):
+    if any(
+        x is None for x in (source_filename, source_lineno, source_line, source_column)
+    ):
+        return "<unknown>"
+
+    return (
+        f"{source_filename}:{source_lineno}\n...\n{source_lineno}: {source_line}\n"
+        + " " * (source_column + len(str(source_lineno)) + 1)
+        + "^\n"
+    )

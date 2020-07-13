@@ -31,6 +31,24 @@ conditional:
     - [0.1]
     - "nah"
 
+  multi:
+    - [1]
+    - 1.0
+
+  multi:
+    - [2]
+    - 4.0
+
+  multi:
+    - [5]
+    - 15.0
+
+  multi:
+    - [10]
+    - 40.0
+
+
+
 kitchen_sink:
   hello:
     - []
@@ -43,6 +61,15 @@ kitchen_sink:
   ident:
     - ["foo"]
     - "foo"
+
+  sq_strings:
+    - []
+    - "hello \"quotes\""
+
+  escaped:
+    - []
+    - "hello \"escapes\""
+
 
 
 pythonimport:
@@ -66,3 +93,21 @@ compound:
   modify:
     - []
     - "tree"
+
+
+operators:
+  yup:
+    - []
+    - True
+  nope1:
+    - []
+    - False
+  nope2:
+    - []
+    - False
+  yup_or:
+    - []
+    - True
+  nope_or:
+    - []
+    - False

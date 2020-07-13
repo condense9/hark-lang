@@ -3,6 +3,7 @@
 import logging
 from typing import List
 
+from ..exceptions import UnexpectedError
 from . import types as mt
 from .arec import ActivationRecord
 from .future import Future
@@ -13,13 +14,16 @@ from .thread_failure import StackTraceItem, ThreadFailure
 LOG = logging.getLogger(__name__)
 
 
-class ControllerError(Exception):
+class ControllerError(UnexpectedError):
     """A general controller error"""
 
 
 class Controller:
     def __init__(self):
         raise NotImplementedError("Must be subclassed")
+
+    def supports_plugin(self, name: str):
+        return False
 
     def toplevel_machine(self, fn_ptr: mt.TlFunctionPtr, args):
         """Create a top-level machine"""
@@ -61,6 +65,17 @@ class Controller:
         self.set_future(vmid, future)
         self.set_stopped(vmid, False)
         return vmid
+
+    ##
+
+    def get_top_level_result(self):
+        """Get the return value of the top-level thread"""
+        # NOTE: if it's not resolved, value will be None
+        value = self.get_top_level_future().value
+        try:
+            return mt.to_py_type(value)
+        except TypeError:  # it's None or TlFunctionPtr, for example
+            return None
 
     ##
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "teal-lang"
-version = "0.3.0"
+version = "0.4.0"
 description = "The Teal Programming Language"
 license = "Apache-2.0"
 authors = ["Ric da Silva <ric@condense9.com>"]
@@ -24,7 +24,7 @@ packages = [
     { include = "teal_lang", from = "src" },
 ]
 
-include = ["teal_lambda.zip"]
+include = ["dist_data"]
 exclude = ["teal_lang/examples/**.*"]
 
 [tool.poetry.urls]
@@ -35,6 +35,8 @@ exclude = ["teal_lang/examples/**.*"]
 teal = 'teal_lang.cli.main:main'
 
 [tool.poetry.dependencies]
+boto3 = "*"
+botocore = "*"
 python = "^3.8"
 pynamodb = "*"
 docopt = "*"
@@ -49,10 +51,11 @@ coloredlogs = "^14.0"
 parsy = "^1.3.0"
 yaspin = "^0.17.0"
 colorful = "^0.5.4"
+texttable = "^1.6.2"
+PyInquirer = "^1.0.3"
+gql = "^2.0.0"
 
 [tool.poetry.dev-dependencies]
-boto3 = "*"
-botocore = "*"
 pytest = "^5.2"
 pytest-repeat = "*"
 # md-tangle = {version = "*", optional = true}

@@ -6,7 +6,22 @@ from dataclasses import dataclass
 
 @dataclass
 class Node:
-    index: int
+    source_filename: str
+    source_lineno: str
+    source_line: str
+    source_column: int
+
+    @classmethod
+    def from_node(cls, other, *args, **kwargs):
+        """Make a new Node that inherits source information from another node"""
+        return cls(
+            other.source_filename,
+            other.source_lineno,
+            other.source_line,
+            other.source_column,
+            *args,
+            **kwargs
+        )
 
 
 @dataclass

@@ -6,13 +6,13 @@ fn other() {
 }
 
 fn call_it() {
-  y = async other()
-  sleep(0.4)  // let it resolve
+  y = async other();
+  sleep(0.4);  // let it resolve
   y
 }
 
 fn foo() {
-  async call_it()
+  async call_it();
 }
 
 fn main() {
