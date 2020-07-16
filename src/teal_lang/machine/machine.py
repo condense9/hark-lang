@@ -349,7 +349,10 @@ class TlMachine:
         num_args = i.operands[0]
         fn_ptr = self.state.ds_pop()
 
-        if not isinstance(fn_ptr, mt.TlFunctionPtr):
+        # FIXME ugh.
+        if isinstance(fn_ptr, mt.TlForeignPtr):
+            fn_ptr = mt.TlFunctionPtr(f"#F:{fn_ptr.qualified_name}")
+        elif not isinstance(fn_ptr, mt.TlFunctionPtr):
             raise UnexpectedError(str(ValueError(fn_ptr)))
 
         if fn_ptr.identifier not in self.exe.locations:

@@ -125,6 +125,18 @@ class CompileToplevel:
         body = self.compile_expr(n.body)
         return bindings + body + [mi.Return.from_node(n)]
 
+    def wrap_foreign_function(self, n, qualified_name, num_args):
+        """Wrap a foreign function in a Teal function"""
+        fn_code = [
+            # args will already be on the stack, ready
+            mi.PushB.from_node(n, mt.TlSymbol(qualified_name)),
+            mi.Call.from_node(n, mt.TlInt(num_args)),
+            mi.Return.from_node(n),
+        ]
+        count = len(self.functions)
+        identifier = f"#F:{qualified_name}"
+        self.functions[identifier] = fn_code
+
     ## At the toplevel, no executable code is created - only bindings
 
     @singledispatchmethod
@@ -145,23 +157,27 @@ class CompileToplevel:
         if not isinstance(n.args[1].value, nodes.N_Id):
             raise TealCompileError(n, f"Import source must be an identifier")
 
-        import_symb = n.args[0].value.name
+        import_fn_name = n.args[0].value.name
         from_kw = n.args[1].symbol
-        from_val = n.args[1].value.name
+        module_name = n.args[1].value.name
+        num_args = int(n.args[2].value.value)
 
         if from_kw and from_kw.name != ":python":
             raise TealCompileError(n, f"Can't import non-python")
 
-        if len(n.args) == 3:
+        if len(n.args) == 4:
             # TODO? check n.args[2].symbol == ":as"
-            if not isinstance(n.args[2].value, nodes.N_Id):
+            if not isinstance(n.args[3].value, nodes.N_Id):
                 raise TealCompileError(n, f"Import qualifier must be an identifier")
 
-            as_val = n.args[2].value.name
+            qualified_name = n.args[3].value.name
         else:
-            as_val = import_symb
+            qualified_name = import_fn_name
 
-        self.bindings[as_val] = mt.TlForeignPtr(import_symb, from_val)
+        self.bindings[qualified_name] = mt.TlForeignPtr(
+            import_fn_name, module_name, qualified_name
+        )
+        self.wrap_foreign_function(n, qualified_name, num_args)
 
     @compile_toplevel.register
     def _(self, n: nodes.N_Definition):

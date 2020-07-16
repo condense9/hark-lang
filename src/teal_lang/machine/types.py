@@ -180,7 +180,7 @@ class TlFunctionPtr(TlType):
 class TlForeignPtr(TlType):
     """Pointer to an imported python function"""
 
-    def __init__(self, identifier: str, module: str):
+    def __init__(self, identifier: str, module: str, qualified_name: str):
         if not isinstance(identifier, str):
             raise ValueError(identifier)
         if not isinstance(module, str):
@@ -188,6 +188,7 @@ class TlForeignPtr(TlType):
 
         self.identifier = identifier
         self.module = module
+        self.qualified_name = qualified_name
 
     def serialise_data(self):
         return [self.identifier, self.module]
