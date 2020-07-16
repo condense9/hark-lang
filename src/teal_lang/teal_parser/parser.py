@@ -255,10 +255,6 @@ class TealParser(Parser):
     def maybe_attribute(self, p):
         return p.ATTRIBUTE
 
-    @_("LAMBDA '(' paramlist ')' block_expr")
-    def expr(self, p):
-        return N(self, p, n.N_Lambda, p.paramlist, p.block_expr)
-
     @_("nothing")
     def paramlist(self, p):
         return []
@@ -278,6 +274,10 @@ class TealParser(Parser):
             raise Exception("Empty block expression")
         return N(self, p, n.N_Progn, p.expressions)
 
+    @_("LAMBDA '(' paramlist ')' block_expr")
+    def expr(self, p):
+        return N(self, p, n.N_Lambda, p.paramlist, p.block_expr)
+
     # function call
 
     # NOTE: to avoid a conflict between "LAMBDA (" and "expr (", function calls
@@ -285,11 +285,17 @@ class TealParser(Parser):
     # an expression, you have to assign to a variable first. This isn't ideal,
     # but too hard to fix now.
 
-    # NOTE:
-    @_("ID '(' arglist ')'")
+    @_("caller '(' arglist ')'")
     def expr(self, p):
-        identifier = N(self, p, n.N_Id, p.ID)
-        return N(self, p, n.N_Call, identifier, p.arglist)
+        return N(self, p, n.N_Call, p.caller, p.arglist)
+
+    @_("ID")
+    def caller(self, p):
+        N(self, p, n.N_Id, p.ID)
+
+    @_("async_id")
+    def caller(self, p):
+        return p[0]
 
     @_("nothing")
     def arglist(self, p):
@@ -340,9 +346,13 @@ class TealParser(Parser):
 
     # async/await
 
-    @_("ASYNC expr")
+    @_("ASYNC ID")
+    def async_id(self, p):
+        return N(self, p, n.N_Async, p.ID)
+
+    @_("async_id")
     def expr(self, p):
-        return N(self, p, n.N_Async, p.expr)
+        return p[0]
 
     @_("AWAIT expr")
     def expr(self, p):

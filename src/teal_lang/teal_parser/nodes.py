@@ -51,11 +51,6 @@ class N_Call(Node):
 
 
 @dataclass
-class N_Async(Node):
-    expr: str
-
-
-@dataclass
 class N_Await(Node):
     expr: list
 
@@ -90,6 +85,12 @@ class N_MultipleValues(Node):
 
 @dataclass
 class N_Id(Node):
+    name: str
+
+
+# Just like a normal ID, but async...
+@dataclass
+class N_Async(Node):
     name: str
 
 

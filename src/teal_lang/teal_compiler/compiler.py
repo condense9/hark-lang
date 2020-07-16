@@ -203,6 +203,12 @@ class CompileToplevel:
         return [mi.PushB.from_node(n, mt.TlSymbol(n.name))]
 
     @compile_expr.register
+    def _(self, n: nodes.N_Async):
+        # This is an ID with the "async"
+        # TODO Need a function pointer that conveys "async-ness"
+        return TODO
+
+    @compile_expr.register
     def _(self, n: nodes.N_Progn):
         # only keep the last result
         discarded = flatten(
@@ -229,12 +235,6 @@ class CompileToplevel:
     @compile_expr.register
     def _(self, n: nodes.N_Call):
         return self._compile_call(n, False)
-
-    @compile_expr.register
-    def _(self, n: nodes.N_Async):
-        if not isinstance(n.expr, nodes.N_Call):
-            raise ValueError(f"Can't use async with {n.expr}")
-        return self._compile_call(n.expr, True)
 
     @compile_expr.register
     def _(self, n: nodes.N_Argument):
