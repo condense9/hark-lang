@@ -91,28 +91,5 @@ def run_and_wait(controller, invoker, waiter, filename, function, args: List[str
         return controller.result
 
     # Something broke
-    print_traceback(controller)
+    ui.print_traceback(controller)
     sys.exit(1)
-
-
-def print_traceback(controller, stream=sys.stdout):
-    """Print the traceback for a controller"""
-    for failure in controller.get_failures():
-        # TODO - print a separator when the thread changes, to make it easier to
-        # see where contexts change.
-        msg = f"\nError [Thread {failure.thread}]: {failure.error_msg}\n"
-        stream.write(str(ui.bad(msg)))
-        stream.write("Traceback:\n")
-        for idx, item in enumerate(failure.stacktrace):
-            instr = controller.executable.code[item.caller_ip]
-            filename, lineno, line, column = instr.source
-
-            stream.write(
-                f"{idx:>3}: [Thread={item.caller_thread}, IP={item.caller_ip}] in {item.caller_fn}(): {line.strip()}\n"
-            )
-            stream.write(f"     at {filename}:{lineno}\n")
-        stream.write("\n")
-
-        # Print the code at the last one
-        instr = controller.executable.code[failure.stacktrace[-1].caller_ip]
-        stream.write(ui.format_source_problem(*instr.source) + "\n")
