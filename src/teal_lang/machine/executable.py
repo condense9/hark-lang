@@ -32,13 +32,13 @@ class Executable:
 
     def bindings_table(self):
         """Get a pretty table of bindings"""
-        spacing = max(len(x) for x in self.bindings.keys()) + 5
+        spacing = max(len(x) for x in self.bindings.keys()) + 3
         k = "NAME"
-        print(f" {k: <{spacing}}VALUE")
+        print(f" {k: <{spacing + 2}}VALUE")
         for k, v in self.bindings.items():
             dots = "." * (spacing - len(k))
             k = ui.primary(k)
-            print(f" {k}{dots}{v}")
+            print(f" {k} {dots} {v}")
 
     def serialise(self) -> dict:
         """Serialise the executable into a JSON-able dict"""
