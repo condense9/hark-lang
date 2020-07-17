@@ -1,10 +1,9 @@
 """Machine state representation"""
 
-from typing import Dict, List
+from .types import TlType
 
-from .types import TlFuturePtr, TlList, TlType, TlString, TlInt
-
-# TODO convert to TealSerialisable
+# TODO convert this class to TealSerialisable, there's duplicated logic. Sorry -
+# it came earlier in the design, and is slightly non-trivial to change.
 
 
 class State:

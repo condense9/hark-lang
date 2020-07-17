@@ -170,7 +170,7 @@ class TlFunctionPtr(TlType):
 
     @classmethod
     def from_data(cls, data):
-        return cls(data[0], data[1])
+        return cls(*data)
 
     def __repr__(self):
         kind = type(self).__name__
@@ -191,11 +191,11 @@ class TlForeignPtr(TlType):
         self.qualified_name = qualified_name
 
     def serialise_data(self):
-        return [self.identifier, self.module]
+        return [self.identifier, self.module, self.qualified_name]
 
     @classmethod
     def from_data(cls, data):
-        return cls(data[0], data[1])
+        return cls(*data)
 
     def __repr__(self):
         kind = type(self).__name__
