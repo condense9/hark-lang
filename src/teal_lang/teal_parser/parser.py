@@ -135,7 +135,11 @@ def post_lex(toks):
     term.value = ";"
     term.type = "TERM"
 
-    t = next(toks)
+    try:
+        t = next(toks)
+    except StopIteration:
+        return []
+
     for next_tok in chain(toks, [term]):
         yield t
 
