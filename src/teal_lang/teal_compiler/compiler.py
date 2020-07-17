@@ -148,8 +148,10 @@ class CompileToplevel:
         if not isinstance(n.fn, nodes.N_Id) or n.fn.name != "import":
             raise TealCompileError(n, f"Only `import' can be called at top level")
 
-        if len(n.args) not in (2, 3):
-            raise TealCompileError(n, f"usage: import(name, source, [qualifier])")
+        if len(n.args) not in (3, 4):
+            raise TealCompileError(
+                n, f"Bad import. Syntax: import(name, source, num_args, [qualifier])"
+            )
 
         if not isinstance(n.args[0].value, nodes.N_Id):
             raise TealCompileError(n, f"Import name must be an identifier")
