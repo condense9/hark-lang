@@ -962,6 +962,7 @@ class SharedAPIGateway:
                 api = SharedAPIGateway.create(config)
             endpoint = api["ApiEndpoint"]
             LOG.info(f"API Endpoint: {endpoint}")
+            print(f"\nAPI Endpoint: {endpoint}")
 
     @staticmethod
     def destroy_if_exists(config):
