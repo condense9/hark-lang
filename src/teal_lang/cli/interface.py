@@ -205,7 +205,7 @@ def print_outputs(success_result: dict):
             offset = datetime.datetime.fromisoformat(o["time"]) - start
             table.add_row([o["thread"], "+" + str(offset), o["text"].strip()])
 
-    print("\n" + table.draw() + "\n")
+        print("\n" + table.draw() + "\n")
 
     for idx, item in enumerate(errors):
         if item:
@@ -272,8 +272,7 @@ def print_traceback(controller, stream=sys.stdout):
     for failure in controller.get_failures():
         # TODO - print a separator when the thread changes, to make it easier to
         # see where contexts change.
-        msg = f"\nError [Thread {failure.thread}]: {failure.error_msg}\n"
-        stream.write(str(bad(msg)))
+        stream.write(str(bad(f"\nError [Thread {failure.thread}]\n")))
         stream.write("Traceback:\n")
         for idx, item in enumerate(failure.stacktrace):
             instr = controller.executable.code[item.caller_ip]
@@ -283,12 +282,15 @@ def print_traceback(controller, stream=sys.stdout):
             if idx == 0:
                 idx = "↓ 0"
 
+            # Get rid of the "#" pointer prefix. FIXME magic here.
+            fn = "".join(item.caller_fn.split(":")[1:])
             stream.write(
-                f"{idx:>3}: [Thread={item.caller_thread}, IP={item.caller_ip}] in {item.caller_fn}(): {line.strip()}\n"
+                f"{idx:>3}: [Thread={item.caller_thread}, IP={item.caller_ip}] in {fn}: {line.strip()}\n"
             )
             stream.write(f"     at {filename}:{lineno}\n")
         stream.write("\n")
 
         # Print the code at the last one
         instr = controller.executable.code[failure.stacktrace[-1].caller_ip]
-        stream.write(format_source_problem(*instr.source) + "\n")
+        stream.write(format_source_problem(*instr.source))
+        stream.write(str(bad(failure.error_msg.strip())) + "\n\n")
