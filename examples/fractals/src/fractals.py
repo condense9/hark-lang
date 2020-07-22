@@ -153,10 +153,10 @@ class Fractals:
         name="sierpinski_sieve",
         axiom="FXF--FF--FF",
         rules={"F": "FF", "X": "--FXF++FXF++FXF--"},
-        iterations=7,
+        iterations=5,
         angle=60,
         min_iter=3,
-        max_iter=8,
+        max_iter=7,
     )
 
     board = Params(
@@ -245,7 +245,7 @@ class Fractals:
         iterations=4,
         angle=60,
         min_iter=2,
-        max_iter=6,
+        max_iter=5,
     )
 
     krishna_anklets = Params(
@@ -259,19 +259,19 @@ class Fractals:
         max_iter=9,
     )
 
-    quad_gosper = Params(
-        # --
-        name="quad_gosper",
-        axiom="YF",
-        rules={
-            "X": "XFX-YF-YF+FX+FX-YF-YFFX+YF+FXFXYF-FX+YF+FXFX+YF-FXYF-YF-FX+FX+YFYF-",
-            "Y": "+FXFX-YF-YF+FX+FXYF+FX-YFYF-FX-YF+FXYFYF-FX-YFFX+FX+YF-YF-FX+FX+YFY",
-        },
-        iterations=2,
-        angle=90,
-        min_iter=2,
-        max_iter=3,
-    )
+    # quad_gosper = Params(
+    #     # --
+    #     name="quad_gosper",
+    #     axiom="YF",
+    #     rules={
+    #         "X": "XFX-YF-YF+FX+FX-YF-YFFX+YF+FXFXYF-FX+YF+FXFX+YF-FXYF-YF-FX+FX+YFYF-",
+    #         "Y": "+FXFX-YF-YF+FX+FXYF+FX-YFYF-FX-YF+FXYFYF-FX-YFFX+FX+YF-YF-FX+FX+YFY",
+    #     },
+    #     iterations=2,
+    #     angle=90,
+    #     min_iter=2,
+    #     max_iter=3,
+    # )
 
     moore = Params(
         # --
