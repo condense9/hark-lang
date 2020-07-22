@@ -179,7 +179,7 @@ def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
     """Helper - do something either in your cloud or the hosted Teal Cloud"""
     # Self-managed
     if cfg.instance_uuid:
-        print(dim(f"Target: Self-hosted instance {cfg.instance_uuid}.\n"))
+        print(dim(f"Target: Self-hosted instance {cfg.instance_uuid}\n"))
         return do_in_own
 
     # Managed by Teal Cloud
@@ -271,12 +271,13 @@ def _invoke(args, cfg):
         data = method(cfg, function, args["ARG"], timeout, not args["--async"])
         sp.text += " " + dim(data["session_id"])
 
+        utils.save_last_session_id(cfg, data["session_id"])
+
         if data["broken"]:
             sp.fail(CROSS)
+            return
         else:
             sp.ok(TICK)
-
-    utils.save_last_session_id(cfg, data["session_id"])
 
     # Print the standard output and result immediately
     if not args["--quiet"]:
