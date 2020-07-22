@@ -104,6 +104,7 @@ class TlMachine:
         "parse_float": ParseFloat,
         "signal": Signal,
         "sid": GetSessionId,
+        "tid": GetThreadId,
     }
 
     def __init__(self, vmid, invoker):
@@ -620,6 +621,10 @@ class TlMachine:
     @evali.register
     def _(self, i: GetSessionId):
         self.state.ds_push(mt.TlString(self.dc.session_id))
+
+    @evali.register
+    def _(self, i: GetThreadId):
+        self.state.ds_push(mt.TlInt(self.vmid))
 
     def __repr__(self):
         return f"<Machine {id(self)}>"

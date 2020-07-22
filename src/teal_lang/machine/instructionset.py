@@ -272,3 +272,7 @@ class Sleep(I):
 
 class GetSessionId(I):
     """Get the current session ID"""
+
+
+class GetThreadId(I):
+    """Get the current thread ID"""
