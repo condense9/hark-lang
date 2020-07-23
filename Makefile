@@ -52,5 +52,5 @@ package: src/teal_lang/dist_data/teal_lambda.zip  ## Prepare the PyPI package
 
 
 .PHONY: release
-release:
+release: clean package  ## Release PyPI package
 	./scripts/release.sh
