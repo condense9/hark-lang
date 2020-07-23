@@ -1,4 +1,4 @@
-/** -*- mode: javascript -*-  (it's not, but the syntax is close)
+/**
  * video.tl
  *
  * Transcode video files uploaded to an S3 bucket.
@@ -6,9 +6,9 @@
  * Optimise for time by performing each transcoding task in its own thread.
 **/
 
-import(transcode, :python src.video);
-import(correct_format, :python src.video);
-import(save_results, :python src.video);
+import(transcode, :python src.video, 4);
+import(correct_format, :python src.video, 2);
+import(save_results, :python src.video, 1);
 
 
 /**

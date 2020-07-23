@@ -1,4 +1,4 @@
-/** -*- mode: javascript -*-
+/**
  * service.tl
  *
  * Generates a random selection of fractals, spinning up a new thread for each
@@ -10,9 +10,9 @@
 **/
 
 // The Python functions that to do the heavy lifting.
-import(random_fractals,      :python src.draw);
-import(save_fractal_to_file, :python src.draw);
-import(upload_to_bucket,     :python src.store);
+import(random_fractals,      :python src.draw, 1);
+import(save_fractal_to_file, :python src.draw, 3);
+import(upload_to_bucket,     :python src.store, 1);
 
 
 /**

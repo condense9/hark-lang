@@ -1,7 +1,4 @@
-// -*- mode: javascript -*- (sort-of... close enough for now)
-
-import(hi, src.example);
-import(format, src.example);
+import(hi, src.example, 0);
 
 fn main() {
   print("Some output");
