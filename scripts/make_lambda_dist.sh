@@ -11,7 +11,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 
 ## Path to the resulting ZIP file, ready for use by aws.py
-DEST=${1:-${DIR}/../src/teal_lang/dist_data/teal_lambda.zip}
+DEST=$(realpath "${1:-${DIR}/../src/teal_lang/dist_data/teal_lambda.zip}")
 
 WORKDIR=${2:-${DIR}/../.teal_data}
 
@@ -20,8 +20,6 @@ WORKDIR=${2:-${DIR}/../.teal_data}
 
 WORKDIR="${WORKDIR}/teal_build"
 mkdir -p "${WORKDIR}"
-
-FILENAME=$(basename "${DEST}")
 
 poetry export -f requirements.txt > "${WORKDIR}/requirements.txt"
 
@@ -36,11 +34,10 @@ rm -rf libs/boto*
 
 # Install Teal manually
 cp -r "${DIR}/../src/teal_lang" libs
+rm -rf libs/teal_lang/dist_data
 
-cd libs && zip -u -q -r "../${FILENAME}" . -x "*__pycache__*"
+cd libs && zip -u -q -r "${DEST}" . -x "*__pycache__*"
 
 popd >/dev/null
-
-cp "${WORKDIR}/${FILENAME}" "${DEST}"
 
 printf "Built Teal Lambda zip: %s\n" "${DEST}"

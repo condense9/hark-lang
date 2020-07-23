@@ -34,3 +34,23 @@ testx:  ## Run fast unit tests, stopping after first failure
 .PHONY: stress
 stress:  ## Run the concurrency unit tests lots of times
 	pytest -x -vv -k concurrency --log-level info --show-capture=no --runslow --count 10
+
+
+.PHONY: clean
+clean:
+	rm -rf dist
+	rm -rf .teal_data
+	rm src/teal_lang/dist_data/*.zip
+
+src/teal_lang/dist_data/teal_lambda.zip:
+	./scripts/make_lambda_dist.sh
+
+
+.PHONY: package
+package: src/teal_lang/dist_data/teal_lambda.zip  ## Prepare the PyPI package
+	poetry build
+
+
+.PHONY: release
+release:
+	./scripts/release.sh
