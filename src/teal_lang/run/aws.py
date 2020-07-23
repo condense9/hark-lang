@@ -18,7 +18,9 @@ from ..teal_compiler.compiler import TealCompileError
 from ..teal_parser.parser import TealParseError
 from . import lambda_handlers
 
-# Get logs into cloudwatch
+LOG = logging.getLogger(__name__)
+
+# Get all logs into cloudwatch
 logging.basicConfig(level=logging.WARNING)
 root_logger = logging.getLogger("teal_lang")
 root_logger.setLevel(level=logging.INFO)
@@ -65,6 +67,7 @@ def event_handler(event, context):
     """
     for h in lambda_handlers.ALL_HANDLERS:
         if h.can_handle(event):
+            LOG.info("Handling with %s", str(h))
             return h.handle(event, _new_session, UserResolvableError)
 
     raise ValueError(f"Can't handle event {event}")
@@ -126,6 +129,7 @@ def _new_session(
     function, args, check_period, wait_for_finish, timeout, code_override=None
 ):
     """Create a new teal session"""
+    LOG.info("Creating new session and running function: %s", function)
     controller = ddb_controller.DataController.with_new_session()
 
     if not code_override:

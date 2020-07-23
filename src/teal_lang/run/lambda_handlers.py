@@ -1,9 +1,13 @@
 """Handle different kinds of events"""
+import json
+import logging
 import os
 from abc import ABC, abstractmethod
 
 from ..cli.main import TEAL_CLI_VERSION_KEY
 from ..machine import types as mt
+
+LOG = logging.getLogger(__name__)
 
 
 class TealEventHandler(ABC):
@@ -52,9 +56,7 @@ class CliHandler(TealEventHandler):
                 code_override=event.get("code", None),
             )
         except UserResolvableError as exc:
-            return dict(
-                teal_ok=False, message=str(exc), suggested_fix=exc.suggested_fix
-            )
+            return dict(teal_ok=False, message=exc.msg, suggested_fix=exc.suggested_fix)
 
         # The "teal_ok" element is required (see in_own.py)
         return dict(
@@ -102,23 +104,54 @@ class S3Handler(TealEventHandler):
 
 
 class HttpHandler(TealEventHandler):
-    """API Gateway (v2) HTTP endpoint handler"""
+    """API Gateway (v1) HTTP endpoint handler"""
 
     @classmethod
     def can_handle(cls, event: dict):
-        return "routeKey" in event and "rawPath" in event and "rawQueryString" in event
+        return (
+            "httpMethod" in event and "path" in event and event.get("version") == "1.0"
+        )
 
     @classmethod
     def handle(cls, event: dict, new_session, UserResolvableError) -> dict:
+        method = event["httpMethod"]
+        path = event["path"]
+
         controller = new_session(
             function="on_http",  # constant
-            args=[mt.to_teal_type(event)],
-            wait_for_finish=True,
+            args=[mt.to_teal_type(o) for o in (method, path, event)],
+            wait_for_finish=False,
             check_period=0.1,
             timeout=10.0,  # TODO? make configurable
         )
 
-        return controller.get_top_level_result()
+        result = controller.get_top_level_result()
+        LOG.info(f"Finished HTTP handling. Result: {result}")
+
+        # Indicate an internal server error to the client
+        if controller.broken:
+            raise Exception("Controller broken")
+
+        # Try to DWIM: return a dict to do everything yourself, or return a
+        # string to have this handler do something sensible with it.
+        # TODO: HTML detection
+
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+
+        if isinstance(result, dict):
+            ct = "application/json"
+            body = json.dumps(result)
+        else:
+            ct = "text/plain"
+            body = str(result)
+
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": ct},
+            "isBase64Encoded": False,
+            "body": body,
+        }
 
 
 # List of all available handlers

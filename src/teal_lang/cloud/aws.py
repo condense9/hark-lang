@@ -975,10 +975,13 @@ class SharedAPIGateway:
 
         lambda_client = get_client("lambda")
         handler_name = FnEventHandler.resource_name(config)
-        lambda_client.remove_permission(
-            FunctionName=handler_name,
-            StatementId=SharedAPIGateway.trigger_permission_id(config),
-        )
+        try:
+            lambda_client.remove_permission(
+                FunctionName=handler_name,
+                StatementId=SharedAPIGateway.trigger_permission_id(config),
+            )
+        except lambda_client.exceptions.ResourceNotFoundException:
+            pass
 
         name = api["Name"]
         LOG.info(f"[-] Deleted API {name}")
@@ -1011,6 +1014,14 @@ class SharedAPIGateway:
         )
 
         api_id = response["ApiId"]
+
+        # Update payload type most things don't work with the new version :(
+        integration = client.get_integrations(ApiId=api_id)["Items"][0]
+        client.update_integration(
+            ApiId=api_id,
+            IntegrationId=integration["IntegrationId"],
+            PayloadFormatVersion="1.0",
+        )
 
         # Allow invocation
         # https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html
