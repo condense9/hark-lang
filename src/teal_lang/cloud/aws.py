@@ -1097,7 +1097,7 @@ def deploy(config, callback_start=None):
         res.create_or_update(config)
 
 
-def destroy(config, callback_start):
+def destroy(config, callback_start=None):
     """Destroy infrastructure created for this config"""
     if not config.uuid:
         raise UnexpectedError("No Instance UUID configured")
