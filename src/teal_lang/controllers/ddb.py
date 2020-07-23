@@ -60,6 +60,7 @@ class DataController(Controller):
         """Create a data controller for a new session"""
         base_session = db.init_base_session()
         this_session = db.new_session()
+        LOG.info("Created new session, %s", this_session.session_id)
         return cls(this_session, base_session)
 
     @classmethod
@@ -69,6 +70,7 @@ class DataController(Controller):
             this_session = db_cls.get(session_id, META)
         except db_cls.DoesNotExist as exc:
             raise ControllerError("Session does not exist") from exc
+        LOG.info("Reloaded session %s", session_id)
         return cls(this_session, base_session, db_cls=db_cls)
 
     def __init__(self, this_session, base_session, db_cls=db.SessionItem):
@@ -236,6 +238,8 @@ class DataController(Controller):
     ## probes
 
     def set_probe_data(self, vmid, probe):
+        # FIXME - 400k limit on item size is quite easy to break with events and
+        # logs.
         events = [item.serialise() for item in probe.events]
         s = self._qry(PEVENTS)
         s.update(actions=[self.SI.pevents.set(self.SI.pevents.append(events))])

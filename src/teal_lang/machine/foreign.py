@@ -53,7 +53,7 @@ def import_python_function(fnname, modname):
     except AttributeError as exc:
         raise ImportPyError(
             f"Could not find {fnname} in {modname}.",
-            "({modname}.{fnname} -> AttributeError)",
+            f"({modname}.{fnname} -> AttributeError)",
         ) from exc
 
     LOG.info(f"Imported {modname}.{fnname}")

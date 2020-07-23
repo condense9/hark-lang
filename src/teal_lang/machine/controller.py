@@ -74,7 +74,8 @@ class Controller:
         value = self.get_top_level_future().value
         try:
             return mt.to_py_type(value)
-        except TypeError:  # it's None or TlFunctionPtr, for example
+        except TypeError as exc:  # it's None or TlFunctionPtr, for example
+            LOG.info(f"Can't return {value} ({type(value)}), returning None")
             return None
 
     ##

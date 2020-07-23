@@ -139,7 +139,8 @@ def _call_cloud_api(function: str, args: dict, config: aws.DeployConfig, as_json
         )
 
     if not response["teal_ok"]:
-        # This is when there's a (handled) error.
+        # This is when there's a (handled) error. See lambda_handlers.py
+        LOG.info("teal_ok False in response - something broke while running Teal")
         if "traceback" in response:
             raise UserResolvableError(
                 response.get("message"), response.get("traceback", None),
