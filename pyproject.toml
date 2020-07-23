@@ -24,8 +24,8 @@ packages = [
     { include = "teal_lang", from = "src" },
 ]
 
-include = ["dist_data"]
-exclude = ["teal_lang/examples/**.*"]
+include = ["src/teal_lang/dist_data/teal_lambda.zip"]
+exclude = ["src/teal_lang/examples/*.*"]
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/condense9/teal-lang/issues"

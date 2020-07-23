@@ -17,7 +17,7 @@ from .exceptions import UserResolvableError
 
 LOG = logging.getLogger(__name__)
 
-TEAL_DIST_DATA = Path(__file__).parents[2] / "dist_data"
+TEAL_DIST_DATA = Path(__file__).parent / "dist_data"
 DEFAULT_CONFIG_FILEPATH = Path("teal.toml")
 DEFAULT_UUID_FILENAME = "instance_uuid.txt"
 DEFAULT_PROJECTID_FILENAME = "project_id.txt"
