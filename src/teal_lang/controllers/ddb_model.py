@@ -21,7 +21,7 @@ from pynamodb.attributes import (
     UnicodeAttribute,
     UTCDateTimeAttribute,
 )
-from pynamodb.exceptions import UpdateError
+from pynamodb.exceptions import UpdateError, TableDoesNotExist
 from pynamodb.models import Model
 
 from ..exceptions import TealError
@@ -209,11 +209,16 @@ def list_sessions(cls=SessionItem) -> List[str]:
     """List existing session IDs"""
     # TODO pagination
     # https://pynamodb.readthedocs.io/en/latest/api.html?highlight=scan#pynamodb.models.Model.query
-    return [
-        s.new_session_record
-        for s in cls.query(BASE_SESSION_HASH_KEY, scan_index_forward=False, limit=10)
-        if s.new_session_record
-    ]
+    try:
+        return [
+            s.new_session_record
+            for s in cls.query(
+                BASE_SESSION_HASH_KEY, scan_index_forward=False, limit=10
+            )
+            if s.new_session_record
+        ]
+    except TableDoesNotExist:
+        return []
 
 
 ###
