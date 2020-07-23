@@ -13,7 +13,7 @@
  *
  **/
 
-import(random_sleep, :python pysrc.main);
+import(random_sleep, :python pysrc.main, 2);
 
 
 fn ser_a (x) {

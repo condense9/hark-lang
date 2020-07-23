@@ -1,7 +1,7 @@
 // Call 'ponder' twice in parallel, and wait for the answer
 
-import(format, :python pysrc.main);
-import(random_sleep, :python pysrc.main);
+import(format, :python pysrc.main, 2);
+import(random_sleep, :python pysrc.main, 2);
 
 
 fn ponder() {

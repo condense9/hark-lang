@@ -1,5 +1,5 @@
 // Branch depending on the response from a task
-import(coin, :python pysrc.main);
+import(coin, :python pysrc.main, 0);
 
 fn test(x) {
   if parse_float(x) > 0.5 {

@@ -1,5 +1,5 @@
-import(format, :python pysrc.main);
-import(cos, :python math);
+import(format, :python pysrc.main, 2);
+import(cos, :python math, 1);
 
 
 fn show_format(name) {

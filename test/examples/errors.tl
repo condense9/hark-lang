@@ -1,4 +1,4 @@
-import(bad_fn, :python pysrc.main);
+import(bad_fn, :python pysrc.main, 0);
 
 fn main() {
   print("main starting...");
