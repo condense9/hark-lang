@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "teal-lang"
-version = "0.4.0"
+version = "0.4.1"
 description = "The Teal Programming Language"
 license = "Apache-2.0"
 authors = ["Ric da Silva <ric@condense9.com>"]

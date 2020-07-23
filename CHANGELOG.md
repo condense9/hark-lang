@@ -7,6 +7,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [unreleased]
 
+## [0.4.1] (2020-07-23)
+
+### New
+
+- Teal builtin to get current thread ID (`tid()`) 
+- Foreign function wrappers are automatically created, so you can do `async
+  py_fn` (previously they had to be manually wrapped)
+
+### Fixed
+
+- Added `teal_lamdba.zip` and `dist_data` to the distribution package
+- Various other things
+
+### Changed
+
+- Use API Gateway v1 `event` payload format for the shared API
+- More logging in Lambda
+
+
 ## [0.4.0] (2020-07-13)
 
 ### New
