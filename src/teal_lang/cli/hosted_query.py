@@ -179,18 +179,6 @@ query IsInstanceReady($id: Int!) {
     return data["instance_by_pk"]["ready"]
 
 
-def invoke(instance_id: int, function: str, args: list):
-    qry = """
-mutation Invoke($ver: String!, $id: Int!, $function: String!, $args: [String]) {
-  invoke(id: $id, cli_version: $version) {
-    ok
-  }
-}
-    """
-    data = _query(qry, ver=__version__, function=function, args=args)
-    return data["invoke"]
-
-
 def is_session_finished(instance_uuid: str, session_id: str) -> bool:
     qry = """
 query IsSessionFinished($uuid: String!, $id: String!) {

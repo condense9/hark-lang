@@ -26,6 +26,9 @@ root_logger = logging.getLogger("teal_lang")
 root_logger.setLevel(level=logging.INFO)
 
 
+# TODO structure return values and document. See cloud/api.py
+
+
 def version(event, context):
     return _success(version=__version__)
 

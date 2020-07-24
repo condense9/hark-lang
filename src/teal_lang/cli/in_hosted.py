@@ -8,6 +8,7 @@ import zipfile
 from pathlib import Path
 
 from ..cloud import aws
+from ..cloud.api import TealInstanceApi
 from ..config import Config
 from ..exceptions import UserResolvableError
 from . import hosted_query as q
@@ -21,21 +22,36 @@ class TealCloudTookTooLong(UserResolvableError):
     """Something took too long in Teal Cloud"""
 
     def __init__(self, msg):
-        super().__init__("Check Teal Cloud for issues, and try again.")
+        super().__init__(msg, "Check Teal Cloud for issues, and try again.")
 
 
-def deploy(args, config: Config):
-    """Deploy to Teal Cloud"""
-
+def get_instance_state(cfg):
+    """Get instance details from Teal Cloud"""
     with ui.spin("Getting project and instance details ") as sp:
-        try:
-            instance = q.get_instance(config.project_id, config.instance_name)
-        except IndexError:
+        instance = q.get_instance(cfg.project_id, cfg.instance_name)
+        if not instance:
             raise UserResolvableError(
-                f"Can't find an instance called {config.instance_name}.",
-                f"Is the project ID ({config.project_id}) correct?",
+                f"Can't find an instance called {cfg.instance_name}.",
+                f"Is the project ID ({cfg.project_id}) correct?",
             )
         sp.text += ui.dim(f"{instance.project.name} :: {instance.uuid} ")
+        sp.ok(ui.TICK)
+    return instance
+
+
+def deploy(config: Config, instance_api):
+    """Deploy to Teal Cloud"""
+    instance = instance_api.hosted_instance_state
+
+    if not instance.ready:
+        raise UserResolvableError(
+            f"Instance {config.instance_name} isn't ready for deployments.",
+            "Check Teal Cloud and try again.",
+        )
+
+    with ui.spin("Checking API") as sp:
+        version = instance_api.version()
+        sp.text += " Teal " + ui.dim(version)
         sp.ok(ui.TICK)
 
     # 1. Build {python, teal, config} packages
@@ -46,30 +62,39 @@ def deploy(args, config: Config):
         sp.ok(ui.TICK)
 
     # 3. Request a new package with the hashes
-    with ui.spin("Checking for differences") as sp:
-        if not instance.ready:
-            raise UserResolvableError(
-                f"Instance {config.instance_name} isn't ready yet.",
-                "Please wait a few minutes and try again.",
-            )
+    with ui.spin("Checking for differences ") as sp:
         python_hash = aws.hash_file(python_zip)
         teal_hash = aws.hash_file(config.project.teal_file)
         config_hash = aws.hash_file(config.config_file)
         package = q.new_package(instance.id, python_hash, teal_hash, config_hash)
+        changed = {
+            "Python": package.new_python,
+            "Teal": package.new_teal,
+            "Config": package.new_config,
+        }
+        sp.text += ui.dim(
+            ", ".join(
+                thing + ": " + ("Changed" if new else "Same")
+                for thing, new in changed.items()
+            )
+        )
         sp.ok(ui.TICK)
 
     # 4. Upload the files that have changed
     if package.new_python:
-        with ui.spin("Uploading new Python") as sp:
-            _upload_to_s3(package.python_url, python_zip)
+        with ui.spin("Uploading new Python ") as sp:
+            instance_api.upload_file(package.python_url, python_zip)
+            sp.text += ui.dim(python_hash)
             sp.ok(ui.TICK)
     if package.new_teal:
-        with ui.spin("Uploading new Teal") as sp:
-            _upload_to_s3(package.teal_url, config.project.teal_file)
+        with ui.spin("Uploading new Teal ") as sp:
+            instance_api.upload_file(package.teal_url, config.project.teal_file)
+            sp.text += ui.dim(teal_hash)
             sp.ok(ui.TICK)
     if package.new_config:
-        with ui.spin("Updating configuration") as sp:
-            _upload_to_s3(package.config_url, config.config_file)
+        with ui.spin("Updating configuration ") as sp:
+            instance_api.upload_file(package.config_url, config.config_file)
+            sp.text += ui.dim(config_hash)
             sp.ok(ui.TICK)
 
     # 5. Create a deployment
@@ -99,9 +124,9 @@ def deploy(args, config: Config):
     print(ui.good(f"\nDone. `teal invoke` to run main()."))
 
 
-def destroy(args, config: Config):
-    with ui.spin(f"Destroying {config.instance_name}") as sp:
-        instance = q.get_instance(config.project_id, config.instance_name)
+def destroy(config: Config, instance_api):
+    with ui.spin(f"Destroying instance '{config.instance_name}'") as sp:
+        instance = instance_api.hosted_instance_state
         q.destroy(instance.id)
 
         # And poll
@@ -117,29 +142,3 @@ def destroy(args, config: Config):
             time.sleep(0.5)
 
         sp.ok(ui.TICK)
-
-
-def invoke(config: Config, function, args, timeout) -> dict:
-    raise NotImplementedError
-
-
-def stdout(args, config: Config, session_id: str) -> dict:
-    raise NotImplementedError
-
-
-def events(args, config: Config, session_id: str) -> dict:
-    raise NotImplementedError
-
-
-def logs(args, config: Config, session_id: str) -> dict:
-    raise NotImplementedError
-
-
-## Helpers:
-
-
-def _upload_to_s3(s3_url: str, filepath: Path):
-    LOG.info(f"Uploading {filepath} to {s3_url}")
-    client = aws.get_client("s3")
-    bucket, key = aws.get_bucket_and_key(s3_url)
-    aws.upload_if_necessary(client, bucket, key, filepath)

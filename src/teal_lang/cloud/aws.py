@@ -594,11 +594,14 @@ class TealFunction:
 
     @classmethod
     def get_arn(cls, config):
-        """Get the ARN. Raises ResourceNotFoundException if it doesn't exist"""
+        """Get the ARN, or None if it doesn't exist"""
         client = get_client("lambda")
         name = cls.resource_name(config)
-        res = client.get_function(FunctionName=name)
-        return res["Configuration"]["FunctionArn"]
+        try:
+            res = client.get_function(FunctionName=name)
+            return res["Configuration"]["FunctionArn"]
+        except client.exceptions.ResourceNotFoundException:
+            return None
 
     @classmethod
     def src_layers_list(cls, config):
@@ -725,6 +728,9 @@ class TealFunction:
 
     @classmethod
     def invoke(cls, config, data: dict) -> Tuple[str, str]:
+        if not config.uuid:
+            raise UnexpectedError("No Instance UUID configured")
+
         client = get_client("lambda")
         name = cls.resource_name(config)
 
@@ -785,10 +791,6 @@ class FnVersion(TealFunction):
 ## optional infrastructure
 
 
-class Trigger:
-    pass
-
-
 @dataclass
 class BucketTrigger:
     bucket: str
@@ -833,6 +835,8 @@ class BucketTrigger:
     def exists(self, config):
         res = self._get_current(config)
         arn = FnEventHandler.get_arn(config)
+        if not arn:  # If the function doesn't exist, assume the trigger doesn't
+            return False
         if "LambdaFunctionConfigurations" in res:
             for fn in res["LambdaFunctionConfigurations"]:
                 if fn["LambdaFunctionArn"] == arn and fn["Filter"] == self._get_filter(
@@ -863,11 +867,13 @@ class BucketTrigger:
             new["LambdaFunctionConfigurations"] = [new_notification]
         else:
             for idx, notification in enumerate(new["LambdaFunctionConfigurations"]):
+                # Modify an existing trigger
                 if notification["LambdaFunctionArn"] == arn:
                     new["LambdaFunctionConfigurations"][idx] = new_notification
                     break
             else:
-                new.append(new_notification)
+                # Or add a new one
+                new["LambdaFunctionConfigurations"].append(new_notification)
 
         # Add the lambda permission. NOTE: this MUST be configured before adding
         # the notification
@@ -886,7 +892,7 @@ class BucketTrigger:
         client.put_bucket_notification_configuration(
             Bucket=self.bucket, NotificationConfiguration=new
         )
-        LOG.info(f"Added bucket notification from {self.bucket}")
+        LOG.info(f"[+] Created/updated {self}")
 
     def destroy_if_exists(self, config, definitely_exists=False):
         if not self.exists(config):
@@ -912,7 +918,7 @@ class BucketTrigger:
         lambda_client.remove_permission(
             FunctionName=handler_name, StatementId=self.trigger_permission_id(config),
         )
-        LOG.info(f"Destroyed {self}")
+        LOG.info(f"[-] Destroyed {self}")
 
     def create_or_update(self, config):
         """Create or update (or destroy) this"""
@@ -925,7 +931,6 @@ class BucketTrigger:
         if needed:
             if not exists:
                 self.create(config)
-                LOG.info(f"[+] Created/updated {self}")
         else:
             self.destroy_if_exists(config)
 
@@ -1063,6 +1068,22 @@ CORE_RESOURCES = [
 ]
 
 
+def _get_resources(config) -> list:
+    resources = CORE_RESOURCES
+
+    for bucket in config.instance.managed_buckets:
+        # TODO s3_access should be here too.
+        resources.append(BucketTrigger(bucket))
+
+    for item in config.instance.upload_triggers:
+        if item.name not in config.instance.managed_buckets:
+            print(
+                f"WARNING: '{item.name}' is not in instance.managed_buckets - no action will be taken."
+            )
+
+    return resources
+
+
 def deploy(config, callback_start=None):
     """Deploy (or update) infrastructure for this config"""
     if not config.uuid:
@@ -1084,13 +1105,7 @@ def deploy(config, callback_start=None):
     # TODO - could make this faster by letting resource return a list of waiters
     # which are waited on at the end.
 
-    resources = CORE_RESOURCES
-
-    for bucket in config.instance.managed_buckets:
-        # TODO s3_access should be here too.
-        resources.append(BucketTrigger(bucket))
-
-    for res in CORE_RESOURCES:
+    for res in _get_resources(config):
         LOG.info(f"Resource: {res}")
         if callback_start:
             callback_start(res)
@@ -1103,17 +1118,9 @@ def destroy(config, callback_start=None):
         raise UnexpectedError("No Instance UUID configured")
 
     LOG.info(f"Destroying Instance: {config.uuid}")
+
     # destroy in reverse order so dependencies go first
-
-    resources = []
-
-    for bucket in config.instance.managed_buckets:
-        # TODO s3_access should be here too.
-        resources.append(BucketTrigger(bucket))
-
-    resources.extend(reversed(CORE_RESOURCES))
-
-    for res in resources:
+    for res in reversed(_get_resources(config)):
         LOG.info(f"Resource: {res}")
         if callback_start:
             callback_start(res)
@@ -1122,28 +1129,6 @@ def destroy(config, callback_start=None):
 
 def show(config):
     """Show infrastructure state"""
-    for res in CORE_RESOURCES:
+    for res in _get_resources(config):
         # TODO only show if deployed
         print(f"- {res.__name__}: {res.resource_name(config)}")
-
-
-# This is a bit pointless for now - could be a generic cloud interface in the
-# future.
-@dataclass(frozen=True)
-class Interface:
-    set_exe: type
-    new: type
-    get_output: type
-    get_events: type
-    version: type
-
-
-def get_api() -> Interface:
-    # TODO check it's deployed?
-    return Interface(
-        new=FnEventHandler,
-        set_exe=FnSetexe,
-        get_output=FnGetOutput,
-        get_events=FnGetEvents,
-        version=FnVersion,
-    )

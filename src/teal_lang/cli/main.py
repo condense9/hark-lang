@@ -63,6 +63,7 @@ from docopt import docopt
 
 from .. import __version__, config
 from ..exceptions import UserResolvableError, UnexpectedError
+from ..cloud.api import TealInstanceApi
 from . import interface as ui
 from . import utils
 from .interface import (
@@ -81,8 +82,6 @@ from .interface import (
 )
 
 LOG = logging.getLogger(__name__)
-
-TEAL_CLI_VERSION_KEY = "teal_ver"
 
 
 def timed(fn):
@@ -175,18 +174,28 @@ def _asm(args):
     print()
 
 
-def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
-    """Helper - do something either in your cloud or the hosted Teal Cloud"""
+def _target_self_hosted(cfg) -> bool:
+    """Return whether we should deploy/invoke/... a self-hosted instance"""
+    return cfg.project_id is None and cfg.instance_uuid is not None
+
+
+def _get_instance_api(cfg, can_create_new=False) -> TealInstanceApi:
+    """Get the Teal Instance API, depending on user configuration"""
     # Self-managed
-    if cfg.instance_uuid:
+    if _target_self_hosted(cfg):
         print(dim(f"Target: Self-hosted instance {cfg.instance_uuid}\n"))
-        return do_in_own
+        return TealInstanceApi(cfg)
+
+    from .in_hosted import get_instance_state
 
     # Managed by Teal Cloud
-    elif cfg.project_id:
+    if cfg.project_id:
         m = f"Target: Teal Cloud project #{cfg.project_id}, instance {cfg.instance_name}.\n"
         print(dim(m))
-        return do_in_hosted
+
+        instance = get_instance_state(cfg)
+        cfg.instance_uuid = instance.uuid
+        return TealInstanceApi(cfg, hosted_instance_state=instance)
 
     # Neither. Ask what the user wants
     print(
@@ -201,7 +210,7 @@ def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
     TEAL_CLOUD = "Choose a project in Teal Cloud."
 
     options = [TEAL_CLOUD, USE_EXISTING]
-    if can_create_uuid:
+    if can_create_new:
         options += [CREATE_NEW]
 
     choice = ui.select("What would you like to do?", options)
@@ -211,7 +220,7 @@ def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
 
     elif choice == CREATE_NEW:
         cfg.instance_uuid = config.new_instance_uuid(cfg)
-        return do_in_own
+        return TealInstanceApi(cfg)
 
     elif choice == USE_EXISTING:
         # TODO scan account and look for likely UUIDs...
@@ -220,7 +229,7 @@ def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
             sys.exit(1)
         cfg.instance_uuid = value
         config.save_instance_uuid(cfg, value)
-        return do_in_own
+        return TealInstanceApi(cfg)
 
     elif choice == TEAL_CLOUD:
         from . import hosted_query
@@ -235,7 +244,10 @@ def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
         project_id = next(p.id for p in projects if p.name == choice)
         cfg.project_id = project_id
         config.save_project_id(cfg, project_id)
-        return do_in_hosted
+
+        instance = get_instance_state(cfg)
+        cfg.instance_uuid = instance.uuid
+        return TealInstanceApi(cfg, hosted_instance_state=instance)
 
     else:
         assert False, "Not reachable"
@@ -245,35 +257,44 @@ def _local_or_cloud(cfg, do_in_own, do_in_hosted, can_create_uuid=False):
 def _deploy(args, cfg):
     from . import in_own, in_hosted
 
-    deployer = _local_or_cloud(
-        cfg, in_own.deploy, in_hosted.deploy, can_create_uuid=True
-    )
-    deployer(cfg)
+    api = _get_instance_api(cfg, can_create_new=True)
+
+    if _target_self_hosted(cfg):
+        in_own.deploy(cfg, api)
+    else:
+        in_hosted.deploy(cfg, api)
 
 
 @need_cfg
 def _destroy(args, cfg):
     from . import in_own, in_hosted
 
-    destroyer = _local_or_cloud(cfg, in_own.destroy, in_hosted.destroy)
-    destroyer(cfg)
+    api = _get_instance_api(cfg)
+
+    if _target_self_hosted(cfg):
+        in_own.destroy(cfg)
+    else:
+        in_hosted.destroy(cfg, api)
 
 
 @need_cfg
 def _invoke(args, cfg):
     from . import in_own, in_hosted
 
-    function = args["--function"]
+    teal_fn = args["--function"]
+    teal_args = args["ARG"]
     timeout = cfg.instance.lambda_timeout - 3  # FIXME why is -3 needed?
-    method = _local_or_cloud(cfg, in_own.invoke, in_hosted.invoke)
+    wait_for_finish = not args["--async"]
 
-    with spin(str(primary(f"{function}(...)"))) as sp:
-        data = method(cfg, function, args["ARG"], timeout, not args["--async"])
-        sp.text += " " + dim(data["session_id"])
+    api = _get_instance_api(cfg)
 
-        utils.save_last_session_id(cfg, data["session_id"])
+    with spin(str(primary(f"{teal_fn}(...)"))) as sp:
+        session = api.invoke(teal_fn, teal_args, timeout, wait_for_finish)
 
-        if data["broken"]:
+        sp.text += " " + dim(session.session_id)
+        utils.save_last_session_id(cfg, session.session_id)
+
+        if session.broken:
             sp.fail(CROSS)
             return
         else:
@@ -283,8 +304,8 @@ def _invoke(args, cfg):
     if not args["--quiet"]:
         _stdout(args)
         print(dim("\n=>"))
-    print(data["result"])
-    if not data["finished"]:
+    print(session.result)
+    if not session.finished:
         print("(Continuing async...)")
 
 
@@ -293,15 +314,15 @@ def _events(args, cfg):
     from . import in_own, in_hosted
 
     sid = utils.get_session_id(args, cfg)
-    method = _local_or_cloud(cfg, in_own.events, in_hosted.events)
+    api = _get_instance_api(cfg)
 
     if args["--json"]:
         # Don't show the spinner in JSON mode
-        data = method(args, cfg, sid)
+        data = api.get_events(sid)
         print(json.dumps(data, indent=2))
     else:
         with spin(f"Getting events {dim(sid)}"):
-            data = method(args, cfg, sid)
+            data = api.get_events(sid)
         if args["--unified"]:
             ui.print_events_unified(data)
         else:
@@ -313,14 +334,14 @@ def _stdout(args, cfg):
     from . import in_own, in_hosted
 
     sid = utils.get_session_id(args, cfg)
-    method = _local_or_cloud(cfg, in_own.stdout, in_hosted.stdout)
+    api = _get_instance_api(cfg)
 
     if args["--json"]:
-        data = method(args, cfg, sid)
+        data = api.get_stdout(sid)
         print(json.dumps(data, indent=2))
     else:
         with spin(f"Getting stdout {dim(sid)}") as sp:
-            data = method(args, cfg, sid)
+            data = api.get_stdout(sid)
             sp.ok(TICK)
         ui.print_outputs(data)
 

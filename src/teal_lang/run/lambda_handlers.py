@@ -4,8 +4,9 @@ import logging
 import os
 from abc import ABC, abstractmethod
 
-from ..cli.main import TEAL_CLI_VERSION_KEY
 from ..machine import types as mt
+
+TEAL_CLI_VERSION_KEY = "teal_ver"
 
 LOG = logging.getLogger(__name__)
 
