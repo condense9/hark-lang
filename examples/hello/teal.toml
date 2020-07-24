@@ -25,3 +25,7 @@ lambda_memory = 128
 ## optional, file with lambda environment variables
 # env = "teal_env.txt"
 
+# managed_buckets = [ "teal-dev-data" ]
+
+# upload_triggers = [ ["teal-dev-data", "images/", ".jpg"] ]
+

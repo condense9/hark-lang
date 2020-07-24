@@ -144,6 +144,9 @@ def _new_session(
         exe = load.compile_text(code_override)
         controller.set_executable(exe)
 
+    if not exe:
+        raise UserResolvableError("No Teal executable", "Run `teal deploy` first")
+
     try:
         fn_ptr = exe.bindings[function]
     except KeyError as exc:

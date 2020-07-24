@@ -174,15 +174,10 @@ def _asm(args):
     print()
 
 
-def _target_self_hosted(cfg) -> bool:
-    """Return whether we should deploy/invoke/... a self-hosted instance"""
-    return cfg.project_id is None and cfg.instance_uuid is not None
-
-
 def _get_instance_api(cfg, can_create_new=False) -> TealInstanceApi:
     """Get the Teal Instance API, depending on user configuration"""
     # Self-managed
-    if _target_self_hosted(cfg):
+    if cfg.instance_uuid:
         print(dim(f"Target: Self-hosted instance {cfg.instance_uuid}\n"))
         return TealInstanceApi(cfg)
 
@@ -259,7 +254,7 @@ def _deploy(args, cfg):
 
     api = _get_instance_api(cfg, can_create_new=True)
 
-    if _target_self_hosted(cfg):
+    if api.self_hosted:
         in_own.deploy(cfg, api)
     else:
         in_hosted.deploy(cfg, api)
@@ -271,7 +266,7 @@ def _destroy(args, cfg):
 
     api = _get_instance_api(cfg)
 
-    if _target_self_hosted(cfg):
+    if api.self_hosted:
         in_own.destroy(cfg)
     else:
         in_hosted.destroy(cfg, api)
@@ -348,12 +343,39 @@ def _stdout(args, cfg):
 
 @need_cfg
 def _info(args, cfg):
-    # API URL
+    api = _get_instance_api(cfg)
+    version = api.version()
+    print()
+
+    def p(k, v):
+        print(k + " " + ui.primary(v))
+
+    p("Target:", "self-hosted" if api.self_hosted else "Teal Cloud")
+
+    if not api.self_hosted:
+        p("Project:", api.hosted_instance_state.project.name)
+        p("Instance:", cfg.instance_name)
+
+    p("Instance UUID:", cfg.instance_uuid)
+
+    p("Deployed?", "Yes" if version else "No")
+
+    if version:
+        p("Deployed version", version)
+
+    sid = utils.load_last_session_id(cfg)
+    if version and sid:
+        p("Last session ID:", sid)
+
+    endpoint = api.get_api_endpoint()
+    if endpoint:
+        p("API Endpoint:", endpoint)
+
+    # TODO:
     # deployment ID
-    # deployed teal version
     # last session ID
     # links to console items?
-    raise NotImplementedError
+    # other infrastructure details?
 
 
 def _init(args):

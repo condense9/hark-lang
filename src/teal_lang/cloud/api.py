@@ -27,20 +27,37 @@ class SessionInfo:
     result: Any
 
 
+class InstanceNotDeployed(UserResolvableError):
+    def __init__(self):
+        super().__init__(
+            "Instance is not initialised",
+            "Run `teal deploy` first (if self-hosted), or deploy it in Teal Cloud",
+        )
+
+
 class TealInstanceApi:
     """Functional interface to a remote teal instance"""
 
     def __init__(self, config: Config, hosted_instance_state=None):
         self.config = config
         self.hosted_instance_state = hosted_instance_state
+        self.self_hosted = hosted_instance_state is None
         self._deploy_config = aws.DeployConfig(
             uuid=config.instance_uuid, instance=config.instance,
         )
 
     def version(self) -> str:
-        """Get the version of the instance"""
-        data = _call_cloud_api(self._deploy_config, FnVersion, {})
+        """Get the version of the instance, or None if not deployed"""
+        try:
+            data = _call_cloud_api(self._deploy_config, FnVersion, {})
+        except InstanceNotDeployed:
+            return None
+
         return data["version"]
+
+    def get_api_endpoint(self) -> str:
+        """Return the URL of the shared HTTP API"""
+        return aws.SharedAPIGateway.get_endpoint(self._deploy_config)
 
     def set_exe(self, teal_source: str):
         """Set the base (default) executable"""
@@ -99,6 +116,8 @@ def _call_cloud_api(
                 "AWS is not ready (KMSAccessDeniedException)",
                 "Please try again in a few minutes, and let us know if it persists.",
             )
+        elif exc.response["Error"]["Code"] == "ResourceNotFoundException":
+            raise InstanceNotDeployed()
         raise
 
     LOG.info(response)

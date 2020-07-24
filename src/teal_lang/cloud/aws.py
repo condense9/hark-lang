@@ -952,6 +952,12 @@ class SharedAPIGateway:
         return None
 
     @staticmethod
+    def get_endpoint(config) -> Union[None, str]:
+        api = SharedAPIGateway.retrieve(config)
+        if api:
+            return api["ApiEndpoint"]
+
+    @staticmethod
     def exists(config):
         return SharedAPIGateway.retrieve(config) is not None
 
