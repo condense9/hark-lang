@@ -178,7 +178,7 @@ def _get_instance_api(cfg, can_create_new=False) -> TealInstanceApi:
     """Get the Teal Instance API, depending on user configuration"""
     # Self-managed
     if cfg.instance_uuid:
-        print(dim(f"Target: Self-hosted instance {cfg.instance_uuid}\n"))
+        ui.info(dim(f"Target: Self-hosted instance {cfg.instance_uuid}\n"))
         return TealInstanceApi(cfg)
 
     from .in_hosted import get_instance_state
@@ -186,7 +186,7 @@ def _get_instance_api(cfg, can_create_new=False) -> TealInstanceApi:
     # Managed by Teal Cloud
     if cfg.project_id:
         m = f"Target: Teal Cloud project #{cfg.project_id}, instance {cfg.instance_name}.\n"
-        print(dim(m))
+        ui.info(dim(m))
 
         instance = get_instance_state(cfg)
         cfg.instance_uuid = instance.uuid
@@ -297,7 +297,10 @@ def _invoke(args, cfg):
 
     # Print the standard output and result immediately
     if not args["--quiet"]:
-        _stdout(args)
+        with spin("Getting stdout...") as sp:
+            data = api.get_stdout(session.session_id)
+            sp.ok(TICK)
+        ui.print_outputs(data)
         print(dim("\n=>"))
     print(session.result)
     if not session.finished:
@@ -376,6 +379,7 @@ def _info(args, cfg):
     # last session ID
     # links to console items?
     # other infrastructure details?
+    print()
 
 
 def _init(args):

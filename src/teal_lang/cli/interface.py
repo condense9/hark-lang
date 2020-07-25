@@ -96,6 +96,14 @@ def neutral(string):
     return cf.bold(string)
 
 
+## And printing messages
+
+
+def info(msg):
+    if not QUIET:
+        print(msg)
+
+
 ## graceful exits
 
 
