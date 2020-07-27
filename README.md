@@ -4,10 +4,10 @@
 
 ![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380)
 
-**Teal**: Describe your data workflows in a real programming language with
-first-class functions, concurrency, and native Python inter-op. Test end-to-end
-locally, then deploy to serverless AWS infrastructure in under 60s and start
-workflows from anything that can invoke Lambda.
+Describe your data workflows in a real programming language with first-class
+functions, concurrency, and native Python inter-op. Test end-to-end locally,
+then deploy to serverless AWS infrastructure in under 60s and start workflows
+from anything that can invoke Lambda.
 
 Like AWS Step Functions but cheaper and much nicer to use (overheads: a little
 Lambda runtime, and a DynamoDB for Teal state).
@@ -25,8 +25,6 @@ caused by DynamoDB restrictions
 <!-- Watch an introduction video. -->
 
 <!-- Read the documentation. -->
-
----
 
 ## Installing Teal
 
@@ -203,31 +201,27 @@ can't be called. Before Teal v1.0 is released, this will be possible. You will
 be able to call a long-running third party service (e.g. an AWS ML service) as a
 normal Teal function and `await` on the result.
 
-### Dictionary (associative map) primitives
-
-Teal really should be able to natively manipulate JSON objects. This may happen
-before v1.0.
 
 ---
 
 
 ## Contributing
 
-Contributions of any form are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md)
+Contributions are warmly welcomed. See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 Minimum requirements to develop:
 - Docker (to run local DynamoDB instance)
-- Poetry (deps)
+- Poetry (dependencies)
 
-Use `scripts/run_dynamodb_local.sh` to start the database and web UI. Export the
+Use `scripts/run_dynamodb_local.sh` to start the local database. Export the
 environment variables it gives you - these are required by the Teal runtime.
 
 
 ## About
 
 Teal is maintained by [Condense9 Ltd.](https://www.condense9.com/). Get in touch
-with [ric@condense9.com](ric@condense9.com) for bespoke data engineering and
-other cloud software services.
+with [ric@condense9.com](ric@condense9.com) for help getting running, or if you
+need enterprise deployment.
 
 Teal started because we couldn't find any data engineering tools that were
 productive and *felt* like software engineering. As an industry, we've spent
