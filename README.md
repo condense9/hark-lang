@@ -1,10 +1,13 @@
 ![Teal](doc/teal.png)
 
-## Teal: Serverless data pipelines for Python
+---
 
 ![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380)
 
-Describe your data workflows in a real programming language with first-class
+Teal makes it easy to build Python-powered data workflows on serverless
+infrastructure.
+
+Describe your workflows in a real programming language with first-class
 functions, concurrency, and native Python inter-op. Test end-to-end locally,
 then deploy to serverless AWS infrastructure in under 60s and start workflows
 from anything that can invoke Lambda.
