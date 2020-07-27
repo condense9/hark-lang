@@ -1,59 +1,56 @@
-# The Teal Programming Language
+# Teal: Simple *and* easy serverless data pipelines
 
-![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang) 
+![Teal](doc/teal.png)
 
-Teal is designed for passing data between Python functions running in the cloud
-with very little infrastructure. It's like having a cluster, without having to
-manage a cluster.
+![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380/**
 
-```javascript
-// service.tl
-import(read_items,     :python src.data_lib)
-import(transform_item, :python src.data_lib)
-import(get_metadata,   :python src.data_lib)
-import(save_item,      :python src.data_lib)
-import(aggregate,      :python src.data_lib)
+**Teal**: Describe your data workflows in a real programming language with
+first-class functions, concurrency, and native Python inter-op. Test end-to-end
+locally, then deploy to serverless AWS infrastructure in under 60s and start
+workflows from anything that can invoke Lambda.
 
-fn handle(item) {
-  // Get the metadata and do the transform in parallel
-  metadata = async get_metadata(item)
-  transformed = async transform_item(item)
-  save_item(await metadata, await transformed)
-}
+Like AWS Step Functions but cheaper and much nicer to use (overheads: a little
+Lambda runtime, and a DynamoDB for Teal state).
 
-fn main(items_csv) {
-  items = read_items(items_csv)
-  results = map(items, async handle)
-  aggregate(map(results, await)) // wait for all handling to finish
-  "done"
-}
-```
+Like Serverless Framework, but handles runtime glue logic in addition to
+deployment.
 
-Run it locally:
+*Status*: Teal is tested and works well for small pipelines: 5-10 Lambda
+functions. Larger workflows may cause problems, and there is a known issue
+caused by DynamoDB restrictions
+([#12](https://github.com/condense9/teal-lang/issues/12)).
 
-```
-$ teal service.tl test_items.csv
-```
+<!-- As presented at PyCon Africa 2020. (Watch the presentation, or follow along with the examples). -->
 
-And deploy it to the cloud:
+<!-- Watch an introduction video. -->
 
-```shell
-$ teal deploy
-Teal: {"version": "0.2.1"}
-Done (52s elapsed).
-
-$ aws s3 cp test_items.csv s3://your-bucket teal
-...
-
-$ invoke -f main test_items.csv
-```
+<!-- Read the documentation. -->
 
 ---
 
-## Introduction
+## Installing Teal
 
-Teal threads run in parallel on separate compute resource, and Teal handles data
-transfer and synchronisation.
+Teal is built with Python, and distributed as a Python package. To install it
+from the Python Package Index (PyPI), run:
+
+```shell
+$ pip install teal-lang
+```
+
+This gives you the `teal` executable - try `teal -h`.
+
+To get started with a real example, check out [Fractals](examples/fractals).
+
+[Create an issue](https://github.com/condense9/teal-lang/issues) if none of this
+makes sense, or you'd like help getting started.
+
+
+## Teal Features
+
+Teal is a full general purpose programming language with functions, variables
+and "threads" which run in parallel on separate compute resource. When running
+locally, that compute resource is your CPU. When running in AWS, for example,
+each thread runs in a separate lambda invocation.
 
 **Data in**: You can invoke Teal like any Lambda function (AWS cli, S3 trigger,
 API gateway, etc).
@@ -61,9 +58,9 @@ API gateway, etc).
 **Data out**: Use the Python libraries you already have for database access.
 Teal just connects them together.
 
-**Testing**: There is a local runtime too, so you can thoroughly test Teal
-programs before deployment (using minio and localstack for any additional
-infrastructure that your code uses).
+**Testing**: Teal runs locally, so you can thoroughly test Teal programs before
+deployment (using minio and localstack for any additional infrastructure that
+your code uses).
 
 | Teal is like...                     | But...                                                                                                   |
 |-------------------------------------|----------------------------------------------------------------------------------------------------------|
@@ -79,22 +76,6 @@ point. Each horizontal bar in this plot is a separate Lambda invocation. Try
 implementing that in Python. [Read more...](#faq)
 
 ![Concurrency](doc/functions.png)
-
-
-## Getting started
-
-```shell
-$ pip install teal-lang
-```
-
-This gives you the `teal` executable - try `teal -h`.
-
-Documentation is coming soon! For now, check out the [the Fractal
-example](examples/fractals) or the
-[Playground](https://www.teal-lang.org/playground).
-
-[Create an issue](https://github.com/condense9/teal-lang/issues) if none of this
-makes sense, or you'd like help getting started.
 
 
 ### Teal May Not Be For You!
