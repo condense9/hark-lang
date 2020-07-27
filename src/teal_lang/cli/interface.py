@@ -119,7 +119,7 @@ def exit_problem(problem: str, suggested_fix: str):
 
 def exit_bug(msg, *, data=None, traceback=None):
     """Something broke unexpectedly while running"""
-    print(bad("\nUnexpected error 💔. " + str(msg)))  # absolutely heartbreaking
+    print(bad("\nUnexpected error 💔.\n" + str(msg)))  # absolutely heartbreaking
 
     source = "".join(format_stack(limit=4))
 
@@ -139,10 +139,13 @@ def exit_bug(msg, *, data=None, traceback=None):
     if data:
         print(f"Associated Data:\n{data}")
 
+    print("\n.·´¯`(>▂<)´¯`·. ")
+
     # TODO sadface ascii art
     print("\nIf this persists, please let us know:")
-    issue_body = "Source:\n" + source + "\n" + traceback_tail
-    params = urllib.parse.urlencode(dict(title=str(msg), body=issue_body))
+    params = urllib.parse.urlencode(
+        dict(labels="Type: Bug", template="bug_report.md", title=str(msg),)
+    )
     print(dim(f"https://github.com/condense9/teal-lang/issues/new?{params}\n"))
 
     sys.exit(1)
