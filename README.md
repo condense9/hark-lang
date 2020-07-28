@@ -31,12 +31,12 @@ restrictions ([#12](https://github.com/condense9/teal-lang/issues/12)).
 
 ## Why should I learn a new language?
 
-Because it'll save you days-weeks of development time, and make operating the
-application dramatically simpler.
+Because it'll save you days or weeks of development time, and make operating
+your applications dramatically simpler.
 
-Writing your own infrastructure is like writing assembly code - only do so if
-you really do have extreme or unusual performance requirements. Otherwise, use a
-high-level language (Teal!) that "compiles" to infrastructure.
+Writing your own infrastructure is like writing assembly code - only do it if
+you really have extreme or unusual requirements. Otherwise, use a high-level
+language (Teal!) that compiles to "soft" infrastructure.
 
 
 ## Up and running in 2 minutes
