@@ -342,6 +342,14 @@ class TealParser(Parser):
     def rest_if(self, p):
         return p.block_expr
 
+    @_("nothing")
+    def rest_if(self, p):
+        # p will be None, and won't have source info. Use the previous token
+        # instead.
+        p = self.symstack[-2]
+        nothing = N(self, p, n.N_Literal, None)
+        return N(self, p, n.N_Progn, [nothing])
+
     # async/await
 
     @_("ASYNC expr")
