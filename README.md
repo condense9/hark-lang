@@ -18,16 +18,16 @@ Lambda runtime, and a DynamoDB for Teal state).
 Like Serverless Framework, but handles runtime glue logic in addition to
 deployment.
 
-*Status*: Teal is tested and works well for small pipelines: 5-10 Lambda
-functions. Larger workflows may cause problems, and there is a known issue
-caused by DynamoDB restrictions
-([#12](https://github.com/condense9/teal-lang/issues/12)).
+*Status*: Teal works well for small pipelines: 5-10 Lambda functions. Larger
+workflows may cause problems, and there is a known issue caused by DynamoDB
+restrictions ([#12](https://github.com/condense9/teal-lang/issues/12)).
 
 <!-- As presented at PyCon Africa 2020. (Watch the presentation, or follow along with the examples). -->
 
 <!-- Watch an introduction video. -->
 
-<!-- Read the documentation. -->
+[Read the documentation](https://teal-book.condense9.com).
+
 
 ## Installing Teal
 
@@ -42,16 +42,205 @@ This gives you the `teal` executable - try `teal -h`.
 
 To get started with a real example, check out [Fractals](examples/fractals).
 
-[Create an issue](https://github.com/condense9/teal-lang/issues) if none of this
+[Create an issue](https://github.com/condense9/teal-lang/issues** if none of this
 makes sense, or you'd like help getting started.
 
+[Read more...](https://teal-book.condense9.com/getting_started/installation.html)
 
-## Teal Features
 
-Teal is a full general purpose programming language with functions, variables
-and "threads" which run in parallel on separate compute resource. When running
-locally, that compute resource is your CPU. When running in AWS, for example,
-each thread runs in a separate lambda invocation.
+## Contributing
+
+Teal is growing rapidly, and contributions are [warmly
+welcomed](CONTRIBUTING.md).
+
+
+## Things Teal can do
+
+### Concurrency & Synchronisation
+
+This is useful when a set computations are related, and must be kept together.
+
+
+```javascript
+/**
+ * Return f(x) + g(x), computing f(x) and g(x) in parallel.
+ */
+fn compute(x) {
+  a = async f(x);
+  b = async g(x);
+  await a + await b;
+}
+```
+
+*Traditional approach*: Manually store intermediate results in an external
+database, and build the synchronisation logic into the cloud functions `f` &
+`g`, or use an orchestrator service.
+
+[Read more...](https://teal-book.condense9.com/language/threads.html)
+
+
+### Trivial Pipelines
+
+Use this approach when each individual function may take several minutes (and
+hence, together would break the 5 minute AWS Lambda limit).
+
+```javascript
+/**
+ * Compute f(g(h(x))), using a separate lambda invocation for each
+ * function call.
+ */
+fn pipeline(x) {
+  a = async h(x);
+  b = async g(await a);
+  f(await b);
+}
+```
+
+*Traditional approach:* This is functionally similar to a "chain" of AWS Lambda
+functions and SQS queues.
+
+
+### Mapping / reducing
+
+Teal functions are first-class, and can be passed around (closures and anonymous
+functions are planned, giving Teal object-oriented capabilities).
+
+```javascript
+/**
+ * Compute [f(element) for element in x], using a separate lambda invocation for
+ * each application of f.
+ */
+fn map(f, x, accumulator) {
+  if nullp(x) {
+    accumulator
+  }
+  else {
+    // The Teal compiler has tail-recursion optimisation
+    map(func, rest(x), append(accumulator, f(first(x))))
+  }
+}
+```
+
+So, for example, this could be used like:
+
+```javascript
+fn add2(x) {
+  x + 2
+}
+
+fn main() {
+  map(add2, [1, 2, 3, 4], [])
+}
+```
+
+[Read more...](https://teal-book.condense9.com/language/functions.html)
+
+
+## Notes about syntax
+
+The syntax should look familiar, but there are a couple of things to point out.
+
+### No 'return' statement
+
+Every expression must return a value, so there is no `return` statement. The
+last expression in a 'block' (expressions between `{` and `}`) is returned
+implicitly.
+
+```javascript
+fn foo() {
+  "something"
+}
+
+fn main() {
+  print(foo())  // -> prints "something"
+}
+```
+
+### Semi-colons are required...
+
+... when there is more than one expression in a block.
+
+This is ok:
+
+```javascript
+fn main() {
+  print("done")
+}
+```
+
+So is this:
+
+```javascript
+fn main() {
+  print("one");
+  print("two")
+}
+```
+
+And this:
+
+```javascript
+fn main() {
+  print("one");
+  print("two");
+}
+```
+
+But not this:
+
+```javascript
+fn main() {
+  print("one")  // <- missing semicolon!
+  print("two")
+}
+```
+
+
+### 'print' returns the value printed
+
+In this snippet, "Hello Worlds!" is actually printed 3 times. First in `bar`,
+then in `main`, and then again by the Teal CLI as the value returned from
+`main`.
+
+```javascript
+fn bar() {
+  print("Hello Worlds!")
+}
+
+fn main() {
+  print(bar())
+}
+```
+
+
+### 'if' is an expression, and returns a value
+
+Think about it like this: An `if` expression represents a choice between
+*values*.
+
+```javascript
+v = if something { true_value } else { false_value }
+
+// if 'something' is not true, v is set to null
+v = if something { value }
+```
+
+
+## Is Teal for me?
+
+Teal *is* for you if:
+- you use Python for long-running tasks.
+- you have an AWS account.
+- You don't have time (or inclination) to deploy and manage a full-blown task
+  platform (Airflow, Celery, etc).
+- You'd like someone else to be responsible for platform stability, while you
+  concentrate on business logic.
+
+Core principles guiding Teal design:
+- Do the heavy-lifting in Python.
+- Keep business logic out of infrastructure (no more hard-to-test logic defined
+  in IaC).
+- Workflows must be fully tested locally before deployment.
 
 **Data in**: You can invoke Teal like any Lambda function (AWS cli, S3 trigger,
 API gateway, etc).
@@ -70,75 +259,12 @@ your code uses).
 | Task runners (Celery, etc)          | You don't have to manage infrastructure.                                                                 |
 | Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex - their behaviour isn't always obvious.    |
 
-[Read more...](#why-teal)
 
-Teal functions are like coroutines - they can be paused and resumed at any
-point. Each horizontal bar in this plot is a separate Lambda invocation. Try
-implementing that in Python. [Read more...](#faq)
-
-![Concurrency](doc/functions.png)
-
-
-### Teal May Not Be For You!
-
-Teal *is* for you if:
-- you use Python for long-running tasks.
-- you have an AWS account.
-- you have a repository of data processing scripts, and want to run them
-  together in the cloud.
-- You don't have time (or inclination) to deploy and manage a full-blown task
-  platform (Airflow, Celery, etc).
-- You don't want to use AWS Step Functions .
-
-Core principles guiding Teal design:
-- Do the heavy-lifting in Python.
-- Keep business logic out of infrastructure (no more hard-to-test logic defined
-  in IaC, please).
-- Workflows must be fully tested locally before deployment.
-
-
-## Why Teal?
-
-Teal is like AWS Step Functions, but is cheaper (pay only for the Lambda
-invocations and process data), and way easier to program and test. The tradeoff
-is you don't get tight integration with the AWS ecosystem (e.g. Teal doesn't
-natively support timed triggers).
-
-Teal is like Azure Durable Functions -- it lets you pause and resume workflows,
-but it's (subjectively) nicer to write. The syntax feels natural. Also it's not
-bound to Azure.
-
-Teal is like a task runner (Celery, Apache Airflow, etc), but you don't have to
-manage any infrastructure.
-
-Teal is **not** Kubernetes, because it's not trying to let you easily scale
-Dockerised services.
-
-Teal is **not** a general-purpose programming language, because that would be
-needlessly reinventing the wheel.
-
-Teal is a simple compiled language with only a few constructs:
-
-1. named variables
-2. `async` & `await` concurrency primitives 
-3. Python (>=3.8) interoperability (FFI)
-4. A few basic types (strings, numbers, lists)
-5. first-class functions (proper closures coming soon)
-
-Two interpreters have been implemented so far -- local and AWS Lambda, but
-there's no reason Teal couldn't run on top of (for example) Kubernetes. [Issue
-#8](https://github.com/condense9/teal-lang/issues/8)
-
-**Concurrency**: When you do `y = async f(x)`, `f(x)` is started on a new Lambda
-instance. And then when you do `await y`, the current Lambda function
-terminates, and automatically continues when `y` is finished being computed.
-
-The compiler is basic at the moment, but does feature tail-call optimisation for
-recursive functions. Compile-time correctness checks (e.g. bound names, types,
-etc) are coming soon.
+[Read more...](https://teal-book.condense9.com/why.html) TODO
 
 
 ## FAQ
+<!-- NOTE: Taken from guide/src/why.md -->
 
 **Why is this not a library/DSL in Python?**
 
@@ -148,8 +274,10 @@ resolving thread restarts any waiting threads by invoking new Lambdas to pick up
 execution.
 
 To achieve the same thing in Python, the framework would need to dump the entire
-Python VM state to disk, and then reload it at a later point -- I don't know
-Python internals well enough to do this, and it felt like a huge task.
+Python VM state to disk, and then reload it at a later point -- this may be
+possible, but would certainly be non-trivial. An alternative approach would be
+to build a langauge on top of Python that looked similar to Python, but felt
+*wrong* because it was really faking things under the hood.
 
 **How is Teal like Go?**
 
@@ -206,19 +334,6 @@ normal Teal function and `await` on the result.
 
 
 ---
-
-
-## Contributing
-
-Contributions are warmly welcomed. See [CONTRIBUTING.md](CONTRIBUTING.md)
-
-Minimum requirements to develop:
-- Docker (to run local DynamoDB instance)
-- Poetry (dependencies)
-
-Use `scripts/run_dynamodb_local.sh` to start the local database. Export the
-environment variables it gives you - these are required by the Teal runtime.
-
 
 ## About
 

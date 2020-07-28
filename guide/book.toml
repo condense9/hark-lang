@@ -3,7 +3,9 @@ authors = ["Ric da Silva"]
 language = "en"
 multilingual = false
 src = "src"
+title = "Cloud-Native Development With Teal"
 
 [output.html]
 theme = "src/theme"
-default-theme = "teal"
+default-theme = "light"
+git-repository-url = "https://github.com/condense9/teal-lang"

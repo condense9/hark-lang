@@ -56,6 +56,7 @@ printf "\nRELEASE CHECKLIST\n"
 printf " - updated CHANGELOG.md?\n"
 printf " - make test and make lint?\n"
 printf " - updated version number in pyproject.toml?\n"
+printf " - updated the Guide?\n"
 
 printf "\nReleasing version: %s (from pyproject.toml)\n\n" "${VERSION}"
 

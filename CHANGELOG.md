@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [unreleased]
 
+### Changed
+
+- Allow empty 'else' clauses in `if` expressions (returning null).
+
 ## [0.4.2] (2020-07-23)
 
 ### Fixed
