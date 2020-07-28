@@ -370,8 +370,8 @@ Teal will happily manage that infrastructure for you (through `teal deploy` and
 
 ## Current Limitations and Roadmap
 
-Teal is alpha quality, which means that it's not thoroughly tested, and lots of
-breaking changes are planned. This is a non-exhaustive list.
+Teal is beta quality, which means that it's not thoroughly tested or feature
+complete. This is a non-exhaustive list.
 
 ### Libraries
 
