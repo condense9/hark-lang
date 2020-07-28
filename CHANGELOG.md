@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Allow empty 'else' clauses in `if` expressions (returning null).
+- `teal init` now also creates an empty src folder and service file. All about
+  that programmer ease!
 
 ## [0.4.2] (2020-07-23)
 

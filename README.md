@@ -29,10 +29,25 @@ restrictions ([#12](https://github.com/condense9/teal-lang/issues/12)).
 [Read the documentation](https://teal-book.condense9.com).
 
 
-## Installing Teal
+## Why should I learn a new language?
+
+Because it'll save you days-weeks of development time, and make operating the
+application dramatically simpler.
+
+Writing your own infrastructure is like writing assembly code - only do so if
+you really do have extreme or unusual performance requirements. Otherwise, use a
+high-level language (Teal!) that "compiles" to infrastructure.
+
+
+## Up and running in 2 minutes
+
+All you need:
+- An AWS account, and [AWS CLI](https://github.com/aws/aws-cli#getting-started)
+  configured.
+- A Python 3.8 virtual environment
 
 Teal is built with Python, and distributed as a Python package. To install it
-from the Python Package Index (PyPI), run:
+from the Python Package Index (PyPI), run this in a new virtual environment:
 
 ```shell
 $ pip install teal-lang
@@ -40,18 +55,54 @@ $ pip install teal-lang
 
 This gives you the `teal` executable - try `teal -h`.
 
-To get started with a real example, check out [Fractals](examples/fractals).
+Copy the following snippet into a file called `service.tl`:
 
-[Create an issue](https://github.com/condense9/teal-lang/issues** if none of this
+```
+// ~/new_project/service.tl
+
+fn main() {
+  print("Hello World!");
+}
+```
+
+Run it (`-f main` to specify the function is optional - `main` is the default):
+
+```shell
+~/new_project $> teal service.tl -f main
+```
+
+Initialise a new Teal deployment:
+
+```shell
+~/new_project $> teal init
+```
+
+And deploy the service to your AWS account (requires AWS credentials and
+`AWS_DEFAULT_REGION` to be defined):
+
+```shell
+~/new_project $> teal deploy
+```
+
+Finally, invoke it in AWS (`-f main` is optional, as before):
+
+```shell
+~/new_project $> teal invoke -f main
+```
+
+Explore a more complex example: [Fractals](examples/fractals).
+
+[Create an issue](https://github.com/condense9/teal-lang/issues) if none of this
 makes sense, or you'd like help getting started.
 
-[Read more...](https://teal-book.condense9.com/getting_started/installation.html)
+[Read more about the language...](https://teal-book.condense9.com/language/index.html)
+[Or about the development process](https://teal-book.condense9.com/development/index.html)
+[Or about configuration](https://teal-book.condense9.com/configuration.html)
 
 
 ## Contributing
 
-Teal is growing rapidly, and contributions are [warmly
-welcomed](CONTRIBUTING.md).
+Teal is growing rapidly, and contributions are [warmly welcomed](CONTRIBUTING.md).
 
 
 ## Things Teal can do
