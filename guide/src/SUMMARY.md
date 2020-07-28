@@ -29,8 +29,9 @@
 
 - [Debugging and troubleshooting](./debugging.md)
 
-- [Contributing to Teal](./dev/index.md)
+- [Teal Developers](./dev/index.md)
   - [Local development environment](./dev/env.md)
+  - [Teal on AWS](./dev/aws.md)
   - [The Teal VM](./dev/vm.md)
   - [Executors](./dev/executors.md)
   - [Storage](./dev/storage.md)

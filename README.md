@@ -7,7 +7,7 @@
 Teal makes it easy to build Python-powered data workflows on serverless
 infrastructure.
 
-Describe your workflows in a real programming language with first-class
+Describe your workflows in a *real programming language* with first-class
 functions, concurrency, and native Python inter-op. Test end-to-end locally,
 then deploy to serverless AWS infrastructure in under 60s and start workflows
 from anything that can invoke Lambda.
@@ -46,32 +46,32 @@ All you need:
   configured.
 - A Python 3.8 virtual environment
 
-Teal is built with Python, and distributed as a Python package. To install it
-from the Python Package Index (PyPI), run this in a new virtual environment:
+Teal is built with Python, and distributed as a Python package. To install it,
+run:
 
 ```shell
 $ pip install teal-lang
 ```
 
-This gives you the `teal` executable - try `teal -h`.
+This gives you the `teal` executable. Try `teal -h`.
 
 Copy the following snippet into a file called `service.tl`:
 
 ```
-// ~/new_project/service.tl
+// service.tl
 
 fn main() {
   print("Hello World!");
 }
 ```
 
-Run it (`-f main` to specify the function is optional - `main` is the default):
+Run it (`-f main` is optional, and `main` is the default):
 
 ```shell
 ~/new_project $> teal service.tl -f main
 ```
 
-Initialise a new Teal deployment:
+Initialise the project (required for deployment):
 
 ```shell
 ~/new_project $> teal init
@@ -90,14 +90,19 @@ Finally, invoke it in AWS (`-f main` is optional, as before):
 ~/new_project $> teal invoke -f main
 ```
 
+That's it! You now have a Teal instance configured in your AWS account, built on
+the AWS serverless platform (S3 + Lambda + DynamoDB). [More info...](https://teal-book.condense9.com/dev/aws.html)
+
 Explore a more complex example: [Fractals](examples/fractals).
 
 [Create an issue](https://github.com/condense9/teal-lang/issues) if none of this
 makes sense, or you'd like help getting started.
 
-[Read more about the language...](https://teal-book.condense9.com/language/index.html)
-[Or about the development process](https://teal-book.condense9.com/development/index.html)
-[Or about configuration](https://teal-book.condense9.com/configuration.html)
+Read more...
+- [about the language](https://teal-book.condense9.com/language/index.html)
+- [about the development process](https://teal-book.condense9.com/development/index.html)
+- [about configuring Teal](https://teal-book.condense9.com/configuration.html)
+
 
 
 ## Contributing
