@@ -129,7 +129,7 @@ fn compute(x) {
 ```
 
 *Traditional approach*: Manually store intermediate results in an external
-database, and build the synchronisation logic into the cloud functions `f` &
+database, and build the synchronisation logic into the cloud functions `f` and
 `g`, or use an orchestrator service.
 
 [Read more...](https://teal-book.condense9.com/language/threads.html)
@@ -177,7 +177,7 @@ fn map(f, x, accumulator) {
 }
 ```
 
-So, for example, this could be used like:
+This could be used like:
 
 ```javascript
 fn add2(x) {
@@ -242,7 +242,7 @@ fn main() {
 }
 ```
 
-But not this:
+But this is not ok:
 
 ```javascript
 fn main() {
@@ -268,6 +268,12 @@ fn main() {
 }
 ```
 
+```shell
+$> teal -q service.tl
+Hello Worlds!
+Hello Worlds!
+Hello Worlds!
+```
 
 ### 'if' is an expression, and returns a value
 
@@ -275,28 +281,23 @@ Think about it like this: An `if` expression represents a choice between
 *values*.
 
 ```javascript
-v = if something { true_value } else { false_value }
+v = if something { true_value } else { false_value };
 
 // if 'something' is not true, v is set to null
-v = if something { value }
+v = if something { value };
 ```
 
 
 ## Is Teal for me?
 
 Teal *is* for you if:
+- you dread the thought of writing Terraform or CloudFormation
 - you use Python for long-running tasks.
-- you have an AWS account.
+- your data is in AWS.
 - You don't have time (or inclination) to deploy and manage a full-blown task
   platform (Airflow, Celery, etc).
 - You'd like someone else to be responsible for platform stability, while you
   concentrate on business logic.
-
-Core principles guiding Teal design:
-- Do the heavy-lifting in Python.
-- Keep business logic out of infrastructure (no more hard-to-test logic defined
-  in IaC).
-- Workflows must be fully tested locally before deployment.
 
 **Data in**: You can invoke Teal like any Lambda function (AWS cli, S3 trigger,
 API gateway, etc).
@@ -304,9 +305,18 @@ API gateway, etc).
 **Data out**: Use the Python libraries you already have for database access.
 Teal just connects them together.
 
-**Testing**: Teal runs locally, so you can thoroughly test Teal programs before
-deployment (using minio and localstack for any additional infrastructure that
-your code uses).
+**Development**: Teal runs locally, so you can thoroughly test Teal programs
+before deployment (using minio and localstack for any additional infrastructure
+that your code uses.
+
+**Operating**: Teal enables contextual cross-thread logging and stacktraces out
+of the box, since the entire application is described in one place.
+
+[Teal Cloud](https://condense9.com) (coming soon) will make this even easier,
+with a graphical console, one-click rollbacks of entire serverless applications,
+and more. Sign up to the mailing list to hear about this first:
+[https://www.condense9.com/](https://www.condense9.com/).
+
 
 | Teal is like...                     | But...                                                                                                   |
 |-------------------------------------|----------------------------------------------------------------------------------------------------------|
@@ -316,7 +326,7 @@ your code uses).
 | Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex - their behaviour isn't always obvious.    |
 
 
-[Read more...](https://teal-book.condense9.com/why.html) TODO
+[Read more...](https://teal-book.condense9.com/why.html)
 
 
 ## FAQ
