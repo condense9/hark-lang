@@ -113,3 +113,24 @@ def get_layer_zip_path(config: Config) -> Path:
         make_python_layer_zip(config, layer_zip)
 
     return layer_zip
+
+
+def init_src(config):
+    """Create the source folder and service.tl if they don't already exist"""
+    new_py = new_teal = None
+
+    os.makedirs(str(config.project.python_src), exist_ok=True)
+
+    py_init = config.project.python_src / "__init__.py"
+    if not py_init.exists():
+        with open(py_init, "w") as f:
+            f.write("")
+            new_py = py_init
+
+    if not config.project.teal_file.exists():
+        with open(config.project.teal_file, "w") as f:
+            main = "fn main() {\n\n}"
+            f.write(f"// Something great begins here.\n\n\n{main}")
+            new_teal = config.project.teal_file
+
+    return new_py, new_teal

@@ -384,7 +384,15 @@ def _info(args, cfg):
 
 def _init(args):
     config.create_skeleton()
-    print("\n" + TICK + good(f" Created ./{config.DEFAULT_CONFIG_FILEPATH}\n"))
+    cfg = config.load(args)
+    new_src, new_teal = utils.init_src(cfg)
+    print("\n" + TICK + " Created " + good(config.DEFAULT_CONFIG_FILEPATH))
+    if new_src:
+        print(TICK + " Created " + good(new_src))
+    if new_teal:
+        print(TICK + " Created " + good(new_teal))
+
+    print("\nDone. Ready for `teal deploy`.")
 
 
 @timed
