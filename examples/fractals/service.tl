@@ -84,7 +84,6 @@ fn build_fractal_async(fractal_spec) {
 fn main() {
   fractal_specs = random_fractals(4);
   results = map_wait(build_fractal_async, fractal_specs);
-  // results = map(build_fractal, fractal_specs)
   print("Done");
   results
 }

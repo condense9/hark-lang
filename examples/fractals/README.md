@@ -111,6 +111,7 @@ check that the fractals have been generated.
 Variables in `teal_env.txt` will be exposed to your Python code on AWS.
 
 **2.** Change "teal-examples-data" in `teal.toml` to the name of your S3 bucket.
+*Important:* there are two places this need to be changed!
 
 Your code will be given full read/write access to this bucket.
 

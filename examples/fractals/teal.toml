@@ -26,8 +26,10 @@ lambda_memory = 512
 ## optional, file with lambda environment variables
 # env = "teal_env.txt"
 
-## optional, enable read/write to one or more s3 buckets
 s3_access = [
-  "teal-dev-data"
+  "teal-example-data"
 ]
 
+managed_buckets = [
+  "teal-example-data"
+]
