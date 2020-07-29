@@ -33,12 +33,13 @@ EOF
 
     teal deploy --uuid "${UUID}"
 
-    teal invoke
+    teal invoke --uuid "${UUID}"
+
+    teal stdout --uuid "${UUID}"
+
+    teal events --uuid "${UUID}"
 
     teal destroy --uuid "${UUID}"
-
-    # Very basic check that it's actually destroyed
-    aws lambda list-functions | grep FunctionName | test ! $(grep -q "${UUID}")
 }
 
 

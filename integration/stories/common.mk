@@ -6,7 +6,7 @@ CONT_NAME := tealqc_$(STORY_NAME)
 
 # Helpers
 
--local-version:
+-build-teal:
 	poetry build -f sdist | tail -n1 | cut -d' ' -f4 > version.txt
 	cp "../../../dist/$(shell cat version.txt)" .
 
@@ -24,7 +24,7 @@ CONT_NAME := tealqc_$(STORY_NAME)
 
 # Commands
 
-local: -local-version -build-local -run-test  ## Test the local Teal checkout
+local: -build-teal -build-local -run-test  ## Test the local Teal checkout
 
 local-nobuild: -build-local -run-test  ## Test the local Teal checkout without rebuilding Teal
 
@@ -38,4 +38,4 @@ clean:  ## Remove artefacts
 
 .PHONY: local-nobuild local clean test
 
-.PHONY: -run-test -build-local -build-pypi -local-version
+.PHONY: -run-test -build-local -build-pypi -build-teal

@@ -1,2 +1,1 @@
-include ../buildtest.mk
-
+include ../common.mk
