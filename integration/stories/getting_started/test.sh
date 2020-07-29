@@ -31,18 +31,18 @@ EOF
     # Use a random UUID to avoid the CLI's question UI
     UUID="c3178518-7a04-4969-bd98-38acbc7f9229"
 
-    teal deploy --uuid "${UUID}"
+    teal -v deploy --uuid "${UUID}"
 
-    teal invoke --uuid "${UUID}"
+    teal -v invoke --uuid "${UUID}"
 
-    teal stdout --uuid "${UUID}"
+    teal -v stdout --uuid "${UUID}"
 
-    teal events --uuid "${UUID}"
+    teal -v events --uuid "${UUID}"
 
-    teal destroy --uuid "${UUID}"
+    teal -v destroy --uuid "${UUID}"
 }
 
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    ( cmdpid=$BASHPID; (sleep "${TIMEOUT}"; kill -9 $cmdpid; exit 1) & main "$@" )
+    ( cmdpid=$BASHPID; (sleep "${TIMEOUT}"; kill -9 $cmdpid; exit 1) & main )
 fi

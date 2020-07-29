@@ -1,93 +1,102 @@
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "group0",
-            "Effect": "Allow",
-            "Action": [
-                "iam:GetRole",
-                "s3:PutBucketPublicAccessBlock",
-                "lambda:PublishLayerVersion",
-                "iam:CreateRole",
-                "iam:DeleteRole",
-                "s3:CreateBucket",
-                "iam:AttachRolePolicy",
-                "s3:ListBucket",
-                "iam:PutRolePolicy",
-                "dynamodb:DeleteTable",
-                "s3:GetBucketNotification",
-                "s3:GetBucketPolicy",
-                "dynamodb:CreateTable",
-                "s3:PutBucketNotification",
-                "iam:PassRole",
-                "iam:DetachRolePolicy",
-                "dynamodb:DescribeTable",
-                "dynamodb:Query",
-                "dynamodb:Scan",
-                "dynamodb:GetItem",
-                "iam:DeleteRolePolicy",
-                "s3:PutBucketAcl",
-                "s3:PutBucketPolicy",
-                "iam:GetRolePolicy",
-                "s3:DeleteBucket"
-            ],
-            "Resource": [
-                "arn:aws:iam::*:role/teal-*",
-                "arn:aws:lambda:eu-west-2:*:layer:teal-*",
-                "arn:aws:dynamodb:eu-west-2:*:table/teal-*",
-                "arn:aws:s3:::teal-*"
-            ]
-        },
-        {
-            "Sid": "group1",
-            "Effect": "Allow",
-            "Action": [
-                "lambda:CreateFunction",
-                "lambda:InvokeFunction",
-                "s3:DeleteObjectVersion",
-                "lambda:GetFunction",
-                "lambda:UpdateFunctionConfiguration",
-                "lambda:GetFunctionConfiguration",
-                "lambda:GetLayerVersion",
-                "lambda:GetLayerVersionByArn",
-                "s3:PutObject",
-                "s3:GetObject",
-                "lambda:UpdateFunctionCode",
-                "lambda:AddPermission",
-                "lambda:DeleteLayerVersion",
-                "lambda:DeleteFunction",
-                "lambda:PublishVersion",
-                "s3:DeleteObject",
-                "lambda:RemovePermission",
-                "s3:GetObjectVersion"
-            ],
-            "Resource": [
-                "arn:aws:s3:::teal-*/*",
-                "arn:aws:lambda:eu-west-2:*:layer:teal-*:*",
-                "arn:aws:lambda:eu-west-2:*:function:teal-*"
-            ]
-        },
-        {
-            "Sid": "group2",
-            "Effect": "Allow",
-            "Action": [
-                "logs:CreateLogStream",
-                "lambda:ListLayerVersions",
-                "s3:HeadBucket",
-                "logs:CreateLogGroup",
-                "logs:PutLogEvents"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "group3",
-            "Effect": "Allow",
-            "Action": [
-                "apigateway:*"
-            ],
-            "Resource": [
-                "arn:aws:apigateway:eu-west-2::/*"
-            ]
-        }
-    ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "group0",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "s3:PutBucketPublicAccessBlock",
+        "lambda:PublishLayerVersion",
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "s3:CreateBucket",
+        "iam:AttachRolePolicy",
+        "s3:ListBucket",
+        "iam:PutRolePolicy",
+        "dynamodb:DeleteTable",
+        "s3:GetBucketPolicy",
+        "dynamodb:CreateTable",
+        "iam:PassRole",
+        "iam:DetachRolePolicy",
+        "dynamodb:DescribeTable",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:GetItem",
+        "iam:DeleteRolePolicy",
+        "s3:PutBucketAcl",
+        "s3:PutBucketPolicy",
+        "iam:GetRolePolicy",
+        "s3:DeleteBucket"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/teal-*",
+        "arn:aws:lambda:eu-west-2:*:layer:teal-*",
+        "arn:aws:dynamodb:eu-west-2:*:table/teal-*",
+        "arn:aws:s3:::teal-*"
+      ]
+    },
+    {
+      "Sid": "group1",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:InvokeFunction",
+        "s3:DeleteObjectVersion",
+        "lambda:GetFunction",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:GetFunctionConfiguration",
+        "lambda:GetLayerVersion",
+        "lambda:GetLayerVersionByArn",
+        "s3:PutObject",
+        "s3:GetObject",
+        "lambda:UpdateFunctionCode",
+        "lambda:AddPermission",
+        "lambda:DeleteLayerVersion",
+        "lambda:DeleteFunction",
+        "lambda:PublishVersion",
+        "s3:DeleteObject",
+        "lambda:RemovePermission",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": [
+        "arn:aws:s3:::teal-*/*",
+        "arn:aws:lambda:eu-west-2:*:layer:*:*",
+        "arn:aws:lambda:eu-west-2:*:function:teal-*"
+      ]
+    },
+    {
+      "Sid": "group2",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "lambda:ListLayerVersions",
+        "s3:HeadBucket",
+        "logs:CreateLogGroup",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "group3",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:*"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:eu-west-2::/*"
+      ]
+    },
+    {
+      "Sid": "group4",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucketNotification",
+        "s3:PutBucketNotification"
+      ],
+      "Resource": [
+        "arn:aws:s3:::*"
+      ]
+    }
+  ]
 }

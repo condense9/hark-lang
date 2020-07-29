@@ -69,6 +69,15 @@ If you don't have `make` installed, or don't like it, grab the commands in
 [stories/common.mk](stories/common.mk) and call them directly.
 
 
+### Getting Started
+
+Runs the 2 minute getting-started tutorial.
+
+
+### Try Fractals
+
+Runs the fractals example. `stories/.env` needs `FRACTALS_BUCKET` to be defined.
+
 
 ## Troubleshooting
 

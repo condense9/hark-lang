@@ -11,6 +11,7 @@ examples/*/libs
 # Teal packaging
 teal_lambda.zip
 .teal_data
+.teal
 
 # pytest logs
 logs

@@ -1,2 +1,4 @@
 *.tar.gz
 version.txt
+
+stories/*/examples
