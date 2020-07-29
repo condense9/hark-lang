@@ -90,15 +90,17 @@ def load(args: dict) -> Config:
         project=project_config,
         instance=instance_config,
         endpoint=os.environ.get("TEAL_CLOUD_ENDPOINT", None),
-        instance_uuid=_try_get_instance_uuid(project_config.data_dir),
+        instance_uuid=_try_get_instance_uuid(args, project_config.data_dir),
         project_id=_try_get_project_id(project_config.data_dir),
         instance_name=args["--name"],
     )
     return LAST_LOADED
 
 
-def _try_get_instance_uuid(data_dir: Path) -> Union[uuid.UUID, None]:
+def _try_get_instance_uuid(args, data_dir: Path) -> Union[uuid.UUID, None]:
     """Get the instance UUID if it exists"""
+    if args["--uuid"]:
+        return args["--uuid"]
     filename = data_dir / DEFAULT_UUID_FILENAME
     if data_dir.exists() and filename.exists():
         with open(filename) as f:
