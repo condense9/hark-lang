@@ -291,7 +291,7 @@ def _invoke(args, cfg):
 
         if session.broken:
             sp.fail(CROSS)
-            return
+            sys.exit(1)
         else:
             sp.ok(TICK)
 
