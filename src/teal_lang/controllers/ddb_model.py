@@ -303,17 +303,3 @@ class SessionLocker(AbstractContextManager):
             [SessionItem.locked.set(False)], condition=(SessionItem.locked == True)
         )
         self._thread_lock.release()
-
-
-## TODO programmatic tables
-# See https://github.com/pynamodb/PynamoDB/issues/177#issuecomment-257711255
-#
-# For example:
-#
-# d['Meta'] = type('Meta', (), {
-#     'table_name': table_name(pythonic(name)),
-#     'region': table_region(),
-#     'read_capacity_units': 1,
-#     'write_capacity_units': 1,
-#     'host': "http://localhost:8000" if os.environ.get("ENV") == "test" else None
-# })
