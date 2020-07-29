@@ -21,9 +21,8 @@ to do that is described here.
 
 ### Step 1: Create an IAM user
 
-1. Go to
-[https://console.aws.amazon.com/iam/home](https://console.aws.amazon.com/iam/home),
-select "Users" under **Access Management**, and hit "Add user".
+1. Go to [https://console.aws.amazon.com/iam/home][1], select "Users" under
+**Access Management**, and hit "Add user".
 
 2. Under **Access Type**, select "Programmatic access" *only*.
 
@@ -81,17 +80,39 @@ Runs the 2 minute getting-started tutorial in [../README.md](../README.md).
 
 ### Story: Try Fractals
 
-Runs the [fractals example](../examples/fractals). Add a definition for
-`FRACTALS_BUCKET` to `stories/.env`.
+Runs the [fractals example](../examples/fractals). **Note**: You must add a
+definition for `FRACTALS_BUCKET` (an S3 bucket in your account) to
+`stories/.env` before running this. The test will write some data to the bucket,
+and it doesn't clean up after itself :(.
+
+To create a bucket for this purpose, run:
+
+```shell
+aws s3 mb s3://bucket-name
+```
+
+You can (forcefully) delete the bucket with:
+
+```shell
+aws s3 rb s3://bucket-name --force
+```
 
 
 ## Troubleshooting
 
-In the worst case, a test will fail, and you'll be left with a Teal instance in
-your account.
+A common failure mode is that botocore throws a `KMSAccessDeniedException`
+exception which [appears to be related][2] to quickly deleting and recreating
+IAM roles with the same name. In the worst case, a test will fail, and you'll be
+left with a Teal instance in your account.
 
-To solve that, run `teal destroy --uuid $UUID` where `$UUID` is the UUID of the
+In either case, the easiest fix is to just destroy the whole instance and start
+again.
+
+To do that, run `teal destroy --uuid $UUID` where `$UUID` is the UUID of the
 instance created in the test (this should be shown the test logs).
 
 To investigate issues, it's often enough to run `teal stdout --uuid $UUID $SID`
 where `$SID` is the session ID that failed (again, check the logs).
+
+[1]: https://console.aws.amazon.com/iam/home
+[2]: https://github.com/serverless/examples/issues/279
