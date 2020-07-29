@@ -6,8 +6,8 @@
 
 **The Teal Programming Language**
 
-Teal makes it easy to build Python-powered data workflows on serverless
-infrastructure.
+Teal hides the complexity of AWS Lambda + SQS, so you can build serverless data
+workflows without managing infrastructure.
 
 Describe your workflows in a *real programming language* with first-class
 functions, concurrency, and native Python inter-op. Test end-to-end locally,
@@ -20,7 +20,7 @@ Lambda runtime, and a DynamoDB for Teal state).
 Like Serverless Framework, but handles runtime glue logic in addition to
 deployment.
 
-*Status*: Teal works well for small pipelines: 5-10 Lambda functions. Larger
+*Status*: Teal works well for small workflows: 5-10 Lambda invocations. Larger
 workflows may cause problems, and there is a known issue caused by DynamoDB
 restrictions ([#12](https://github.com/condense9/teal-lang/issues/12)).
 
