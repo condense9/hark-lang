@@ -2,6 +2,10 @@
 
 All user-level testing.
 
+Pre-requisites:
+- Docker
+- An AWS Account & user to run tests (see below)
+
 
 ## AWS Account Setup
 
@@ -17,25 +21,25 @@ to do that is described here.
 
 ### Step 1: Create an IAM user
 
-Go to
+1. Go to
 [https://console.aws.amazon.com/iam/home](https://console.aws.amazon.com/iam/home),
 select "Users" under **Access Management**, and hit "Add user".
 
-Under **Access Type**, select "Programmatic access" *only*.
+2. Under **Access Type**, select "Programmatic access" *only*.
 
-In **Set Permissions**, select "Attach existing policies directly", and hit
+3. In **Set Permissions**, select "Attach existing policies directly", and hit
 "Create policy".
 
-In the New Policy tab, select JSON, and copy in the contents of
+4. In the New Policy tab, select JSON, and copy in the contents of
 [test_user_policy.json](./test_user_policy.json).
 
-Back in the Add User tab, select the policy you've just created.
+5. Back in the Add User tab, select the policy you've just created.
 
-Finish the new user creation process and save the `ACCESS_KEY_ID` and
+6. Finish the new user creation process and save the `ACCESS_KEY_ID` and
 `SECRET_ACCESS_KEY` for step 2.
 
 
-### Step 2: Create `stories/.env`
+### Step 2: Set environment variables
 
 The test harness uses AWS credentials stored in `stories/.env`.
 
@@ -59,24 +63,26 @@ Each test story has a `test.sh` file which defines the user actions, and a
 
 For each story, run one of:
 - `make test` to test the latest PyPI version of Teal
-- `TEAL_VERSION="==x.x.x" make test` for a specific PyPI version (note the "==" prefix)
-- `make local` to test this Teal checkout
-- `make local-nobuild` to test this Teal checkout without rebuilding Teal (e.g.
-  if `test.sh` has changed)
+- `TEAL_VERSION="==x.x.x" make test` for a specific PyPI version (note the "=="
+  prefix!)
+- `make local` to test the current Teal checkout
+- `make local-nobuild` to test the current Teal checkout without rebuilding it
+  (e.g. if only `test.sh` has changed)
 
 
-If you don't have `make` installed, or don't like it, grab the commands in
-[stories/common.mk](stories/common.mk) and call them directly.
+If you don't have `make` installed, or don't like using Make, grab the commands
+in [stories/common.mk](stories/common.mk) and call them directly.
 
 
-### Getting Started
+### Story: Getting Started
 
-Runs the 2 minute getting-started tutorial.
+Runs the 2 minute getting-started tutorial in [../README.md](../README.md).
 
 
-### Try Fractals
+### Story: Try Fractals
 
-Runs the fractals example. `stories/.env` needs `FRACTALS_BUCKET` to be defined.
+Runs the [fractals example](../examples/fractals). Add a definition for
+`FRACTALS_BUCKET` to `stories/.env`.
 
 
 ## Troubleshooting
@@ -86,3 +92,6 @@ your account.
 
 To solve that, run `teal destroy --uuid $UUID` where `$UUID` is the UUID of the
 instance created in the test (this should be shown the test logs).
+
+To investigate issues, it's often enough to run `teal stdout --uuid $UUID $SID`
+where `$SID` is the session ID that failed (again, check the logs).
