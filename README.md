@@ -115,19 +115,21 @@ Teal is growing rapidly, and contributions are [warmly welcomed](CONTRIBUTING.md
 
 ## Things Teal can do
 
+When running in AWS, Teal threads run in separate lambda invocations.
+
 ### Concurrency & Synchronisation
 
 This is useful when a set computations are related, and must be kept together.
 
-
 ```javascript
 /**
- * Return f(x) + g(x), computing f(x) and g(x) in parallel.
+ * Return f(x) + g(x), computing f(x) and g(x) in parallel in two separate
+ * threads (Lambda invocations in AWS).
  */
 fn compute(x) {
-  a = async f(x);
-  b = async g(x);
-  await a + await b;
+  a = async f(x);     // Start computing f(x) in a new thread
+  b = async g(x);     // Likewise with g(x)
+  await a + await b;  // Stop this thread, and resume when {a, b} are ready
 }
 ```
 
@@ -175,7 +177,7 @@ fn map(f, x, accumulator) {
   }
   else {
     // The Teal compiler has tail-recursion optimisation
-    map(func, rest(x), append(accumulator, f(first(x))))
+    map(func, rest(x), append(accumulator, async f(first(x))))
   }
 }
 ```
@@ -188,7 +190,8 @@ fn add2(x) {
 }
 
 fn main() {
-  map(add2, [1, 2, 3, 4], [])
+  futures = map(add2, [1, 2, 3, 4], []);
+  // ...
 }
 ```
 
