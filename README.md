@@ -38,7 +38,7 @@ your applications dramatically simpler.
 
 Writing your own infrastructure is like writing assembly code - only do it if
 you really have extreme or unusual requirements. Otherwise, use a high-level
-language (Teal!) that hides the complexity and compiles to "soft"
+language (Teal!) that hides the complexity and compiles to "soft**
 infrastructure.
 
 
@@ -260,9 +260,8 @@ fn main() {
 
 ### 'print' returns the value printed
 
-In this snippet, "Hello Worlds!" is actually printed 3 times. First in `bar`,
-then in `main`, and then again by the Teal CLI as the value returned from
-`main`.
+In this snippet, "Hello Worlds!" is actually printed twice. First in `bar`, then
+in `main`.
 
 ```javascript
 fn bar() {
@@ -276,7 +275,6 @@ fn main() {
 
 ```shell
 $> teal -q service.tl
-Hello Worlds!
 Hello Worlds!
 Hello Worlds!
 ```
@@ -324,12 +322,12 @@ and more. Sign up to the mailing list to hear about this first:
 [https://www.condense9.com/](https://www.condense9.com/).
 
 
-| Teal is like...                     | But...                                                                                                   |
-|-------------------------------------|----------------------------------------------------------------------------------------------------------|
-| AWS Step Functions                  | Teal programs can be tested locally, and aren't bound to AWS.                                            |
-| Orchestrators (Apache Airflow, etc) | You don't have to manage infrastructure, or think in terms of DAGs, and you can test everything locally. |
-| Task runners (Celery, etc)          | You don't have to manage infrastructure.                                                                 |
-| Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex - their behaviour isn't always obvious.    |
+| Teal is like...                     | But...                                                                                                        |
+|-------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| AWS Step Functions                  | Teal programs aren't bound to AWS and don't use Step Functions under the hood (just plain Lambda + DynamoDB). |
+| Orchestrators (Apache Airflow, etc) | You don't have to manage infrastructure, or think in terms of DAGs, and you can test everything locally.      |
+| Task runners (Celery, etc)          | You don't have to manage infrastructure.                                                                      |
+| Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex - their behaviour isn't always obvious.         |
 
 
 [Read more...](https://teal-book.condense9.com/why.html)
