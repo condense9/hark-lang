@@ -129,7 +129,7 @@ def init_src(config):
 
     if not config.project.teal_file.exists():
         with open(config.project.teal_file, "w") as f:
-            main = "fn main() {\n\n}"
+            main = 'fn main() {\n  print("Hello World!");\n}\n'
             f.write(f"// Something great begins here.\n\n\n{main}")
             new_teal = config.project.teal_file
 

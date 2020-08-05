@@ -38,8 +38,8 @@ your applications dramatically simpler.
 
 Writing your own infrastructure is like writing assembly code - only do it if
 you really have extreme or unusual requirements. Otherwise, use a high-level
-language (Teal!) that hides the complexity and compiles to "soft**
-infrastructure.
+language (Teal!) that hides the complexity and compiles to "soft
+infrastructure".
 
 
 ## Up and running in 2 minutes

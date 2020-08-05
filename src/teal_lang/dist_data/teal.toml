@@ -1,5 +1,11 @@
 ## teal.toml
-## Default values indicated
+##
+## This is where all Teal configuration takes place. Default values are
+## indicated where it's appropriate to do so.
+##
+## Teal will work just fine without any modifications to this file, but you'll
+## probably want to tweak things!
+
 
 [project]
 
@@ -9,16 +15,18 @@
 ## Location of Python source
 # python_src = "src"
 
-## Location of Python dependencies
-# python_requirements = "requirements.txt"
-
 ## Location of Teal build data
 # data_dir = ".teal"
 
-## Path to the Python source lambda layer package (zip)
+## Location of Python dependencies
+# python_requirements = "requirements.txt"
+
+## Path to the Python source lambda layer package (zip). If not defined, Teal
+## will use pip to install requirements from python_requirements and copy source
+## from python_src
 # package = ""
 
-## The command to build project.package (optional)
+## The command to build project.package, if you have a build script
 # build_cmd = ""
 
 
