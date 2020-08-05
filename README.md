@@ -28,6 +28,8 @@ restrictions ([#12](https://github.com/condense9/teal-lang/issues/12)).
 
 <!-- Watch an introduction video. -->
 
+[Get started in 2 minutes](#up-and-running-in-2-minutes).
+
 [Read the documentation](https://teal-book.condense9.com).
 
 
@@ -40,6 +42,43 @@ Writing your own infrastructure is like writing assembly code - only do it if
 you really have extreme or unusual requirements. Otherwise, use a high-level
 language (Teal!) that hides the complexity and compiles to "soft
 infrastructure".
+
+
+## Is Teal for me?
+
+Teal *is* for you if:
+- You use Python for processing data, or writing business process workflows.
+- You want an alternative to AWS Step Functions.
+- You don't want to to deploy and manage a task platform (Airflow, Celery, etc).
+
+**Data in**: You can invoke Teal like any Lambda function (AWS cli, S3 trigger,
+API gateway, etc).
+
+**Data out**: Use the Python libraries you already have for database access.
+Teal just connects them together.
+
+**Development**: Teal runs locally, so you can thoroughly test Teal programs
+before deployment (using minio and localstack for any additional infrastructure
+that your code uses.
+
+**Operating**: Teal enables contextual cross-thread logging and stacktraces out
+of the box, since the entire application is described in one place.
+
+[Teal Cloud](https://condense9.com) (coming soon) will make this even easier,
+with a graphical console, one-click rollbacks of entire serverless applications,
+and more. Sign up to the mailing list to hear about this first:
+[https://www.condense9.com/](https://www.condense9.com/).
+
+
+| Teal is like...                     | But...                                                                                                        |
+|-------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| AWS Step Functions                  | Teal programs aren't bound to AWS and don't use Step Functions under the hood (just plain Lambda + DynamoDB). |
+| Orchestrators (Apache Airflow, etc) | You don't have to manage infrastructure, or think in terms of DAGs, and you can test everything locally.      |
+| Task runners (Celery, etc)          | You don't have to manage infrastructure.                                                                      |
+| Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex - their behaviour isn't always obvious.         |
+
+
+[Read more...](https://teal-book.condense9.com/why.html)
 
 
 ## Up and running in 2 minutes
@@ -290,47 +329,6 @@ v = if something { true_value } else { false_value };
 // if 'something' is not true, v is set to null
 v = if something { value };
 ```
-
-
-## Is Teal for me?
-
-Teal *is* for you if:
-- you dread the thought of writing Terraform or CloudFormation
-- you use Python for long-running tasks.
-- your data is in AWS.
-- You don't have time (or inclination) to deploy and manage a full-blown task
-  platform (Airflow, Celery, etc).
-- You'd like someone else to be responsible for platform stability, while you
-  concentrate on business logic.
-
-**Data in**: You can invoke Teal like any Lambda function (AWS cli, S3 trigger,
-API gateway, etc).
-
-**Data out**: Use the Python libraries you already have for database access.
-Teal just connects them together.
-
-**Development**: Teal runs locally, so you can thoroughly test Teal programs
-before deployment (using minio and localstack for any additional infrastructure
-that your code uses.
-
-**Operating**: Teal enables contextual cross-thread logging and stacktraces out
-of the box, since the entire application is described in one place.
-
-[Teal Cloud](https://condense9.com) (coming soon) will make this even easier,
-with a graphical console, one-click rollbacks of entire serverless applications,
-and more. Sign up to the mailing list to hear about this first:
-[https://www.condense9.com/](https://www.condense9.com/).
-
-
-| Teal is like...                     | But...                                                                                                        |
-|-------------------------------------|---------------------------------------------------------------------------------------------------------------|
-| AWS Step Functions                  | Teal programs aren't bound to AWS and don't use Step Functions under the hood (just plain Lambda + DynamoDB). |
-| Orchestrators (Apache Airflow, etc) | You don't have to manage infrastructure, or think in terms of DAGs, and you can test everything locally.      |
-| Task runners (Celery, etc)          | You don't have to manage infrastructure.                                                                      |
-| Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex - their behaviour isn't always obvious.         |
-
-
-[Read more...](https://teal-book.condense9.com/why.html)
 
 
 ## FAQ
