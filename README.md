@@ -33,15 +33,9 @@ restrictions ([#12](https://github.com/condense9/teal-lang/issues/12)).
 [Read the documentation](https://teal-book.condense9.com).
 
 
-## Why should I learn a new language?
+## Contributing
 
-Because it'll save you days or weeks of development time, and make operating
-your applications dramatically simpler.
-
-Writing your own infrastructure is like writing assembly code - only do it if
-you really have extreme or unusual requirements. Otherwise, use a high-level
-language (Teal!) that hides the complexity and compiles to "soft
-infrastructure".
+Teal is growing rapidly, and contributions are [warmly welcomed](CONTRIBUTING.md).
 
 
 ## Is Teal for me?
@@ -79,6 +73,17 @@ and more. Sign up to the mailing list to hear about this first:
 
 
 [Read more...](https://teal-book.condense9.com/why.html)
+
+
+## Why should I learn a new language?
+
+Because it'll save you days or weeks of development time, and make operating
+your applications dramatically simpler.
+
+Writing your own infrastructure is like writing assembly code - only do it if
+you really have extreme or unusual requirements. Otherwise, use a high-level
+language (Teal!) that hides the complexity and compiles to "soft
+infrastructure".
 
 
 ## Up and running in 2 minutes
@@ -146,10 +151,6 @@ Read more...
 - [about configuring Teal](https://teal-book.condense9.com/configuration.html)
 
 
-
-## Contributing
-
-Teal is growing rapidly, and contributions are [warmly welcomed](CONTRIBUTING.md).
 
 
 ## Things Teal can do
