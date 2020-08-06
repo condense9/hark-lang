@@ -83,6 +83,8 @@ from .interface import (
 
 LOG = logging.getLogger(__name__)
 
+ENABLE_TEAL_CLOUD = False  # for now...
+
 
 def timed(fn):
     """Time execution of fn and print it"""
@@ -203,14 +205,18 @@ def _get_instance_api(cfg, can_create_new=False) -> TealInstanceApi:
     CREATE_NEW = "Create a new self-hosted instance (using local AWS credentials)."
     USE_EXISTING = "Use an existing self hosted instance."
     TEAL_CLOUD = "Choose a project in Teal Cloud."
+    CANCEL = "Cancel."
 
-    options = [TEAL_CLOUD, USE_EXISTING]
+    options = [USE_EXISTING, CANCEL]
     if can_create_new:
-        options += [CREATE_NEW]
+        options = [CREATE_NEW] + options
+
+    if ENABLE_TEAL_CLOUD:
+        options = [TEAL_CLOUD] + options
 
     choice = ui.select("What would you like to do?", options)
 
-    if choice is None:
+    if choice is None or choice == CANCEL:
         sys.exit(1)
 
     elif choice == CREATE_NEW:
