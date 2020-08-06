@@ -8,4 +8,8 @@ title = "Cloud-Native Development With Teal"
 [output.html]
 theme = "src/theme"
 default-theme = "light"
-git-repository-url = "https://github.com/condense9/teal-lang"
+git-repository-url = "https://condense9.com/"
+git-repository-icon = "fa-home"
+google-analytics = "UA-42722262-3"
+
+curly-quotes = true

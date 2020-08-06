@@ -9,7 +9,17 @@
   - [Creating a new project](./getting_started/new_project.md)
   - [Hello Worlds!](./getting_started/hello_worlds.md)
 
-- [Language features](./language/index.md)
+- [Developing with Teal](./development/index.md)
+  - [Testing](./development/testing.md)
+  - [Deployment](./development/deployment.md)
+  - [Monitoring](./development/monitoring.md)
+  - [Configuration with teal.toml](./development/config.md)
+  - [Sharing code](./development/sharing.md)
+  - [Debugging and troubleshooting](./development/debugging.md)
+
+- [Teal on AWS](./aws.md)
+
+- [The Teal Language](./language/index.md)
   - [Functions](./language/functions.md)
   - [Variables](./language/variables.md)
   - [Types](./language/types.md)
@@ -19,21 +29,12 @@
   - [Error handling](./language/errors.md)
   - [Keywords](./language/keywords.md)
 
-- [Developing with Teal](./development/index.md)
-  - [Testing](./development/testing.md)
-  - [Sharing](./development/sharing.md)
-  - [Deployment](./development/deployment.md)
-  - [Monitoring](./development/monitoring.md)
+- [The Teal VM](./vm/index.md)
+  - [Overview](./vm/overview.md)
+  - [Storage](./vm/storage.md)
+  - [Invocation](./vm/invocation.md)
+  - [Machine Design](./vm/design.md)
+  - [Adding new instructions](./vm/new_instructions.md)
 
-- [Configuration](./configuration.md)
-
-- [Debugging and troubleshooting](./debugging.md)
-
-- [Teal Developers](./dev/index.md)
+- [Developing Teal](./dev/index.md)
   - [Local development environment](./dev/env.md)
-  - [Teal on AWS](./dev/aws.md)
-  - [The Teal VM](./dev/vm.md)
-  - [Executors](./dev/executors.md)
-  - [Storage](./dev/storage.md)
-  - [Adding new instructions](./dev/new_instructions.md)
-  - [Internals](./dev/internals.md)

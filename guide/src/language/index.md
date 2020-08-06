@@ -1,21 +1,21 @@
 # The Teal Programming Language
 
-Teal is a simple compiled language with only a few constructs:
+Teal is a *functional*, *compiled* language which aims to support first-class
+concurrency and mainstream language inter-op. It compiles into byte-code which
+runs on [The Teal VM](/vm/index.html) .
 
-1. named variables
-2. `async` & `await` concurrency primitives 
-3. Python (>=3.8) interoperability (FFI)
-4. A few basic types (strings, numbers, lists)
-5. first-class functions (proper closures coming soon)
+Teal has:
 
-Two interpreters have been implemented so far -- local and AWS Lambda, but
-there's no reason Teal couldn't run on top of (for example) Kubernetes. [Issue
-#8](https://github.com/condense9/teal-lang/issues/8)
+1. Named variables.
 
-**Concurrency**: When you do `y = async f(x)`, `f(x)` is started on a new Lambda
-instance. And then when you do `await y`, the current Lambda function
-terminates, and automatically continues when `y` is finished being computed.
+2. Threads, and `async` & `await` primitives to manage them.
+
+3. Python 3.8 interoperability ([Foreign Function Interface][1]).
+
+4. JSON-compatible types (strings, numbers, lists, dictionaries).
+
+5. First-class functions (proper closures coming soon).
 
 The compiler is basic at the moment, but does feature tail-call optimisation for
 recursive functions. Compile-time correctness checks (e.g. bound names, types,
-etc) are coming soon.
+etc) are planned.

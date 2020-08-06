@@ -1,23 +1,27 @@
 # Why Teal?
 
-Building serverless applications is hard, and it doesn't need to be.
+Teal is not a replacement for your favourite mainstream language. It does
+something nothing else can: eliminates the *need* to write infrastructure.
 
 Serverless applications are inherently distributed, and building distributed
 systems by hand is hard. It's much easier to think about them as monolithic
 applications which are then *compiled into* distributed applications.
 
-Teal lets you do that.
+Teal lets you do that. Some benefits:
 
-The benefits are several:
-- Full local testing of the application *logic* (you still have to mock out
-  third party services**
-- Automatic log aggregation, making for much easier debugging
-- Trivial deployment or rollback of entire applications, not just single
-  functions.
+- **Local testing**. Full local testing of the application *logic* (you still
+  have to mock out third party services.
 
-Also, Teal is naturally cloud-agnostic. Only the AWS runtime has been
-implemented so far, but in principle, Teal programs are fully portable across
-execution environments.
+- **Advanced metrics**. Automatic log aggregation (like structured logging),
+  making for much easier contextual debugging. Deep insight into application
+  performance and cost (way better than the context-free AWS reporting).
+
+- **Deployment**. Trivial deployment or rollback of entire applications, not
+  just single functions.
+
+- **Portability**. Teal is naturally cloud-agnostic. Only the AWS runtime has
+been implemented so far, but in principle, Teal programs are fully portable
+across execution environments.
 
 
 ## Soft infrastructure

@@ -1,12 +1,11 @@
-# Internals
+# Overview
 
 Styling hints:
 - Nouns in *Italics* (and capitalised).
 - Adjectives/verbs in **bold**.
-- Code in `monospace`.
+- Code in `monospace**.
 
-
-## Terms
+**Terms**
 
 *Session*: 1 or more Threads.
 
@@ -113,4 +112,4 @@ do share stack traces, and it makes sense to display this.
 
 ## Results & Return Values
 
-
+TODO

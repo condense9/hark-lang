@@ -1,1 +1,1 @@
-# Configuration
+# Configuration with teal.toml
