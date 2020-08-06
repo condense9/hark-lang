@@ -77,8 +77,10 @@ and more. Sign up to the mailing list to hear about this first:
 
 ## Why should I learn a new language?
 
-Because it'll save you days or weeks of development time, and make operating
-your applications dramatically simpler.
+Because it'll give you a new way to *think* about cloud software.
+
+Teal is not a Python replacement. It has one specific goal: eliminate the need
+to *implement* infrastructure.
 
 Writing your own infrastructure is like writing assembly code - only do it if
 you really have extreme or unusual requirements. Otherwise, use a high-level
