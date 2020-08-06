@@ -33,7 +33,7 @@ respond within 30ms to millions of messages concurrently".
 Most of those patterns correspond to familiar software concepts&mdash;value
 assignment, function calls and concurrency.
 
-Instead of writing infrastructure, write software that gets compiled and *uses**
+Instead of writing infrastructure, write software that gets compiled and *uses*
 serverless infrastructure to get all the benefits, but doesn't expose the
 complexity.
 
