@@ -9,7 +9,7 @@ The guide is version controlled in the [Teal
 repository](https://github.com/condense9/teal-lang/tree/master/guide), and
 should be kept in sync with Teal releases.
 
-The version you're reading was published for Teal `v0.4.2`.
+The version you're reading was published for Teal `v0.4.3`.
 
 Quick links:
 
