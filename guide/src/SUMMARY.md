@@ -6,8 +6,8 @@
 
 - [Getting started](./getting_started/index.md)
   - [Installation](./getting_started/installation.md)
-  - [Creating a new project](./getting_started/new_project.md)
   - [Hello Worlds!](./getting_started/hello_worlds.md)
+  - [Creating a new project](./getting_started/new_project.md)
 
 - [Developing with Teal](./development/index.md)
   - [Configuration with teal.toml](./development/config.md)
