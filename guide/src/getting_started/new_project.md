@@ -22,7 +22,7 @@ teal init
 
 We want our teal code to parallelise the processing of a (potentially) large essay. To start, we can implement the word counter and rle encoding code in python. Here is an implementation you can copy. Alternatively feel free to write (and unit test) your own.
 
-``` python
+```python
 # teal-rle/src/teal_rle/__init__.py
 
 from functools import reduce
@@ -65,7 +65,7 @@ __version__ = '0.1.0'
 
 Next we can modify the teal file to do our processing. Here is an example of what we might want:
 
-```python
+```javascript
 // service.tl
 
 import(rle_encode, teal_rle, 1);
@@ -94,7 +94,7 @@ If we are happy with that, we can get our essay from `metaphorpsum.com` instead 
 poetry add httpx
 ```
 
-We can add the following to our teal_rle python code to grab a paragraph to be processed. Add the following function to the python code:
+We can add the following to our `teal_rle` python code to grab a paragraph to be processed. Add the following function to the python code:
 
 ```python
 # teal-rle/src/teal_rle/__init__.py
@@ -114,7 +114,7 @@ __version__ = '0.1.0'
 
 And update `service.tl`:
 
-```python
+```javascript
 // service.tl
 
 import(rle_encode, teal_rle, 1);

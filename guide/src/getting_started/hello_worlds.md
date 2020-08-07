@@ -2,7 +2,7 @@
 
 Hello world in teal looks like this. Type or paste this in your favourite editor.
 
-```python
+```javascript
 // service.tl
 
 fn hello_world() {
@@ -32,7 +32,7 @@ Does it exist in service.tl?
 
 We can solve that easily by adding a main.
 
-```python
+```javascript
 // service.tl
 
 fn hello_world() {
