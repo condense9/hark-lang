@@ -32,6 +32,8 @@ restrictions ([#12](https://github.com/condense9/teal-lang/issues/12)).
 
 [Read the documentation](https://teal-book.condense9.com).
 
+[PyCon Africa 2020 Demos!](https://github.com/condense9/teal-demos).
+
 
 ## Contributing
 

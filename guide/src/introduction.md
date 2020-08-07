@@ -11,4 +11,12 @@ should be kept in sync with Teal releases.
 
 The version you're reading was published for Teal `v0.4.2`.
 
+Quick links:
+
+* [How Teal Works](/vm/index.html)
+
+* [Getting Started](/getting_started/index.html)
+
 Onwards!
+
+(Tip: use your keyboard ⇦ & ⇨ to navigate)

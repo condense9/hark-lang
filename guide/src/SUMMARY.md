@@ -10,14 +10,16 @@
   - [Hello Worlds!](./getting_started/hello_worlds.md)
 
 - [Developing with Teal](./development/index.md)
+  - [Configuration with teal.toml](./development/config.md)
   - [Testing](./development/testing.md)
   - [Deployment](./development/deployment.md)
   - [Monitoring](./development/monitoring.md)
-  - [Configuration with teal.toml](./development/config.md)
   - [Sharing code](./development/sharing.md)
   - [Debugging and troubleshooting](./development/debugging.md)
 
 - [Teal on AWS](./aws.md)
+  - [HTTP APIs](./aws/http_apis.md)
+  - [File uploads](./aws/file_uploads.md)
 
 - [The Teal Language](./language/index.md)
   - [Functions](./language/functions.md)

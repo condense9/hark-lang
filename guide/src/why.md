@@ -1,7 +1,7 @@
 # Why Teal?
 
 Teal is not a replacement for your favourite mainstream language. It does
-something nothing else can: eliminates the *need* to write infrastructure.
+something new: eliminates the *need* to write infrastructure.
 
 Serverless applications are inherently distributed, and building distributed
 systems by hand is hard. It's much easier to think about them as monolithic

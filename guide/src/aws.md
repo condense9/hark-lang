@@ -3,24 +3,18 @@
 [![Teal Architecture Diagram](/img/teal_aws.png)](/img/teal_aws.png)
 
 
-## Instance Data
-
-This section needs to be written. [Pull
-Requests](https://github.com/condense9/teal-lang) welcome.
+> This section needs expansion. [Pull
+> Requests](https://github.com/condense9/teal-lang) welcome.
 
 
-## Control API
+<!-- ## Instance Data -->
 
-This section needs to be written. [Pull
-Requests](https://github.com/condense9/teal-lang) welcome.
 
-## Trigger API
+<!-- ## Control API -->
 
-This section needs to be written. [Pull
-Requests](https://github.com/condense9/teal-lang) welcome.
 
-## Teal Runtime
+<!-- ## Trigger API -->
 
-This section needs to be written. [Pull
-Requests](https://github.com/condense9/teal-lang) welcome.
+
+<!-- ## Teal Runtime -->
 
