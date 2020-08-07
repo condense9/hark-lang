@@ -7,11 +7,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [unreleased]
 
+
+## [0.4.3] (2020-08-07)
+
 ### Changed
 
+- **New import syntax**
 - Allow empty 'else' clauses in `if` expressions (returning null).
 - `teal init` now also creates an empty src folder and service file. All about
   that programmer ease!
+
+### New
+
+- `teal info` command
+- [The Teal Guide](teal-book.condense9.com/)
+  
+### Fixed
+
+- Lots of minor bugfixes, and some major!
+
 
 ## [0.4.2] (2020-07-23)
 
@@ -180,7 +194,8 @@ Initial release.
 - A few examples
 
 
-[unreleased]: https://github.com/condense9/teal-lang/compare/v0.4.2...HEAD
+[unreleased]: https://github.com/condense9/teal-lang/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/condense9/teal-lang/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/condense9/teal-lang/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/condense9/teal-lang/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/condense9/teal-lang/compare/v0.3.0...v0.4.0
