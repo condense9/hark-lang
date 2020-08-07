@@ -13,11 +13,11 @@ Returns the run-length encoded (rle) contents of the essay along with the word f
 Create a new python project, we will use `poetry` in this case.
 
 ```bash
-$ poetry new --src teal-rle
-$ cd teal-rle
-$ poetry add teal-lang
-$ poetry install
-$ teal init
+poetry new --src teal-rle
+cd teal-rle
+poetry add teal-lang
+poetry install
+teal init
 ```
 
 We want our teal code to parallelise the processing of a (potentially) large essay. To start, we can implement the word counter and rle encoding code in python. Here is an implementation you can copy. Alternatively feel free to write (and unit test) your own.
@@ -85,16 +85,13 @@ fn main(contents) {
 We can now run the teal code locally for example:
 
 ```bash
-$ poetry run teal service.tl "the quick brown fox jumps over the lazy dog"
-{'encoding': ..., 'frequencies': {'the': 2, ...}}
-
--- 0s
+poetry run teal service.tl "the quick brown fox jumps over the lazy dog"
 ```
 
 If we are happy with that, we can get our essay from `metaphorpsum.com` instead of passing command line arguments. Lets add a nice library to make these requests with.
 
 ``` bash
-$ poetry add httpx
+poetry add httpx
 ```
 
 We can add the following to our teal_rle python code to grab a paragraph to be processed. Add the following function to the python code:
@@ -139,8 +136,5 @@ fn main() {
 And test:
 
 ```bash
-$ poetry run teal service.tl
-{'encoding': ... 'frequencies': {'few': 5, ...}}
-
--- 0s
+poetry run teal service.tl
 ```
