@@ -1,4 +1,5 @@
 """Top-level utilities for loading Teal code"""
+import os
 import sys
 from pathlib import Path
 
@@ -11,7 +12,9 @@ from .teal_parser.parser import TealParseError, tl_parse
 
 def compile_text(text: str) -> Executable:
     "Parse and compile a Teal program"
-    return tl_compile(tl_parse("<unknown>", text))
+    return tl_compile(
+        tl_parse("<unknown>", text, debug_lex=os.getenv("DEBUG_LEX", False))
+    )
 
 
 def compile_file(filename: Path) -> Executable:
@@ -19,7 +22,7 @@ def compile_file(filename: Path) -> Executable:
     with open(filename, "r") as f:
         text = f.read()
 
-    return tl_compile(tl_parse(filename, text))
+    return tl_compile(tl_parse(filename, text, debug_lex=os.getenv("DEBUG_LEX", False)))
 
 
 if __name__ == "__main__":
