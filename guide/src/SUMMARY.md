@@ -31,11 +31,16 @@
   - [Error handling](./language/errors.md)
   - [Keywords](./language/keywords.md)
 
-- [The Teal VM](./vm/index.md)
+- [The VM](./vm/index.md)
+  - [From Source to Success](./vm/source-to-success.md)
+  - [Machine Design](./vm/design.md)
+    - [Requirements and concepts](./vm/requirements-and-concepts.md)
+    - [Thread States](./vm/state.md)
+    - [Futures](./vm/futures.md)
+    - [Activation Records](./vm/activation-records.md)
   - [Overview](./vm/overview.md)
   - [Storage](./vm/storage.md)
   - [Invocation](./vm/invocation.md)
-  - [Machine Design](./vm/design.md)
   - [Adding new instructions](./vm/new_instructions.md)
 
 - [Developing Teal](./dev/index.md)

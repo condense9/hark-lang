@@ -11,5 +11,9 @@ default-theme = "light"
 git-repository-url = "https://condense9.com/"
 git-repository-icon = "fa-home"
 google-analytics = "UA-42722262-3"
-
 curly-quotes = true
+additional-css = ["mermaid.css"]
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"

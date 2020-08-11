@@ -288,8 +288,6 @@ class TealParser(Parser):
     # are restricted to "named" calls - ie you can't directly call the result of
     # an expression, you have to assign to a variable first. This isn't ideal,
     # but too hard to fix now.
-
-    # NOTE:
     @_("ID '(' arglist ')'")
     def expr(self, p):
         identifier = N(self, p, n.N_Id, p.ID)
