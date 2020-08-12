@@ -1,7 +1,7 @@
 # From Source to Success
 
-We'll start our journey by exploring the process of going from Teal source code
-to successfully running a multi-thread process in AWS.
+We'll begin by exploring the process of going from Teal source code to
+successfully running a multi-thread process in AWS.
 
 Here's our source:
 
@@ -28,7 +28,7 @@ Features
 - one imported Python function, `foo`
 - two Teal functions, `bar` and `compute`
 - each function takes 1 argument (assumed to be an `int`)
-- `foo` is called asynchronously (new thread)
+- `foo(x)` is called asynchronously (new thread)
 - `bar(x)` is evaluated in the current thread
 - `a` is waited for
 - the sum `foo(x) + bar(x)` is returned
@@ -43,7 +43,10 @@ command, reads configuration and dispatches the handler.
 graph LR;
 
 subgraph CLI command
- A1{{"Command (e.g. compile)"}} --> A11[Load configuration] --> B1["Compile & Run"]
+ cmd{{"Command (e.g. compile)"}} --> load[Load configuration] --> run["Compile & Run"]
+ click cmd "https://github.com/condense9/teal-lang/blob/master/src/teal_lang/cli/main.py"
+ click load "https://github.com/condense9/teal-lang/blob/master/src/teal_lang/load.py"
+ click run "https://github.com/condense9/teal-lang/blob/master/src/teal_lang/run/common.py"
 end
 ```
 
@@ -66,13 +69,23 @@ Then it's run.
 
 ```mermaid
 stateDiagram
-	[*] --> Still
-	Still --> [*]
 
-	Still --> Moving
-	Moving --> Still
-	Moving --> Crash
-	Crash --> [*]
+LoadData : Load
+LoadData : Load configuration data
+
+Eval : Eval
+Eval : Run instruction at current Instruction Pointer (IP)
+
+Step : Inc
+Step : Increment IP
+
+ [*] --> LoadData
+ LoadData --> Eval
+
+ Eval --> Step
+
+ Step --> Eval : Not stopped
+ Step --> [*] : Stopped
 ```
 
 We'll look at each step in more detail now.
@@ -333,6 +346,11 @@ BINDINGS:
  main ...... <TlFunctionPtr #3:main>
 ```
 
+This shows how each Teal function has an associated block of bytecode, and the
+one imported Python function has been wrapped (using a `#F:` prefix to indicate
+that it is different from the other functions that are just `#n:`).
+
+
 ### Register imports
 
 Any `import` expressions at file top-level are saved as named bindings in the
@@ -409,6 +427,7 @@ create the VM.
 graph LR;
  exe{{"Executable (bytecode, ...)"}} --> Run
  config{{Configuration}} --> Run
+ fn{{Initial function and args}} --> Run
  
  Run((Run)) --> result{{Result and output}}
 ```
@@ -419,22 +438,34 @@ Relevant functions & classes:
 - `Controller` -- [teal_lang/machine/controller.py][controller]
 - `Instruction` -- [teal_lang/machine/instructionset.py][instructionset] and [teal_lang/machine/instruction.py][instruction]
 
-The machine run logic looks something like:
-
 ```mermaid
-graph TB;
- start((Start)) --> step[Run instruction at current Instruction Pointer]
+stateDiagram
 
- step --> done{{"Instructions remaining?"}}
+LoadData : Load
+LoadData : Load configuration data
 
- done -->|yes| inc[Increment Instruction Pointer] --> step
- done -->|no| finish((Finish))
+Eval : Eval
+Eval : Run instruction at current Instruction Pointer (IP)
+
+Step : Inc
+Step : Increment IP
+
+ [*] --> LoadData
+ LoadData --> Eval
+
+ Eval --> Step
+
+ Step --> Eval : Not stopped
+ Step --> [*] : Stopped
 ```
 
-Sidenote: wow, that drawing is pretty terrible!
+To run the executable, the VM simply executes instructions until it cannot
+anymore. Reasons it may stop:
+- returning from the entrypoint function
+- waiting for another thread to finish
 
 Machine instructions can do several things:
-- change the instruction pointer (control-flow)
+- change the instruction pointer (control flow -- branches, jumps)
 - push/pop the data stack
 - halt the machine (e.g. to wait for a thread)
 - perform actions with external side effects (new thread, write to stdout)
@@ -460,21 +491,21 @@ Steps:
 1. `BIND x` - take the top value off the stack and (locally) bind it to the
    symbol named "x".
    
-2. `POP` - remove the top value from the stack (left behind by `BIND`)
+2. `POP` - remove the top value from the stack (left behind by `BIND`).
 
 3. `PUSHB x` - Push the value bound to `x` onto the stack. *Yes*: there's an
    obvious opportunity for compile-time optimisation here. The sub-optimal code
    results from the piecemeal context-free compilation process.
 
 4. `PUSHB foo` - Push the value bound to `foo` (i.e., `<TlForeignPtr
-   pysrc.foo>`) onto the stack
+   pysrc.foo>`) onto the stack.
    
 5. `ACALL 1` - Call a function asynchronously with one argument. The top value
    on the stack is popped and used to find the function, and the next (one)
    parameter is popped and passed to the function.
 
 6. `BIND a` - Bind the top value on the stack (the function return value) to the
-   symbol named "a"
+   symbol named "a".
    
 See [teal_lang/machine/instructionset.py][instructionset] for the instruction
 set and [teal_lang/machine/machine.py][machine] for implementation.
