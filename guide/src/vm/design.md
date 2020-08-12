@@ -1,5 +1,8 @@
 # Machine Design
 
+**Recommended**: Read [From Source to Success](source-to-success.html) first!
+
+
 ## Introduction
 
 Teal ([the language](/language/index.html)) compiles into [bytecode][3] that
