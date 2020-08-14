@@ -1,10 +1,8 @@
 # Teal Book
 
-Built happily with [mdBook](https://github.com/rust-lang/mdBook) and hosted on
-[Netlify](https://netlify.com).
+**Hosted at [https://teal-book.condense9.com](https://teal-book.condense9.com).**
 
-`mdbook serve` to run the local server.
+Built happily with [mdBook](https://github.com/rust-lang/mdBook). Requires
+[mdbook-mermaid](https://github.com/badboy/mdbook-mermaid).
 
-`netlify build; netlify deploy` to preview.
-
-`netlify deploy --prod` to deploy.
+`mdbook serve` to run the local server. Ping @rmhsilva to deploy.
