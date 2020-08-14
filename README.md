@@ -60,12 +60,6 @@ that your code uses.
 **Operating**: Teal enables contextual cross-thread logging and stacktraces out
 of the box, since the entire application is described in one place.
 
-[Teal Cloud](https://condense9.com) (coming soon) will make this even easier,
-with a graphical console, one-click rollbacks of entire serverless applications,
-and more. Sign up to the mailing list to hear about this first:
-[https://www.condense9.com/](https://www.condense9.com/).
-
-
 | Teal is like...                     | But...                                                                                                        |
 |-------------------------------------|---------------------------------------------------------------------------------------------------------------|
 | AWS Step Functions                  | Teal programs aren't bound to AWS and don't use Step Functions under the hood (just plain Lambda + DynamoDB). |
