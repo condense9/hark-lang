@@ -44,25 +44,6 @@ Here's the current implementation landscape.
 | DynamoDB  | Lambda          | AWS      | Concurrent. Limitations on DynamoDB item size! |
 
 
-
-## Components
-
-This diagram shows the components required to create a VM:
-
-```mermaid
-graph LR;
- A{{"Executable (bytecode, bindings, ...)"}}
- A2{{"Thread states (initially just 1)"}}
- B[Data Controller]
- A --> B
- A2 --> B
-
- B --> C[Invoker]
- C1{{Invoke configuration}} --> C
-
- C --> D((VM))
-```
-
 [1]: https://en.wikipedia.org/wiki/Foreign_function_interface
 [2]: https://github.com/condense9/teal-lang/issues/8
 [3]: https://en.wikipedia.org/wiki/Bytecode

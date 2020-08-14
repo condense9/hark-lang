@@ -33,6 +33,9 @@
 
 - [The VM](./vm/index.md)
   - [From Source to Success](./vm/source-to-success.md)
+    - [Interpret the CLI](./vm/source-to-success-cli.md)
+    - [Compile the code](./vm/source-to-success-compilation.md)
+    - [Run the program](./vm/source-to-success-threads.md)
   - [Machine Design](./vm/design.md)
     - [Requirements and concepts](./vm/requirements-and-concepts.md)
     - [Thread States](./vm/state.md)

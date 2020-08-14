@@ -39,6 +39,24 @@ effect of any Python calls).
 These are the core components that make up the design. Understand these, and how
 they interact, and you'll understand Teal.
 
+
+### Threads
+
+A Teal program starts off as a single thread, and can create other threads to
+execute in parallel. Each thread begins executing from a specific function
+(called its entrypoint).
+
+Each thread executes instructions in *series* until it cannot return anymore (ie
+it returns from its entrypoint). All threads share the same executable -- the
+currently-implemented synchronisation method depend on it!
+
+Each thread has:
+
+- (one) *private* **data stack**
+- (one) *private* **instruction pointer**
+- (one) *shared* **Future**
+- (many) *shared* **Activation Records**
+
 ### Executable
 
 The executable is a **static** (does not change at run-time) data structure
@@ -53,10 +71,17 @@ globally named (non-function) values.
 
 ### Data Stack and Instruction Pointer
 
-The Teal VM is a simple stack-based machine (similar, in a distant way, [to
-Java's JVM][1]).
+Within the context of a single thread, the Teal VM is a simple stack-based
+machine (similar, in a distant way, [to Java's JVM][jvm]).
 
-[1]: https://www.jopdesign.com/doc/stack.pdf
+The instruction pointer is an index into the executable code, determining the
+*next* instruction to be executed (it is pre-incremented).
+
+The data stack supports basic push/pop semantics and can store any Teal
+data-type, although this might change before Teal v1.0 to support proper heap
+storage of data.
+
+[jvm]: https://www.jopdesign.com/doc/stack.pdf
 
 ### Instructions
 
@@ -70,18 +95,6 @@ Some special instructions exist in order to, for example:
 - control the VM (pause a thread, write to standard output, etc) 
 
 Instructions can take (fixed) operands.
-
-### Threads
-
-A Teal program starts off as a single thread, and can create other threads to
-execute in parallel. Each thread begins executing from a specific function, and
-each thread has its own data stack.
-
-Each thread executes instructions in *series* until it cannot return anymore (ie
-it has completed the function it was started with).
-
-All threads must share the same executable -- the currently-implemented
-synchronisation method depend on it!
 
 ### Activation Record
 
@@ -104,8 +117,8 @@ Each thread is associated with a single Future object. Futures can be
 they are not resolved, they have a (possibly empty) list of **continuations**,
 each of which represent the state of a paused thread.
 
-When a thread returns from its starting function, the associated Future is
-resolved to the thread's return value.
+When a thread returns from its entrypoint function, the associated Future is
+resolved to the function's return value (top item on the data stack).
 
 ### Calling convention
 
