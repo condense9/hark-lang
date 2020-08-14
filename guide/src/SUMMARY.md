@@ -7,9 +7,10 @@
 - [Getting started](./getting_started/index.md)
   - [Installation](./getting_started/installation.md)
   - [Hello Worlds!](./getting_started/hello_worlds.md)
-  - [Creating a new project](./getting_started/new_project.md)
+  - [Deploy something!](./getting_started/deploy.md)
 
 - [Developing with Teal](./development/index.md)
+  - [Creating a new project](./getting_started/new_project.md)
   - [Configuration with teal.toml](./development/config.md)
   - [Testing](./development/testing.md)
   - [Deployment](./development/deployment.md)
