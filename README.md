@@ -71,19 +71,6 @@ of the box, since the entire application is described in one place.
 [Read more...](https://teal-book.condense9.com/why.html)
 
 
-## Why should I learn a new language?
-
-Because it'll give you a new way to *think* about cloud software.
-
-Teal is not a Python replacement. It has one specific goal: eliminate the need
-to *implement* infrastructure.
-
-Writing your own infrastructure is like writing assembly code - only do it if
-you really have extreme or unusual requirements. Otherwise, use a high-level
-language (Teal!) that hides the complexity and compiles to "soft
-infrastructure".
-
-
 ## Up and running in 2 minutes
 
 All you need:
@@ -149,11 +136,16 @@ Read more...
 - [about configuring Teal](https://teal-book.condense9.com/configuration.html)
 
 
+## Why should I learn a new language?
 
+It's a big ask! There's *so much* that's missing from a brand new language. For
+now, think about it like learning a new library or API -- you can do most of the
+hard work in regular Python, using existing packages and code, while Teal lets
+you express things you can't easily do in Python.
 
-## Things Teal can do
-
-When running in AWS, Teal threads run in separate lambda invocations.
+They key concept is this: when running in AWS, Teal threads run in separate
+lambda invocations, and the language comes with primitives to manage these
+threads.
 
 ### Concurrency & Synchronisation
 
