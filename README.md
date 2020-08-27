@@ -1,10 +1,10 @@
-![Teal](doc/teal.png)
-
----
+# The Teal Programming Language
 
 ![Tests](https://github.com/condense9/teal-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/teal-lang.svg)](https://pypi.org/project/teal-lang) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380)
 
-**The Teal Programming Language**
+**Teal** is in the process of being renamed -- this will be finished by midnight
+(BST) August 28th. Sorry for stepping on your toes, [Typed
+Lua](https://github.com/teal-language/tl)!
 
 Teal hides the complexity of AWS Lambda + SQS, so you can build serverless data
 workflows without managing infrastructure.
