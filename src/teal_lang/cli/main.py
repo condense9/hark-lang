@@ -4,6 +4,7 @@ Usage:
   teal [options] info
   teal [options] init
   teal [options] asm FILE
+  teal [options] ast FILE
   teal [options] deploy
   teal [options] destroy
   teal [options] invoke [-f FUNCTION] [--async] [ARG...]
@@ -16,6 +17,7 @@ Usage:
 Commands:
   info     Show info about this Teal environment
   asm      Compile a file and print the bytecode listing.
+  ast      Create the AST and store as FILE.png
   deploy   Deploy to the cloud.
   destroy  Remove cloud deployment.
   invoke   Invoke a teal function in the cloud.
@@ -174,6 +176,20 @@ def _asm(args):
     print(neutral("\nBINDINGS:\n"))
     exe.bindings_table()
     print()
+
+def _ast(args):
+    """Create AST and store in file"""
+    from ..teal_parser.ast_tree import ast_tree
+
+    input_path = Path(args["FILE"])
+
+    ast_vis = ast_tree(input_path)
+
+    output_file_path = str(input_path) + ".dot"
+    ast_vis.write_raw(output_file_path)
+
+    output_file_path = str(input_path) + ".png"
+    ast_vis.write_png(output_file_path)
 
 
 def _get_instance_api(cfg, can_create_new=False) -> TealInstanceApi:
@@ -409,6 +425,8 @@ def dispatch(args):
         _init(args)
     elif args["asm"]:
         _asm(args)
+    elif args["ast"]:
+        _ast(args)
     elif args["deploy"]:
         _deploy(args)
     elif args["destroy"]:
