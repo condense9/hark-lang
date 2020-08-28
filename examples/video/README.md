@@ -2,7 +2,7 @@
 
 Status: WIP. The Python tasks are still placeholders.
 
-When a video file is uploaded, [`video.tl`](video.tl) transcodes it into several
+When a video file is uploaded, [`video.hk`](video.hk) transcodes it into several
 different formats and sizes as quickly as possible on AWS Lambda.
 
 1. Download the file
@@ -12,5 +12,5 @@ different formats and sizes as quickly as possible on AWS Lambda.
 
 
 ```shell
-aws s3 cp foo.txt s3://teal-examples-data/
+aws s3 cp foo.txt s3://hark-examples-data/
 ```

@@ -1,10 +1,10 @@
 # Deployment
 
 ```shell
-teal deploy
+hark deploy
 ```
 
 > This section needs expansion. [Pull
-> Requests](https://github.com/condense9/teal-lang) welcome.
+> Requests](https://github.com/condense9/hark-lang) welcome.
 
 

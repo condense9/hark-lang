@@ -1,10 +1,10 @@
-# Teal on AWS
+# Hark on AWS
 
-[![Teal Architecture Diagram](/img/teal_aws.png)](/img/teal_aws.png)
+[![Hark Architecture Diagram](/img/hark_aws.png)](/img/hark_aws.png)
 
 
 > This section needs expansion. [Pull
-> Requests](https://github.com/condense9/teal-lang) welcome.
+> Requests](https://github.com/condense9/hark-lang) welcome.
 
 
 <!-- ## Instance Data -->
@@ -16,5 +16,5 @@
 <!-- ## Trigger API -->
 
 
-<!-- ## Teal Runtime -->
+<!-- ## Hark Runtime -->
 

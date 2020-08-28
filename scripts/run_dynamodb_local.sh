@@ -8,7 +8,7 @@ set -e
 
 
 PORT=9000
-TABLE=TealSessions
+TABLE=HarkSessions
 
 AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-eu-west-2}
 export AWS_DEFAULT_REGION
@@ -35,7 +35,7 @@ fi
 
 set +x
 echo
-echo Set these environment variables for Teal:
+echo Set these environment variables for Hark:
 echo
 echo "export DYNAMODB_ENDPOINT=http://localhost:${PORT}"
 echo

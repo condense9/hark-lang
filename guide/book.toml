@@ -3,7 +3,7 @@ authors = ["Ric da Silva"]
 language = "en"
 multilingual = false
 src = "src"
-title = "Cloud-Native Development With Teal"
+title = "Cloud-Native Development With Hark"
 
 [output.html]
 theme = "src/theme"

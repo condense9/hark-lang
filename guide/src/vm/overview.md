@@ -19,7 +19,7 @@ The *Entrypoint* is the function that kicks-off a Session. This might be
 
 ## Standard Output
 
-Standard output in Teal is a bit different from the usual.
+Standard output in Hark is a bit different from the usual.
 
 Instead of modelling the output as a stream, each *Session* has a list of items
 collectively called *Standard Output*. The items are tuples containing:

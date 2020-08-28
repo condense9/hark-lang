@@ -1,9 +1,9 @@
 import json
 
-import teal_lang.machine.instructionset as instructionset
-from teal_lang.machine.instruction import Instruction
-from teal_lang.machine.instructionset import *
-from teal_lang.machine.types import *
+import hark_lang.machine.instructionset as instructionset
+from hark_lang.machine.instruction import Instruction
+from hark_lang.machine.instructionset import *
+from hark_lang.machine.types import *
 
 
 def test_ser():

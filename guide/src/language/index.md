@@ -1,10 +1,10 @@
-# The Teal Programming Language
+# The Hark Programming Language
 
-Teal is a *functional*, *compiled* language which aims to support first-class
+Hark is a *functional*, *compiled* language which aims to support first-class
 concurrency and mainstream language inter-op. It compiles into byte-code which
-runs on [The Teal VM](/vm/index.html) .
+runs on [The Hark VM](/vm/index.html) .
 
-Teal has:
+Hark has:
 
 1. Named variables.
 

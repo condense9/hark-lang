@@ -15,24 +15,24 @@ We'll look at each step in more detail now.
 
 [Next: Parse](#parse)
 
-In this step, the Teal source code is transformed into a stream of "tokens"
+In this step, the Hark source code is transformed into a stream of "tokens"
 representing valid pieces of syntax (e.g. numbers, identifiers, keywords).
 
 ```mermaid
 graph LR;
-  A{{"Source code (.tl file)"}} --> B{{Token stream}}
+  A{{"Source code (.hk file)"}} --> B{{Token stream}}
 ```
 
 Relevant functions & classes:
-- `compile_file` -- [teal_lang/load.py][load]
-- `tl_parse` -- [teal_lang/teal_parser/parser.py][parser]
-- `TealLexer` -- [teal_lang/teal_parser/parser.py][parser]
+- `compile_file` -- [hark_lang/load.py][load]
+- `tl_parse` -- [hark_lang/hark_parser/parser.py][parser]
+- `HarkLexer` -- [hark_lang/hark_parser/parser.py][parser]
 
 To see what the token stream looks like, load the file with the `DEBUG_LEX`
 environment variable set:
 
 ```shell
-$ DEBUG_LEX=1 teal service.tl
+$ DEBUG_LEX=1 hark service.hk
 
 ID         : import
 (          :
@@ -66,7 +66,7 @@ The lexing is done by [Sly][sly].
 [Next: Compile](#compile)
 
 Here, the token stream is converted into a tree-like data-structure representing
-valid Teal program structure.
+valid Hark program structure.
 
 ```mermaid
 graph LR;
@@ -75,14 +75,14 @@ graph LR;
 ```
 
 Relevant functions & classes:
-- `tl_parse` -- [teal_lang/teal_parser/parser.py][parser]
-- `TealParser` -- [teal_lang/teal_parser/parser.py][parser]
-- `Node` -- [teal_lang/teal_parser/nodes.py][nodes]
+- `tl_parse` -- [hark_lang/hark_parser/parser.py][parser]
+- `HarkParser` -- [hark_lang/hark_parser/parser.py][parser]
+- `Node` -- [hark_lang/hark_parser/nodes.py][nodes]
 
-> We don't have a good visualisation of the Teal AST yet :(. Make one and submit
-> a PR for [Issue #14](https://github.com/condense9/teal-lang/issues/14)!
+> We don't have a good visualisation of the Hark AST yet :(. Make one and submit
+> a PR for [Issue #14](https://github.com/condense9/hark-lang/issues/14)!
 
-What does **valid program structure** mean? Teal programs are sequences of
+What does **valid program structure** mean? Hark programs are sequences of
 "expressions". Everything is an expression, and expressions may contain other
 expressions.
 
@@ -156,15 +156,15 @@ graph TB;
 ```
 
 Relevant functions & classes:
-- `Node` -- [teal_lang/teal_parser/nodes.py][nodes]
-- `CompileToplevel` -- [teal_lang/teal_compiler/compiler.py][compiler]
-- `optimise_block` -- [teal_lang/teal_compiler/compiler.py][compiler]
-- `replace_gotos` -- [teal_lang/teal_compiler/compiler.py][compiler]
-- `Executable` -- [teal_lang/machine/executable.py][executable]
-- `Instruction` -- [teal_lang/machine/instructionset.py][instructionset] and [teal_lang/machine/instruction.py][instruction]
-- `TlType` -- [teal_lang/machine/types.py][types]
+- `Node` -- [hark_lang/hark_parser/nodes.py][nodes]
+- `CompileToplevel` -- [hark_lang/hark_compiler/compiler.py][compiler]
+- `optimise_block` -- [hark_lang/hark_compiler/compiler.py][compiler]
+- `replace_gotos` -- [hark_lang/hark_compiler/compiler.py][compiler]
+- `Executable` -- [hark_lang/machine/executable.py][executable]
+- `Instruction` -- [hark_lang/machine/instructionset.py][instructionset] and [hark_lang/machine/instruction.py][instruction]
+- `TlType` -- [hark_lang/machine/types.py][types]
 
-> Currently, each Teal function is compiled **individually**. So there is no
+> Currently, each Hark function is compiled **individually**. So there is no
 > opportunity for cross-function optimisation.
 
 First, let's briefly look at the (simplified) Executable class to know where
@@ -181,18 +181,18 @@ class Executable:
 
 **code**: All of the executable machine instructions.
 
-**bindings**: A map of string names (identifiers) to either teal functions or
+**bindings**: A map of string names (identifiers) to either hark functions or
 imported Python functions.
 
-**locations**: Lookup-table of Teal function locations in **code**. 
+**locations**: Lookup-table of Hark function locations in **code**. 
 
-**attributes**: (not used yet) Attributes of Teal functions for compiler/runtime
+**attributes**: (not used yet) Attributes of Hark functions for compiler/runtime
 behaviour configuration.
 
-Here's the result of compiling `service.tl`.
+Here's the result of compiling `service.hk`.
 
 ```shell
-$ teal asm service.tl
+$ hark asm service.hk
 
 BYTECODE:
  /
@@ -243,7 +243,7 @@ BINDINGS:
  main ...... <TlFunctionPtr #3:main>
 ```
 
-This shows how each Teal function has an associated block of bytecode, and the
+This shows how each Hark function has an associated block of bytecode, and the
 one imported Python function has been wrapped (using a `#F:` prefix to indicate
 that it is different from the other functions that are just `#n:`).
 
@@ -251,8 +251,8 @@ that it is different from the other functions that are just `#n:`).
 ### Register imports
 
 Any `import` expressions at file top-level are saved as named bindings in the
-final executable. They're also wrapped in Teal functions so that they can be
-called just like Teal functions (`#F:foo` above). Currently this wrapped version
+final executable. They're also wrapped in Hark functions so that they can be
+called just like Hark functions (`#F:foo` above). Currently this wrapped version
 is only needed when calling a Python function asychronously -- usually, the
 Python function is called directly.
 
@@ -269,7 +269,7 @@ Currently [tail-recursion optimisation][tailcalls] is implemented, which makes
 recursive functions significantly faster because no activation record (stack
 frame) is created in the recursive call.
 
-*There's lots of scope for develoment here! e.g. [Issue #15](https://github.com/condense9/teal-lang/issues/15)*
+*There's lots of scope for develoment here! e.g. [Issue #15](https://github.com/condense9/hark-lang/issues/15)*
 
 ### Compile Expressions
 
@@ -277,7 +277,7 @@ Each node (representing an expression) in the tree must be converted into a
 *sequence* of VM instructions (bytecode).
 
 Examples of compiling expressions:
-- convert literal Python types to Teal types
+- convert literal Python types to Hark types
 - convert `N_If` (the if-expression Node) into linear instructions and
   conditional Jumps
 
@@ -286,7 +286,7 @@ For example, a literal value is simply pushed onto the data stack:
 ```python
 @compile_expr.register
 def _(self, n: nodes.N_Literal):
-    val = mt.to_teal_type(n.value)
+    val = mt.to_hark_type(n.value)
     return [mi.PushV.from_node(n, val)]
 ```
 
@@ -321,14 +321,14 @@ ACall) instruction requires the identifier to be on the stack.
 [sly]: https://github.com/dabeaz/sly
 [tailcalls]: https://wiki.c2.com/?TailRecursion
 
-[main]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/cli/main.py
-[config]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/config.py
-[config_classes]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/config_classes.py
-[load]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/load.py
-[parser]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/teal_parser/parser.py
-[nodes]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/teal_parser/nodes.py
-[compiler]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/teal_compiler/compiler.py
-[executable]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/machine/executable.py
-[instruction]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/machine/instruction.py
-[instructionset]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/machine/instructionset.py
-[types]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/machine/types.py
+[main]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/cli/main.py
+[config]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/config.py
+[config_classes]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/config_classes.py
+[load]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/load.py
+[parser]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/hark_parser/parser.py
+[nodes]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/hark_parser/nodes.py
+[compiler]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/hark_compiler/compiler.py
+[executable]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/machine/executable.py
+[instruction]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/machine/instruction.py
+[instructionset]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/machine/instructionset.py
+[types]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/machine/types.py

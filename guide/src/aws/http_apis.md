@@ -1,6 +1,6 @@
 # HTTP APIs
 
-When `instance.enable_api` in `teal.toml` is true, Teal configures a single API
+When `instance.enable_api` in `hark.toml` is true, Hark configures a single API
 gateway endpoint for all routes and methods.
 
 It expects a function called `on_http` in the executable with the following
@@ -19,4 +19,4 @@ fn on_http(method, path, event) {
 [Source (HttpHandler)][2]
 
 [1]: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
-[2]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/run/lambda_handlers.py
+[2]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/run/lambda_handlers.py

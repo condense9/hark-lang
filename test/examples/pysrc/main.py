@@ -3,7 +3,7 @@ import random
 
 
 def hi():
-    return "Hi Teal!"
+    return "Hi Hark!"
 
 
 def format(x, *args):
@@ -13,7 +13,7 @@ def format(x, *args):
 def random_sleep(min_ms=10, max_ms=1000):
     """Sleep for some random time between MIN_MS and MAX_MS"""
     duration_ms = min_ms + random.random() * (max_ms - min_ms)
-    # Note that this output won't appear in Teal's standard output. This may
+    # Note that this output won't appear in Hark's standard output. This may
     # change in future.
     print(f"python sleeping {duration_ms:.0f}ms")
     time.sleep(duration_ms / 1000.0)

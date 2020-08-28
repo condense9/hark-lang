@@ -1,4 +1,4 @@
 # Storage
 
 > Working on it! [Pull
-> Requests](https://github.com/condense9/teal-lang) welcome.
+> Requests](https://github.com/condense9/hark-lang) welcome.

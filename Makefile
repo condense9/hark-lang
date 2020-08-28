@@ -17,9 +17,9 @@ test:  ## Run all unit tests (including the slow ones!)
 .PHONY: lint
 lint:  ## check for syntax errors or undefined names
 	flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics \
-    --exclude src/teal_lang/teal_parser/parser.py,.teal_data,scratch
+    --exclude src/hark_lang/hark_parser/parser.py,.hark_data,scratch
 	flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics \
-    --exclude src/teal_lang/teal_parser/parser.py,.teal_data,scratch
+    --exclude src/hark_lang/hark_parser/parser.py,.hark_data,scratch
 
 
 .PHONY: testfast
@@ -39,15 +39,15 @@ stress:  ## Run the concurrency unit tests lots of times
 .PHONY: clean
 clean:
 	rm -rf dist
-	rm -rf .teal_data
-	rm src/teal_lang/dist_data/*.zip
+	rm -rf .hark_data
+	rm src/hark_lang/dist_data/*.zip
 
-src/teal_lang/dist_data/teal_lambda.zip:
+src/hark_lang/dist_data/hark_lambda.zip:
 	./scripts/make_lambda_dist.sh
 
 
 .PHONY: package
-package: src/teal_lang/dist_data/teal_lambda.zip  ## Prepare the PyPI package
+package: src/hark_lang/dist_data/hark_lambda.zip  ## Prepare the PyPI package
 	poetry build
 
 

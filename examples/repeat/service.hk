@@ -1,0 +1,23 @@
+import(complicated_stuff, src, 1);
+
+fn map(func, items, acc) {
+  if nullp(items) {
+    acc
+  }
+  else {
+    map(func, rest(items), append(acc, func(first(items))))
+  }
+}
+
+fn wait(item) {
+  await item;
+}
+
+fn complicated(x) {
+  async complicated_stuff(x);
+}
+
+fn main() {
+  results = map(complicated, [1, 2, 3, 4, 5], []);
+  map(wait, results, []);
+}

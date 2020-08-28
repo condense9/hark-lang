@@ -1,6 +1,6 @@
 # Requirements and concepts
 
-The Teal VM is designed to meet these requirements.
+The Hark VM is designed to meet these requirements.
 
 ### 1. More than one thread
 
@@ -30,19 +30,19 @@ languages).
 ### 5. Portable
 
 It must be a relatively simple job to port the VM to a new (cloud) platform.
-Programs written in Teal should run the same on any implementation (ignoring the
+Programs written in Hark should run the same on any implementation (ignoring the
 effect of any Python calls).
 
 
 ## What are the core components?
 
 These are the core components that make up the design. Understand these, and how
-they interact, and you'll understand Teal.
+they interact, and you'll understand Hark.
 
 
 ### Threads
 
-A Teal program starts off as a single thread, and can create other threads to
+A Hark program starts off as a single thread, and can create other threads to
 execute in parallel. Each thread begins executing from a specific function
 (called its entrypoint).
 
@@ -71,14 +71,14 @@ globally named (non-function) values.
 
 ### Data Stack and Instruction Pointer
 
-Within the context of a single thread, the Teal VM is a simple stack-based
+Within the context of a single thread, the Hark VM is a simple stack-based
 machine (similar, in a distant way, [to Java's JVM][jvm]).
 
 The instruction pointer is an index into the executable code, determining the
 *next* instruction to be executed (it is pre-incremented).
 
-The data stack supports basic push/pop semantics and can store any Teal
-data-type, although this might change before Teal v1.0 to support proper heap
+The data stack supports basic push/pop semantics and can store any Hark
+data-type, although this might change before Hark v1.0 to support proper heap
 storage of data.
 
 [jvm]: https://www.jopdesign.com/doc/stack.pdf
@@ -105,7 +105,7 @@ hence the "stack" name.
 
 [The C2 Wiki explains it well.](https://wiki.c2.com/?ActivationRecord)
 
-Teal activation records do **not** have to maintain strict LIFO semantics, and
+Hark activation records do **not** have to maintain strict LIFO semantics, and
 so they are not called stack frames. This makes it easier to support:
 - closures
 - cross-thread stack-traces.
@@ -124,7 +124,7 @@ resolved to the function's return value (top item on the data stack).
 
 The "calling convention" dictates how parameters are passed to functions and
 results are returned. Normally (e.g. on Intel x86 processors), this would
-involve registers. There are no data registers in the Teal VM, so the calling
+involve registers. There are no data registers in the Hark VM, so the calling
 convention here is very simple:
 
 - push parameters onto the stack (reverse order)
@@ -134,11 +134,11 @@ convention here is very simple:
 
 ### Key Abstraction 1: Storage
 
-This is the "long-term" storage that any processor needs. The Teal VM abstracts
+This is the "long-term" storage that any processor needs. The Hark VM abstracts
 this so that storage backends are portable.
 
 
 ### Key Abstraction 2: Invocation
 
-The Teal VM abstracts the creation of threads so that execution backends are
+The Hark VM abstracts the creation of threads so that execution backends are
 portable.

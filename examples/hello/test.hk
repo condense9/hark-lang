@@ -1,0 +1,5 @@
+fn main() {
+  print("one")  // <- missing semicolon!
+  print("two")
+}
+

@@ -23,11 +23,11 @@ graph LR;
 [Next: Start Top Level Thread](#start-top-level-thread)
 
 Relevant functions & classes:
-- `TlMachine` -- [teal_lang/machine/machine.py][machine]
-- `Executable` -- [teal_lang/machine/executable.py][executable]
-- `Controller` -- [teal_lang/machine/controller.py][controller]
-- `Invoker` -- [teal_lang/executor/thread.py][thread]
-- `Instruction` -- [teal_lang/machine/instructionset.py][instructionset] and [teal_lang/machine/instruction.py][instruction]
+- `TlMachine` -- [hark_lang/machine/machine.py][machine]
+- `Executable` -- [hark_lang/machine/executable.py][executable]
+- `Controller` -- [hark_lang/machine/controller.py][controller]
+- `Invoker` -- [hark_lang/executor/thread.py][thread]
+- `Instruction` -- [hark_lang/machine/instructionset.py][instructionset] and [hark_lang/machine/instruction.py][instruction]
 
 Vaguely speaking, "running" a program follows this logic:
 
@@ -201,7 +201,7 @@ uses the Invoker to start the thread.
 
 `CALL 1` pops `foo` and one argument from the stack, and then calls `foo`
 directly (after converting the argument to a Python type). The result is
-converted to a Teal time and pushed onto the stack as the return value.
+converted to a Hark time and pushed onto the stack as the return value.
 
 The Future associated with this thread is then resolved to that value, and any
 waiting threads are resumed.
@@ -239,9 +239,9 @@ The end. Here's a spaceship.
 
 <!-- --- -->
 
-[instruction]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/machine/instruction.py
-[instructionset]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/machine/instructionset.py
-[machine]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/machine/machine.py
-[controller]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/machine/controller.py
-[executable]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/machine/executable.py
-[thread]: https://github.com/condense9/teal-lang/blob/master/src/teal_lang/executor/thread.py
+[instruction]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/machine/instruction.py
+[instructionset]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/machine/instructionset.py
+[machine]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/machine/machine.py
+[controller]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/machine/controller.py
+[executable]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/machine/executable.py
+[thread]: https://github.com/condense9/hark-lang/blob/master/src/hark_lang/executor/thread.py

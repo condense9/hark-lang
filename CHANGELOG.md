@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [unreleased]
 
 
+## [0.5.0] (2020-08-27)
+
+### Changed
+
+- **Renamed project to Hark**. See [http://condense9.com/2020/08/formerly-teal](http://condense9.com/2020/08/formerly-teal).
+
+
 ## [0.4.3] (2020-08-07)
 
 ### Changed
@@ -194,15 +201,16 @@ Initial release.
 - A few examples
 
 
-[unreleased]: https://github.com/condense9/teal-lang/compare/v0.4.3...HEAD
-[0.4.3]: https://github.com/condense9/teal-lang/compare/v0.4.2...v0.4.3
-[0.4.2]: https://github.com/condense9/teal-lang/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/condense9/teal-lang/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/condense9/teal-lang/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/condense9/teal-lang/compare/v0.2.4...v0.3.0
-[0.2.4]: https://github.com/condense9/teal-lang/compare/v0.2.3...v0.2.4
-[0.2.3]: https://github.com/condense9/teal-lang/compare/v0.2.2...v0.2.3
-[0.2.2]: https://github.com/condense9/teal-lang/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/condense9/teal-lang/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/condense9/teal-lang/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/condense9/teal-lang/releases/tag/v0.1.0
+[unreleased]: https://github.com/condense9/hark-lang/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/condense9/hark-lang/compare/v0.4.3...v0.5.0
+[0.4.3]: https://github.com/condense9/hark-lang/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/condense9/hark-lang/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/condense9/hark-lang/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/condense9/hark-lang/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/condense9/hark-lang/compare/v0.2.4...v0.3.0
+[0.2.4]: https://github.com/condense9/hark-lang/compare/v0.2.3...v0.2.4
+[0.2.3]: https://github.com/condense9/hark-lang/compare/v0.2.2...v0.2.3
+[0.2.2]: https://github.com/condense9/hark-lang/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/condense9/hark-lang/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/condense9/hark-lang/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/condense9/hark-lang/releases/tag/v0.1.0

@@ -7,6 +7,6 @@ set -x
 set -e
 
 pip freeze | grep -v "^-e" | xargs pip uninstall -y
-pip uninstall teal
+pip uninstall hark
 
 poetry install

@@ -11,14 +11,14 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 
 ## Path to the resulting ZIP file, ready for use by aws.py
-DEST=$(realpath "${1:-${DIR}/../src/teal_lang/dist_data/teal_lambda.zip}")
+DEST=$(realpath "${1:-${DIR}/../src/hark_lang/dist_data/hark_lambda.zip}")
 
-WORKDIR=${2:-${DIR}/../.teal_data}
+WORKDIR=${2:-${DIR}/../.hark_data}
 
 
 ###
 
-WORKDIR="${WORKDIR}/teal_build"
+WORKDIR="${WORKDIR}/hark_build"
 mkdir -p "${WORKDIR}"
 
 poetry export -f requirements.txt > "${WORKDIR}/requirements.txt"
@@ -32,12 +32,12 @@ mkdir -p libs
     pip install -q --target libs -r requirements.txt >/dev/null
 rm -rf libs/boto*
 
-# Install Teal manually
-cp -r "${DIR}/../src/teal_lang" libs
-rm -rf libs/teal_lang/dist_data
+# Install Hark manually
+cp -r "${DIR}/../src/hark_lang" libs
+rm -rf libs/hark_lang/dist_data
 
 cd libs && zip -u -q -r "${DEST}" . -x "*__pycache__*"
 
 popd >/dev/null
 
-printf "Built Teal Lambda zip: %s\n" "${DEST}"
+printf "Built Hark Lambda zip: %s\n" "${DEST}"

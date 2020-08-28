@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Tests the fractals example
-# https://github.com/condense9/teal-lang/tree/master/examples/fractals
+# https://github.com/condense9/hark-lang/tree/master/examples/fractals
 
 set -x
 set -e
@@ -11,19 +11,19 @@ TIMEOUT=120
 
 
 main() {
-    printf ":: Testing Teal v%s\n" "$(teal --version)"
+    printf ":: Testing Hark v%s\n" "$(hark --version)"
 
-    echo FRACTALS_BUCKET="${FRACTALS_BUCKET}" > teal_env.txt
+    echo FRACTALS_BUCKET="${FRACTALS_BUCKET}" > hark_env.txt
 
-    sed -i "s/teal-example-data/${FRACTALS_BUCKET}/" teal.toml
+    sed -i "s/hark-example-data/${FRACTALS_BUCKET}/" hark.toml
 
     UUID="c3178518-7a04-4969-bd98-38acbc7f9229"
 
-    teal -v deploy --uuid "${UUID}"
+    hark -v deploy --uuid "${UUID}"
 
-    teal -v invoke --uuid "${UUID}"
+    hark -v invoke --uuid "${UUID}"
 
-    teal -v destroy --uuid "${UUID}"
+    hark -v destroy --uuid "${UUID}"
 }
 
 

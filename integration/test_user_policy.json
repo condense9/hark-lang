@@ -30,10 +30,10 @@
         "s3:DeleteBucket"
       ],
       "Resource": [
-        "arn:aws:iam::*:role/teal-*",
-        "arn:aws:lambda:eu-west-2:*:layer:teal-*",
-        "arn:aws:dynamodb:eu-west-2:*:table/teal-*",
-        "arn:aws:s3:::teal-*"
+        "arn:aws:iam::*:role/hark-*",
+        "arn:aws:lambda:eu-west-2:*:layer:hark-*",
+        "arn:aws:dynamodb:eu-west-2:*:table/hark-*",
+        "arn:aws:s3:::hark-*"
       ]
     },
     {
@@ -60,9 +60,9 @@
         "s3:GetObjectVersion"
       ],
       "Resource": [
-        "arn:aws:s3:::teal-*/*",
+        "arn:aws:s3:::hark-*/*",
         "arn:aws:lambda:eu-west-2:*:layer:*:*",
-        "arn:aws:lambda:eu-west-2:*:function:teal-*"
+        "arn:aws:lambda:eu-west-2:*:function:hark-*"
       ]
     },
     {

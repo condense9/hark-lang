@@ -4,11 +4,11 @@ import sys
 from pathlib import Path
 
 import pytest
-import teal_lang.controllers.ddb_model as db
-import teal_lang.examples as teal_examples
-from teal_lang.machine.types import TlType, to_py_type, to_teal_type
-from teal_lang.run.dynamodb import run_ddb_local, run_ddb_processes
-from teal_lang.run.local import run_local
+import hark_lang.controllers.ddb_model as db
+import hark_lang.examples as hark_examples
+from hark_lang.machine.types import TlType, to_py_type, to_hark_type
+from hark_lang.run.dynamodb import run_ddb_local, run_ddb_processes
+from hark_lang.run.local import run_local
 
 LOG = logging.getLogger(__name__)
 
@@ -20,9 +20,9 @@ CALL_METHODS = [
 
 # Find all examples dir and test them
 EXAMPLES_SUBDIR = Path(__file__).parent / "examples"
-EXAMPLE_NAMES = [p.stem for p in Path(EXAMPLES_SUBDIR).glob("*.tl")]
+EXAMPLE_NAMES = [p.stem for p in Path(EXAMPLES_SUBDIR).glob("*.hk")]
 
-TESTS = teal_examples.load_examples(EXAMPLE_NAMES, EXAMPLES_SUBDIR)
+TESTS = hark_examples.load_examples(EXAMPLE_NAMES, EXAMPLES_SUBDIR)
 
 IDS = [f"{filepath.stem}-{fn}[{i}]" for i, (filepath, fn, _, _) in enumerate(TESTS)]
 
@@ -34,7 +34,7 @@ def setup_module(module):
 
 @pytest.fixture(autouse=True)
 def session_db(pytestconfig):
-    """Initialise the Teal sessions DynamoDB table"""
+    """Initialise the Hark sessions DynamoDB table"""
     if not pytestconfig.getoption("testddb"):
         return
 

@@ -1,6 +1,6 @@
 import pytest
 
-from teal_lang.teal_parser.parser import *
+from hark_lang.hark_parser.parser import *
 
 pytestmark = pytest.mark.skip(reason="Needs update to new syntax")
 
@@ -70,8 +70,8 @@ def foo():
 @pytest.mark.parametrize("text", TOP_STMTS, ids=range(len(TOP_STMTS)))
 def test_parse(text):
     text = text.strip() + "\n"
-    parser = TealParser()
-    lexer = TealLexer()
+    parser = HarkParser()
+    lexer = HarkLexer()
 
     toks = list(post_lex(lexer.tokenize(text)))
     assert toks

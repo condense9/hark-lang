@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "teal-lang"
-version = "0.4.3"
-description = "The Teal Programming Language"
+name = "hark-lang"
+version = "0.5.0"
+description = "The Hark Programming Language"
 license = "Apache-2.0"
 authors = ["Ric da Silva <ric@condense9.com>"]
 maintainers = ["Ric da Silva <ric@condense9.com>"]
 readme = "README.md"
 homepage = "https://www.condense9.com"
-repository = "https://github.com/condense9/teal-lang"
+repository = "https://github.com/condense9/hark-lang"
 keywords = [
     "serverless",
     "orchestration",
@@ -21,18 +21,18 @@ classifiers = [
     "Intended Audience :: Developers"
 ]
 packages = [
-    { include = "teal_lang", from = "src" },
+    { include = "hark_lang", from = "src" },
 ]
 
-include = ["src/teal_lang/dist_data/teal_lambda.zip"]
-exclude = ["src/teal_lang/examples/*.*"]
+include = ["src/hark_lang/dist_data/hark_lambda.zip"]
+exclude = ["src/hark_lang/examples/*.*"]
 
 [tool.poetry.urls]
-"Bug Tracker" = "https://github.com/condense9/teal-lang/issues"
-"Changelog" = "https://github.com/condense9/teal-lang/blob/master/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/condense9/hark-lang/issues"
+"Changelog" = "https://github.com/condense9/hark-lang/blob/master/CHANGELOG.md"
 
 [tool.poetry.scripts]
-teal = 'teal_lang.cli.main:main'
+hark = 'hark_lang.cli.main:main'
 
 [tool.poetry.dependencies]
 boto3 = "*"

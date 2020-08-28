@@ -1,13 +1,13 @@
-# Why Teal?
+# Why Hark?
 
-Teal is not a replacement for your favourite mainstream language. It does
+Hark is not a replacement for your favourite mainstream language. It does
 something new: eliminates the *need* to write infrastructure.
 
 Serverless applications are inherently distributed, and building distributed
 systems by hand is hard. It's much easier to think about them as monolithic
 applications which are then *compiled into* distributed applications.
 
-Teal lets you do that. Some benefits:
+Hark lets you do that. Some benefits:
 
 - **Local testing**. Full local testing of the application *logic* (you still
   have to mock out third party services.
@@ -19,8 +19,8 @@ Teal lets you do that. Some benefits:
 - **Deployment**. Trivial deployment or rollback of entire applications, not
   just single functions.
 
-- **Portability**. Teal is naturally cloud-agnostic. Only the AWS runtime has
-been implemented so far, but in principle, Teal programs are fully portable
+- **Portability**. Hark is naturally cloud-agnostic. Only the AWS runtime has
+been implemented so far, but in principle, Hark programs are fully portable
 across execution environments.
 
 
@@ -41,17 +41,17 @@ Instead of writing infrastructure, write software that gets compiled and *uses*
 serverless infrastructure to get all the benefits, but doesn't expose the
 complexity.
 
-Using Teal means you get a solid, infrequently changing, and well-understood
+Using Hark means you get a solid, infrequently changing, and well-understood
 infrastructure platform, rather than manually wiring together complicated
 flow-charts yourself.
 
 
 ## Other approaches
 
-Teal was originally created for building serverless data pipelines, and this is
+Hark was originally created for building serverless data pipelines, and this is
 its primary use-case. There are a couple of common ways to process data in AWS.
 
-Here's how Teal stacks up.
+Here's how Hark stacks up.
 
 | Method                                 | Fully Serverless? | Familiar programming model?                 | Local testing possible? | Setup time    |
 |----------------------------------------|-------------------|---------------------------------------------|-------------------------|---------------|
@@ -61,24 +61,24 @@ Here's how Teal stacks up.
 | AWS Step Functions                     | *Yes*             | No (flow-chart model)                       | *Yes* (docker image)    |               |
 | DIY: Lambda + SQS + custom logic       | *Yes*             | *Yes*, but *lots* of AWS to learn           | Tricky (localstack...)  | Hours to days |
 |                                        |                   |                                             |                         |               |
-| Teal                                   | *Yes*             | *Yes* (new language, but familiar concepts) | *Yes* (built-in)        | 60s           |
+| Hark                                   | *Yes*             | *Yes* (new language, but familiar concepts) | *Yes* (built-in)        | 60s           |
 
-Teal is like AWS Step Functions, but is cheaper (pay only for the Lambda
+Hark is like AWS Step Functions, but is cheaper (pay only for the Lambda
 invocations and process data), and way easier to program and test. The tradeoff
-is you don't get tight integration with the AWS ecosystem (e.g. Teal doesn't
+is you don't get tight integration with the AWS ecosystem (e.g. Hark doesn't
 natively support timed triggers).
 
-Teal is like Azure Durable Functions -- it lets you pause and resume workflows,
+Hark is like Azure Durable Functions -- it lets you pause and resume workflows,
 but it's (subjectively) nicer to write. The syntax feels natural. Also it's not
 bound to Azure.
 
-Teal is like a task runner (Celery, Apache Airflow, etc), but you don't have to
+Hark is like a task runner (Celery, Apache Airflow, etc), but you don't have to
 manage any infrastructure.
 
-Teal is **not** Kubernetes, because it's not trying to let you easily scale
+Hark is **not** Kubernetes, because it's not trying to let you easily scale
 Dockerised services.
 
-Teal is **not** a general-purpose programming language, because that would be
+Hark is **not** a general-purpose programming language, because that would be
 needlessly reinventing the wheel.
 
 
@@ -86,7 +86,7 @@ needlessly reinventing the wheel.
 
 **Why is this not a library/DSL in Python?**
 
-When Teal threads wait on a Future, they stop completely. The Lambda function
+When Hark threads wait on a Future, they stop completely. The Lambda function
 saves the machine state and then terminates. When the Future resolves, the
 resolving thread restarts any waiting threads by invoking new Lambdas to pick up
 execution.
@@ -94,27 +94,27 @@ execution.
 To achieve the same thing in Python, the framework would need to dump the entire
 Python VM state to disk, and then reload it at a later point -- this may be
 possible, but would certainly be non-trivial. An alternative approach would be
-to build a langauge on top of Python that looked similar to Python, but felt
+to build a langauge on top of Python that looked similar to Python, but hark
 *wrong* because it was really faking things under the hood.
 
-**How is Teal like Go?**
+**How is Hark like Go?**
 
-Goroutines are very lightweight, while Teal `async` functions are pretty heavy --
+Goroutines are very lightweight, while Hark `async` functions are pretty heavy --
 they involve creating a new Lambda (or process, when running locally).
 
-Teal's concurrency model is similar to Go's, but channels are not fully
+Hark's concurrency model is similar to Go's, but channels are not fully
 implemented so data can only be sent to/from a thread at call/return points.
 
 **Is this an infrastructure-as-code tool?**
 
-No, Teal does not do general-purpose infrastructure management. There are
+No, Hark does not do general-purpose infrastructure management. There are
 already great tools to do that ([Terraform](https://www.terraform.io/),
 [Pulumi](https://www.pulumi.com/), [Serverless
 Framework](https://www.serverless.com/), etc).
 
-Instead, Teal reduces the amount of infrastructure you need. Instead of a
+Instead, Hark reduces the amount of infrastructure you need. Instead of a
 distinct Lambda function for every piece of application logic, you only need the
-core Teal interpreter (purely serverless) infrastructure.
+core Hark interpreter (purely serverless) infrastructure.
 
-Teal will happily manage that infrastructure for you (through `teal deploy` and
-`teal destroy`), or you can set it up with your in-house custom system.
+Hark will happily manage that infrastructure for you (through `hark deploy` and
+`hark destroy`), or you can set it up with your in-house custom system.

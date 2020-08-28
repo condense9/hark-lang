@@ -1,6 +1,8 @@
 # Creating a new project
 
-Teal does not enforce a particular project structure on you. For a good starting point, you can clone `https://github.com/condense9/teal-starter-project`. In this tutorial, we will start from scratch to take away some of the mystery.
+Hark does not enforce a particular project structure on you. For a good starting
+point, you can clone `https://github.com/condense9/starter-project`. In
+this tutorial, we will start from scratch to take away some of the mystery.
 
 ## The plan
 
@@ -13,17 +15,20 @@ Returns the run-length encoded (rle) contents of the essay along with the word f
 Create a new python project, we will use `poetry` in this case.
 
 ```bash
-poetry new --src teal-rle
-cd teal-rle
-poetry add teal-lang
+poetry new --src hark-rle
+cd hark-rle
+poetry add hark-lang
 poetry install
-teal init
+hark init
 ```
 
-We want our teal code to parallelise the processing of a (potentially) large essay. To start, we can implement the word counter and rle encoding code in python. Here is an implementation you can copy. Alternatively feel free to write (and unit test) your own.
+We want our Hark code to parallelise the processing of a (potentially) large
+essay. To start, we can implement the word counter and rle encoding code in
+python. Here is an implementation you can copy. Alternatively feel free to write
+(and unit test) your own.
 
 ```python
-# teal-rle/src/teal_rle/__init__.py
+# hark-rle/src/hark_rle/__init__.py
 
 from functools import reduce
 from typing import Dict, List, Tuple
@@ -63,13 +68,13 @@ def word_counts(paragraph: str) -> Dict[str, int]:
 __version__ = '0.1.0'
 ```
 
-Next we can modify the teal file to do our processing. Here is an example of what we might want:
+Next we can modify the hark file to do our processing. Here is an example of what we might want:
 
 ```javascript
-// service.tl
+// service.hk
 
-import(rle_encode, teal_rle, 1);
-import(word_counts, teal_rle, 1);
+import(rle_encode, hark_rle, 1);
+import(word_counts, hark_rle, 1);
 
 
 fn main(contents) {
@@ -82,10 +87,10 @@ fn main(contents) {
 }
 ```
 
-We can now run the teal code locally for example:
+We can now run the hark code locally for example:
 
 ```bash
-poetry run teal service.tl "the quick brown fox jumps over the lazy dog"
+poetry run hark service.hk "the quick brown fox jumps over the lazy dog"
 ```
 
 If we are happy with that, we can get our essay from `metaphorpsum.com` instead of passing command line arguments. Lets add a nice library to make these requests with.
@@ -94,10 +99,10 @@ If we are happy with that, we can get our essay from `metaphorpsum.com` instead 
 poetry add httpx
 ```
 
-We can add the following to our `teal_rle` python code to grab a paragraph to be processed. Add the following function to the python code:
+We can add the following to our `hark_rle` python code to grab a paragraph to be processed. Add the following function to the python code:
 
 ```python
-# teal-rle/src/teal_rle/__init__.py
+# hark-rle/src/hark_rle/__init__.py
 ...
 import httpx
 ...
@@ -112,14 +117,14 @@ def paragraph() -> str:
 __version__ = '0.1.0'
 ```
 
-And update `service.tl`:
+And update `service.hk`:
 
 ```javascript
-// service.tl
+// service.hk
 
-import(rle_encode, teal_rle, 1);
-import(word_counts, teal_rle, 1);
-import(paragraph, teal_rle, 0);
+import(rle_encode, hark_rle, 1);
+import(word_counts, hark_rle, 1);
+import(paragraph, hark_rle, 0);
 
 
 fn main() {
@@ -136,5 +141,5 @@ fn main() {
 And test:
 
 ```bash
-poetry run teal service.tl
+poetry run hark service.hk
 ```
