@@ -30,7 +30,7 @@ restrictions ([#12](https://github.com/condense9/hark-lang/issues/12)).
 
 [Get started in 2 minutes](#up-and-running-in-2-minutes).
 
-[Read the documentation](https://hark-book.condense9.com).
+[Read the documentation](https://guide.condense9.com).
 
 [PyCon Africa 2020 Demos!](https://github.com/condense9/hark-demos).
 
@@ -68,7 +68,7 @@ of the box, since the entire application is described in one place.
 | Azure Durable Functions             | While powerful, Durable Functions (subjectively) feel complex - their behaviour isn't always obvious.         |
 
 
-[Read more...](https://hark-book.condense9.com/why.html)
+[Read more...](https://guide.condense9.com/why.html)
 
 
 ## Up and running in 2 minutes
@@ -123,7 +123,7 @@ Finally, invoke it in AWS (`-f main` is optional, as before):
 ```
 
 That's it! You now have a Hark instance configured in your AWS account, built on
-the AWS serverless platform (S3 + Lambda + DynamoDB). [More info...](https://hark-book.condense9.com/dev/aws.html)
+the AWS serverless platform (S3 + Lambda + DynamoDB). [More info...](https://guide.condense9.com/dev/aws.html)
 
 Explore a more complex example: [Fractals](examples/fractals).
 
@@ -131,9 +131,9 @@ Explore a more complex example: [Fractals](examples/fractals).
 makes sense, or you'd like help getting started.
 
 Read more...
-- [about the language](https://hark-book.condense9.com/language/index.html)
-- [about the development process](https://hark-book.condense9.com/development/index.html)
-- [about configuring Hark](https://hark-book.condense9.com/configuration.html)
+- [about the language](https://guide.condense9.com/language/index.html)
+- [about the development process](https://guide.condense9.com/development/index.html)
+- [about configuring Hark](https://guide.condense9.com/configuration.html)
 
 
 ## Why should I learn a new language?
@@ -167,7 +167,7 @@ fn compute(x) {
 database, and build the synchronisation logic into the cloud functions `f` and
 `g`, or use an orchestrator service.
 
-[Read more...](https://hark-book.condense9.com/language/threads.html)
+[Read more...](https://guide.condense9.com/language/threads.html)
 
 
 ### Trivial Pipelines
@@ -225,7 +225,7 @@ fn main() {
 }
 ```
 
-[Read more...](https://hark-book.condense9.com/language/functions.html)
+[Read more...](https://guide.condense9.com/language/functions.html)
 
 
 ## Notes about syntax

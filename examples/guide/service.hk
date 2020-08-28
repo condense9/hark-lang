@@ -1,4 +1,4 @@
-// Written for https://hark-book.condense9.com/vm/source-to-success.html
+// Written for https://guide.condense9.com/vm/source-to-success.html
 
 import(foo, pysrc, 1);
 
