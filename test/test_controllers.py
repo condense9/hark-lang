@@ -1,13 +1,13 @@
 """Test Controller features"""
 import pytest
-import teal_lang.controllers.ddb_model as db
-import teal_lang.machine.types as mt
-from teal_lang.controllers.ddb import DataController as DdbController
-from teal_lang.controllers.local import DataController as LocalController
-from teal_lang.machine.arec import ActivationRecord
-from teal_lang.machine.future import Future
-from teal_lang.machine.probe import Probe
-from teal_lang.machine.state import State
+import hark_lang.controllers.ddb_model as db
+import hark_lang.machine.types as mt
+from hark_lang.controllers.ddb import DataController as DdbController
+from hark_lang.controllers.local import DataController as LocalController
+from hark_lang.machine.arec import ActivationRecord
+from hark_lang.machine.future import Future
+from hark_lang.machine.probe import Probe
+from hark_lang.machine.state import State
 
 pytestmark = pytest.mark.ddblocal
 

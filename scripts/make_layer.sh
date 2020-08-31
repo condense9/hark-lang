@@ -10,7 +10,7 @@ SRC=${1:-src}
 ## Path to the resulting ZIP file
 DEST=${2:-srclayer.zip}
 
-WORKDIR=${3:-.teal_data}
+WORKDIR=${3:-.hark_data}
 
 ###
 

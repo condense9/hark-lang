@@ -1,9 +1,9 @@
-# Cases for Teal
+# Cases for Hark
 
 
 ## Data pipelines (workflows)
 
-Teal was originally created for building serverless data pipelines, and this is
+Hark was originally created for building serverless data pipelines, and this is
 its primary use-case.
 
 Here's an example of a task which
@@ -15,7 +15,7 @@ import(split_file, src, 2);
 import(process_chunk, src, 1);
 import(save_all, src, 1);
 
-// bucket and key filter configured elsewhere (teal.toml)
+// bucket and key filter configured elsewhere (hark.toml)
 fn on_upload(bucket, key) {
   chunks = split_file(bucket, key);
   results = map_async(process_chunk, chunks);
@@ -43,7 +43,7 @@ Key points:
 
 ## Background web tasks
 
-Teal has basic support for API Gateway endpoints, which means you can trigger
+Hark has basic support for API Gateway endpoints, which means you can trigger
 long-running background tasks from your website frontend, and easily keep track
 of when they complete.
 

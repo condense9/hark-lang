@@ -1,0 +1,30 @@
+[project]
+
+## optional, file containing Hark code to be deployed
+hark_file = "hello.hk"
+
+## optional, location of Python source:
+python_src = "src"
+
+[instance]
+
+## optional, extra layers to use (maximum of 4)
+extra_layers = [
+  # Layer from: https://github.com/keithrozario/Klayers
+]
+
+## optional, location of Python dependencies:
+# python_requirements = "requirements.txt"
+
+## optional, lambda function timeout (s)
+lambda_timeout = 20
+
+## optional, lambda function memory (MB)
+lambda_memory = 128
+
+## optional, file with lambda environment variables
+# env = "hark_env.txt"
+
+# managed_buckets = [ "hark-dev-data" ]
+
+# upload_triggers = [ ["hark-dev-data", "images/", ".jpg"] ]

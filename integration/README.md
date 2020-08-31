@@ -1,4 +1,4 @@
-# Teal Integration Tests
+# Hark Integration Tests
 
 All user-level testing.
 
@@ -54,18 +54,18 @@ AWS_SECRET_ACCESS_KEY=
 
 ## Test Stories
 
-Tests are grouped into user stories (start-to-finish journey of a Teal user
+Tests are grouped into user stories (start-to-finish journey of a Hark user
 accomplishing something).
 
 Each test story has a `test.sh` file which defines the user actions, and a
 `Dockerfile` which defines the environment image.
 
 For each story, run one of:
-- `make test` to test the latest PyPI version of Teal
-- `TEAL_VERSION="==x.x.x" make test` for a specific PyPI version (note the "=="
+- `make test` to test the latest PyPI version of Hark
+- `HARK_VERSION="==x.x.x" make test` for a specific PyPI version (note the "=="
   prefix!)
-- `make local` to test the current Teal checkout
-- `make local-nobuild` to test the current Teal checkout without rebuilding it
+- `make local` to test the current Hark checkout
+- `make local-nobuild` to test the current Hark checkout without rebuilding it
   (e.g. if only `test.sh` has changed)
 
 
@@ -103,15 +103,15 @@ aws s3 rb s3://bucket-name --force
 A common failure mode is that botocore throws a `KMSAccessDeniedException`
 exception which [appears to be related][2] to quickly deleting and recreating
 IAM roles with the same name. In the worst case, a test will fail, and you'll be
-left with a Teal instance in your account.
+left with a Hark instance in your account.
 
 In either case, the easiest fix is to just destroy the whole instance and start
 again.
 
-To do that, run `teal destroy --uuid $UUID` where `$UUID` is the UUID of the
+To do that, run `hark destroy --uuid $UUID` where `$UUID` is the UUID of the
 instance created in the test (this should be shown the test logs).
 
-To investigate issues, it's often enough to run `teal stdout --uuid $UUID $SID`
+To investigate issues, it's often enough to run `hark stdout --uuid $UUID $SID`
 where `$SID` is the session ID that failed (again, check the logs).
 
 [1]: https://console.aws.amazon.com/iam/home

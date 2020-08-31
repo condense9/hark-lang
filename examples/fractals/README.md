@@ -1,6 +1,6 @@
 # Batch Fractal Generation 💮
 
-[`service.tl`](service.tl) generates Fractals in parallel on AWS Lambda, using
+[`service.hk`](service.hk) generates Fractals in parallel on AWS Lambda, using
 Python's PIL (Pillow) library and some recursive plotting.
 
 1. Randomly generate a list of N Fractals to draw.
@@ -10,15 +10,15 @@ Python's PIL (Pillow) library and some recursive plotting.
 Quick-start (2-3 minutes):
 
 ```shell
-$ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt
+$ echo FRACTALS_BUCKET=<your_s3_bucket> > hark_env.txt
 
-$ teal -v deploy  # Set up a Teal project in your AWS account (<60s)
+$ hark -v deploy  # Set up a Hark project in your AWS account (<60s)
 ...
 
-$ teal invoke  # Start the computation on Lambda
+$ hark invoke  # Start the computation on Lambda
 ['fractals/rings_8.png', 'fractals/hilbert2_6.png', 'fractals/levy_c_5.png']
 
-$ teal destroy  # Tear down the infrastructure (<60s)
+$ hark destroy  # Tear down the infrastructure (<60s)
 Done.
 ```
 
@@ -43,7 +43,7 @@ $ aws s3 ls s3://<your_s3_bucket>/fractals --recursive
 - [Batch Fractal Generation 💮](#batch-fractal-generation-💮)
     - [Prerequisites](#prerequisites)
     - [Walkthrough](#walkthrough)
-        - [1. Install Teal](#1-install-teal)
+        - [1. Install Hark](#1-install-hark)
         - [2. Test Fractal generation locally](#2-test-fractal-generation-locally)
         - [3. Configure the deployment](#3-configure-the-deployment)
         - [4. Deploy the infrastructure](#4-deploy-the-infrastructure)
@@ -65,10 +65,10 @@ To get the full experience you need:
 ## Walkthrough
 
 
-### 1. Install Teal
+### 1. Install Hark
 
 ```shell
-$ pip install teal
+$ pip install hark
 ```
 
 Recommended: do this inside a virtual environment!
@@ -97,7 +97,7 @@ $ export MINIO_ENDPOINT=http://127.0.0.1:9000
 Generate fractals:
 
 ```shell
-$ teal service.tl
+$ hark service.hk
 ```
 
 **Check the results**: Browse to http://127.0.0.1:9000/minio/data/fractals/ and
@@ -106,11 +106,11 @@ check that the fractals have been generated.
 
 ### 3. Configure the deployment
 
-**1.** `$ echo FRACTALS_BUCKET=<your_s3_bucket> > teal_env.txt`
+**1.** `$ echo FRACTALS_BUCKET=<your_s3_bucket> > hark_env.txt`
 
-Variables in `teal_env.txt` will be exposed to your Python code on AWS.
+Variables in `hark_env.txt` will be exposed to your Python code on AWS.
 
-**2.** Change "teal-examples-data" in `teal.toml` to the name of your S3 bucket.
+**2.** Change "hark-examples-data" in `hark.toml` to the name of your S3 bucket.
 *Important:* there are two places this need to be changed!
 
 Your code will be given full read/write access to this bucket.
@@ -119,17 +119,17 @@ Your code will be given full read/write access to this bucket.
 ### 4. Deploy the infrastructure
 
 ```shell
-$ teal deploy
+$ hark deploy
 ```
 
 This deploys the cloud service according to the configuration in the `[service]`
-section of [`teal.toml`](teal.toml). Use `teal destroy` to reverse it.
+section of [`hark.toml`](hark.toml). Use `hark destroy` to reverse it.
 
 This command does several things:
 - packages the `src` directory into a lambda layer
 - creates the AWS infrastructure required to run this application
 - deploys the Lambda data
-- deploys the Teal code
+- deploys the Hark code
 
 Feel free to re-run this command -- it's idempotent.
 
@@ -139,7 +139,7 @@ Use the `-v` flag to see what is actually updated.
 ### 5. Test it
 
 ```shell
-$ teal -v invoke
+$ hark -v invoke
 ```
 
 After a little while, and if all goes well, you'll see:
@@ -171,13 +171,13 @@ Check the standard output, where `$SESSION_ID` is taken from the (verbose)
 output of `invoke` (`68232w8b-6dde-4dca-ade4-23cba2b3c254` in this case):
 
 ```shell
-$ teal logs $SESSION_ID
+$ hark logs $SESSION_ID
 ['crystal', 16]
 ['tiles', 18]
 ['crystal', 14]
-uploading /tmp/tiles_18.png to s3.Bucket(name='teal-examples-data')...
-uploading /tmp/crystal_16.png to s3.Bucket(name='teal-examples-data')...
-uploading /tmp/crystal_14.png to s3.Bucket(name='teal-examples-data')...
+uploading /tmp/tiles_18.png to s3.Bucket(name='hark-examples-data')...
+uploading /tmp/crystal_16.png to s3.Bucket(name='hark-examples-data')...
+uploading /tmp/crystal_14.png to s3.Bucket(name='hark-examples-data')...
 Done
 
 Done (1s elapsed).
@@ -186,7 +186,7 @@ Done (1s elapsed).
 And an execution trace (more detail coming soon):
 
 ```shell
-$ teal events $SESSION_ID
+$ hark events $SESSION_ID
 Thread 0:
 0.000  run
 0.000  call {'fn_name': '<TlForeignPtr src.draw.random_fractals>'}
@@ -269,7 +269,7 @@ Done (0s elapsed).
 Another useful view, highlighting the parallel execution of the threads:
 
 ```shell
-$ teal events --unified $SESSION_ID
+$ hark events --unified $SESSION_ID
     Time  Thread  Event
    0.000     0     run
    0.000     0     call {'fn_name': '<TlForeignPtr src.draw.random_fractals>'}

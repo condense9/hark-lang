@@ -1,4 +1,4 @@
-# Developing with Teal
+# Developing with Hark
 
-Good practices and approaches to developing Teal-powered serverless
+Good practices and approaches to developing Hark-powered serverless
 applications.

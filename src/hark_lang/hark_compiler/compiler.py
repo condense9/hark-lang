@@ -1,0 +1,346 @@
+"""Optimise and compile an AST into executable code"""
+import itertools
+import logging
+from functools import singledispatch, singledispatchmethod, wraps
+from typing import Dict, Tuple
+
+from ..cli.interface import format_source_problem
+from ..exceptions import UserResolvableError
+from ..machine import instructionset as mi
+from ..machine import types as mt
+from ..machine.executable import Executable
+from ..hark_parser import nodes
+from .attributes import parse_attribute
+
+LOG = logging.getLogger(__name__)
+
+
+# A label to point at the beginning on the function, prefixed with "!" to imply
+# that it is automatically created:
+START_LABEL = "!start"
+
+
+def flatten(list_of_lists: list) -> list:
+    "Flatten one level of nesting"
+    return list(itertools.chain.from_iterable(list_of_lists))
+
+
+class HarkCompileError(UserResolvableError):
+    def __init__(self, node: nodes.Node, msg):
+        if not isinstance(node, nodes.Node):
+            raise TypeError(node)
+        explanation = format_source_problem(
+            node.source_filename,
+            node.source_lineno,
+            node.source_line,
+            node.source_column,
+        )
+        super().__init__(msg, explanation)
+
+
+def optimise_block(n: nodes.N_Definition, block: nodes.N_Progn):
+    """Optimise a single block (progn) of expressions"""
+    if not isinstance(block, nodes.N_Progn):
+        raise ValueError
+
+    last = block.exprs[-1]
+
+    if isinstance(last, nodes.N_Call) and last.fn.name == n.name:
+        # recursive call, optimise it! Replace the N_Call with direct evaluation
+        # of the arguments and a jump back to the start
+        goto_start = list(last.args) + [nodes.N_Goto.from_node(last, START_LABEL)]
+        return_values = nodes.N_MultipleValues(None, None, None, None, goto_start)
+        return nodes.N_Progn.from_node(block, block.exprs[:-1] + [return_values])
+
+    elif isinstance(last, nodes.N_If):
+        new_cond = nodes.N_If.from_node(
+            last, last.cond, optimise_block(n, last.then), optimise_block(n, last.els)
+        )
+        return nodes.N_Progn.from_node(block, block.exprs[:-1] + [new_cond])
+
+    else:
+        # Nothing to optimise
+        return block
+
+
+def optimise_tailcall(n: nodes.N_Definition):
+    """Optimise tail calls in a definition"""
+    n.body = optimise_block(n, n.body)
+    return n
+
+
+def replace_gotos(code: list):
+    """Replace Labels and Gotos with Jumps"""
+    labels = {}
+    original_positions = []
+    for idx, instr in enumerate(code):
+        if isinstance(instr, nodes.N_Label):
+            offset = idx - len(labels)
+            labels[instr.name] = offset
+            original_positions.append(idx)
+
+    for idx in original_positions:
+        code.pop(idx)
+
+    for idx, instr in enumerate(code):
+        if isinstance(instr, nodes.N_Goto):
+            # + 1 to compensate for the fact that the IP is advanced before
+            # the current instruction is evaluated.
+            offset = labels[instr.name] - (idx + 1)
+            code[idx] = mi.Jump.from_node(instr, mt.TlInt(offset))
+
+    return code
+
+
+class CompileToplevel:
+    def __init__(self, exprs):
+        """Compile a toplevel list of expressions"""
+        self.functions = {}
+        self.attributes = {}
+        self.bindings = {}
+        self.labels = {}
+        self.instruction_idx = 0
+        for e in exprs:
+            self.compile_toplevel(e)
+
+    def make_function(self, n: nodes.N_Definition, name="lambda") -> str:
+        """Make a new executable function object with a unique name, and save it"""
+        count = len(self.functions)
+        identifier = f"#{count}:{name}"
+        start_label = nodes.N_Label.from_node(n, START_LABEL)
+        code = self.compile_function(optimise_tailcall(n))
+        fn_code = replace_gotos([start_label] + code)
+        self.functions[identifier] = fn_code
+        # self.attributes[identifier] = parse_attribute(n.attribute)
+        return identifier
+
+    def compile_function(self, n: nodes.N_Definition) -> list:
+        """Compile a function into executable code"""
+        bindings = flatten(
+            [
+                [mi.Bind.from_node(n, mt.TlSymbol(arg)), mi.Pop.from_node(n)]
+                for arg in reversed(n.paramlist)
+            ]
+        )
+        body = self.compile_expr(n.body)
+        return bindings + body + [mi.Return.from_node(n)]
+
+    def wrap_foreign_function(self, n, qualified_name, num_args):
+        """Wrap a foreign function in a Hark function"""
+        fn_code = [
+            # args will already be on the stack, ready
+            mi.PushB.from_node(n, mt.TlSymbol(qualified_name)),
+            mi.Call.from_node(n, mt.TlInt(num_args)),
+            mi.Return.from_node(n),
+        ]
+        count = len(self.functions)
+        identifier = f"#F:{qualified_name}"
+        self.functions[identifier] = fn_code
+
+    ## At the toplevel, no executable code is created - only bindings
+
+    @singledispatchmethod
+    def compile_toplevel(self, n) -> None:
+        raise HarkCompileError(n, f"Invalid expression type at top level: {type(n)}")
+
+    @compile_toplevel.register
+    def _(self, n: nodes.N_Call):
+        if not isinstance(n.fn, nodes.N_Id) or n.fn.name != "import":
+            raise HarkCompileError(n, f"Only `import' can be called at top level")
+
+        if len(n.args) not in (3, 4):
+            raise HarkCompileError(
+                n, f"Bad import. Syntax: import(name, source, num_args, [qualifier])"
+            )
+
+        if not isinstance(n.args[0].value, nodes.N_Id):
+            raise HarkCompileError(n, f"Import name must be an identifier")
+
+        if not isinstance(n.args[1].value, nodes.N_Id):
+            raise HarkCompileError(n, f"Import source must be an identifier")
+
+        import_fn_name = n.args[0].value.name
+        from_kw = n.args[1].symbol
+        module_name = n.args[1].value.name
+        num_args = int(n.args[2].value.value)
+
+        if from_kw and from_kw.name != ":python":
+            raise HarkCompileError(n, f"Can't import non-python")
+
+        if len(n.args) == 4:
+            # TODO? check n.args[2].symbol == ":as"
+            if not isinstance(n.args[3].value, nodes.N_Id):
+                raise HarkCompileError(n, f"Import qualifier must be an identifier")
+
+            qualified_name = n.args[3].value.name
+        else:
+            qualified_name = import_fn_name
+
+        self.bindings[qualified_name] = mt.TlForeignPtr(
+            import_fn_name, module_name, qualified_name
+        )
+        self.wrap_foreign_function(n, qualified_name, num_args)
+
+    @compile_toplevel.register
+    def _(self, n: nodes.N_Definition):
+        identifier = self.make_function(n, n.name)
+        self.bindings[n.name] = mt.TlFunctionPtr(identifier, None)
+
+    ## Expressions result in executable code being created
+
+    @singledispatchmethod
+    def compile_expr(self, node) -> list:
+        raise NotImplementedError(node)
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Goto):
+        # Will be replaced later
+        return [n]
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Label):
+        raise NotImplementedError
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Lambda):
+        # Create a local binding to the function
+        identifier = self.make_function(n)
+        stack = None
+        # TODO?! closures! Need a mi.MakeClosure instruction that updates the
+        # top value (TlFunctionPtr) on the stack to reference the current
+        # activation record. The Call logic would be different too.
+        return [mi.PushV.from_node(n, mt.TlFunctionPtr(identifier, stack))]
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Literal):
+        val = mt.to_hark_type(n.value)
+        return [mi.PushV.from_node(n, val)]
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Id):
+        return [mi.PushB.from_node(n, mt.TlSymbol(n.name))]
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Progn):
+        # only keep the last result
+        discarded = flatten(
+            self.compile_expr(exp) + [mi.Pop.from_node(n)] for exp in n.exprs[:-1]
+        )
+        return discarded + self.compile_expr(n.exprs[-1])
+
+    @compile_expr.register
+    def _(self, n: nodes.N_MultipleValues):
+        # like progn, but keep everything
+        return flatten(self.compile_expr(exp) for exp in n.exprs)
+
+    def _compile_call(self, n: nodes.N_Call, is_async: bool):
+        # NOTE: parser only allows direct, named function calls atm, not
+        # arbitrary expressions, so no need to check the type of n.fn
+        arg_code = flatten(self.compile_expr(arg) for arg in n.args)
+        instr = mi.ACall if is_async else mi.Call
+        return (
+            arg_code
+            + self.compile_expr(n.fn)
+            + [instr.from_node(n, mt.TlInt(len(n.args)))]
+        )
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Call):
+        return self._compile_call(n, False)
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Argument):
+        # TODO optional arguments...
+        return self.compile_expr(n.value)
+
+    @compile_expr.register
+    def _(self, n: nodes.N_If):
+        cond_code = self.compile_expr(n.cond)
+        else_code = self.compile_expr(n.els)
+        then_code = self.compile_expr(n.then)
+        return [
+            # --
+            *cond_code,
+            mi.JumpIf.from_node(n, mt.TlInt(len(else_code) + 1)),  # to then_code
+            *else_code,
+            mi.Jump.from_node(n, mt.TlInt(len(then_code))),  # to Return
+            *then_code,
+        ]
+
+    @compile_expr.register
+    def _(self, n: nodes.N_Binop):
+        rhs = self.compile_expr(n.rhs)
+
+        if n.op == "=":
+            if not isinstance(n.lhs, nodes.N_Id):
+                raise ValueError(f"Can't assign to non-identifier {n.lhs}")
+            return rhs + [mi.Bind.from_node(n, mt.TlSymbol(str(n.lhs.name)))]
+
+        else:
+            lhs = self.compile_expr(n.lhs)
+            # TODO check arg order. Reverse?
+            return (
+                rhs
+                + lhs
+                + [
+                    mi.PushB.from_node(n, mt.TlSymbol(str(n.op))),
+                    mi.Call.from_node(n, mt.TlInt(2)),
+                ]
+            )
+
+    @compile_expr.register
+    def _(self, n: nodes.N_UnaryOp):
+        if n.op == "async":
+            return self._compile_async_expr(n.rhs)
+        elif n.op == "await":
+            return self._compile_await_expr(n.rhs)
+        elif n.op == "!":
+            return self._compile_boolean_negation(n.rhs)
+        elif n.op == "-":
+            return self._compile_negation_expr(n.rhs)
+        raise ValueError(f"Unrecognised unary expression {n}")
+
+    def _compile_async_expr(self, expr: nodes.Node):
+        if not isinstance(expr, nodes.N_Call):
+            raise ValueError(f"Can't use async with {expr} - {type(expr)}")
+        return self._compile_call(expr, True)
+
+    def _compile_await_expr(self, expr: nodes.Node):
+        val = self.compile_expr(expr)
+        return val + [mi.Wait.from_node(expr, mt.TlInt(0))]
+
+    def _compile_negation_expr(self, expr: nodes.Node):
+        if isinstance(expr, nodes.N_Literal):
+            val = mt.to_hark_type(-expr.value)
+            return [mi.PushV.from_node(expr, val)]
+        return [
+            self.compile_expr(expr)
+            + [
+                mi.PushB.from_node(expr, mt.TlSymbol("-")),
+                mi.Call.from_node(expr, mt.TlInt(1)),
+            ]
+        ]
+
+    def _compile_boolean_negation(self, expr: nodes.Node):
+        if isinstance(expr, nodes.N_Literal):
+            val = mt.to_hark_type(not expr.value)
+            return [mi.PushV.from_node(expr, val)]
+        return [*self.compile_expr(expr), mi.Neg.from_node(expr, mt.TlInt(0))]
+
+
+###
+
+
+def tl_compile(top_nodes: list) -> Executable:
+    """Compile top-level nodes into an executable"""
+    collection = CompileToplevel(top_nodes)
+
+    location_offset = 0
+    code = []
+    locations = {}
+    for fn_name, fn_code in collection.functions.items():
+        locations[fn_name] = location_offset
+        location_offset += len(fn_code)
+        code += fn_code
+
+    return Executable(collection.bindings, locations, code, collection.attributes)

@@ -1,0 +1,17 @@
+// Written for https://guide.condense9.com/vm/source-to-success.html
+
+import(foo, pysrc, 1);
+
+fn bar(x) {
+  x + 1
+}
+
+fn compute(x) {
+  a = async foo(x);
+  b = bar(x);
+  await a + b;
+}
+
+fn main() {
+  compute(1)
+}

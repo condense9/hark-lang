@@ -1,0 +1,62 @@
+## hark.toml
+##
+## This is where all Hark configuration takes place. Default values are
+## indicated where it's appropriate to do so.
+##
+## Hark will work just fine without any modifications to this file, but you'll
+## probably want to tweak things!
+
+
+[project]
+
+## File containing Hark code to be deployed
+# hark_file = "service.hk"
+
+## Location of Python source
+# python_src = "src"
+
+## Location of Hark build data
+# data_dir = ".hark"
+
+## Location of Python dependencies
+# python_requirements = "requirements.txt"
+
+## Path to the Python source lambda layer package (zip). If not defined, Hark
+## will use pip to install requirements from python_requirements and copy source
+## from python_src
+# package = ""
+
+## The command to build project.package, if you have a build script
+# build_cmd = ""
+
+
+[instance]
+
+## Additional AWS IAM policy statements to attach to the instance role
+# policy_file = <file.json>
+
+## Extra source layers to use (maximum of 4)
+## e.g., from: https://github.com/keithrozario/Klayers
+# extra_layers = [ ]
+
+## Lambda function timeout (s)
+# lambda_timeout = 240
+
+## Lambda function memory (MB)
+# lambda_memory = 128
+
+## File with lambda environment variables
+# env = "hark_env.txt"
+
+## Names of S3 buckets that `hark deploy/destroy` manages
+# managed_buckets = [ ]
+
+## Names of S3 buckets to enable read/write
+# s3_access = [ ]
+
+## List of S3 upload triggers. Format: [[bucket, prefix, suffix], ... ]
+## Example: [["my-bucket", "images/", ".jpg"], ...]
+# upload_triggers = [ ]
+
+## Enable the API Gateway trigger
+# enable_api = false

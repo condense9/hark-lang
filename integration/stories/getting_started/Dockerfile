@@ -1,11 +1,11 @@
 FROM python:3.8
 
-ARG TEAL_PKG=teal-lang
-ARG TEAL_VERSION
+ARG HARK_PKG=hark-lang
+ARG HARK_VERSION
 
-COPY teal-lang-*.tar.gz ./
+COPY hark-lang-*.tar.gz ./
 
-RUN pip install ${TEAL_PKG}${TEAL_VERSION}
+RUN pip install ${HARK_PKG}${HARK_VERSION}
 
 COPY test.sh .
 CMD ./test.sh

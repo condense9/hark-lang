@@ -1,12 +1,12 @@
 # Deploy something!
 
 We'll now build a slightly bigger program and run it on AWS. This time, there is
-Teal and Python, and multiple threads.
+Hark and Python, and multiple threads.
 
 In a fresh directory, create the bare minimum files for a new project:
 
 ```shell
-$ teal init
+$ hark init
 ```
 
 
@@ -22,10 +22,10 @@ def complicated_stuff(x):
     return x * 10
 ```
 
-And some Teal:
+And some Hark:
 
 ```javascript
-// service.tl
+// service.hk
 import(complicated_stuff, src, 1);
 
 fn map(func, items, acc) {
@@ -62,14 +62,14 @@ This:
 There are several new concepts here, particularly in the implementation of
 `map`. Briefly, `map` works by calling itself recursively (which the compiler
 optimises) until the list of inputs runs out, at which point it returns the
-accumulated results. This will eventually be in the Teal "standard library" -
+accumulated results. This will eventually be in the Hark "standard library" -
 coming soon!
 
 
 ### Test first!
 
 ```shell
-$ teal service.tl
+$ hark service.hk
 Complicated! 1
 Complicated! 2
 Complicated! 3
@@ -88,22 +88,22 @@ Ensure your AWS credentials are correctly configured, and that
 `AWS_DEFAULT_REGION` is set.
 
 ```shell
-$ teal deploy
+$ hark deploy
 ```
 
 Reply *Create a new self-hosted instance (using local AWS credentials)* to the
-question -- this will create a new Teal instance in your account.
+question -- this will create a new Hark instance in your account.
 
 Expected output:
 
 ```
 Target: Self-hosted instance xxx.......
 
-✔ Deploying infrastructure Build data: ....../.teal/
-✔ Checking API Teal 0....
-✔ Deploying service.tl
+✔ Deploying infrastructure Build data: ....../.hark/
+✔ Checking API Hark 0....
+✔ Deploying service.hk
 
-Done. `teal invoke` to run main().
+Done. `hark invoke` to run main().
 
 -- 56s
 ```
@@ -117,7 +117,7 @@ This will take a little while, because the Lambda function is being spun up for
 the first time.
 
 ```shell
-$ teal invoke
+$ hark invoke
 Target: Self-hosted instance xxx.......
 
 ✔ main(...) 3e50fbf3-5e3e-47bf-b949-a93b1cdf08b0

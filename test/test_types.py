@@ -1,7 +1,7 @@
 import pytest
 import json
 
-from teal_lang.machine.types import *
+from hark_lang.machine.types import *
 
 
 def to_json_and_back(obj: TlType):
@@ -86,6 +86,6 @@ CONVERSION_TEST_OBJS = [
 
 @pytest.mark.parametrize("obj", CONVERSION_TEST_OBJS)
 def test_conversion(obj):
-    teal_obj = to_teal_type(obj)
-    back = to_py_type(teal_obj)
+    hark_obj = to_hark_type(obj)
+    back = to_py_type(hark_obj)
     assert obj == back

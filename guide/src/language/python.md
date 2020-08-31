@@ -1,9 +1,9 @@
 # Python inter-op
 
-**NOTE**: this syntax is unstable and very likely to change before Teal v1.0, in
+**NOTE**: this syntax is unstable and very likely to change before Hark v1.0, in
 particular, to permit qualified imports.
 
-Python functions (or callables) are imported into a Teal program with `import`,
+Python functions (or callables) are imported into a Hark program with `import`,
 with the following signature:
 
 ```javascript

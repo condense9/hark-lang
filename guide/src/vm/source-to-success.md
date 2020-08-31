@@ -1,12 +1,12 @@
 # From Source to Success
 
-We'll begin by exploring the process of going from Teal source code to
+We'll begin by exploring the process of going from Hark source code to
 successfully running a multi-thread process in AWS.
 
 Here's our source:
 
 ```javascript
-// service.tl
+// service.hk
 import(foo, pysrc, 1);
 
 fn bar(x) {
@@ -27,7 +27,7 @@ fn main() {
 Features:
 
 - one imported Python function, `foo`
-- two Teal functions, `bar` and `compute`
+- two Hark functions, `bar` and `compute`
 - each function takes 1 argument (assumed to be an `int`)
 - `foo(x)` is called asynchronously (new thread)
 - `bar(x)` is evaluated in the current thread
@@ -46,7 +46,7 @@ def foo(x):
 Running the program:
 
 ```shell
-$ teal service.tl
+$ hark service.hk
 4
 ```
 
@@ -54,4 +54,4 @@ Absolutely *breathtaking*.
 
 Lots of things happened in the milliseconds it took to make that fantastic
 number four appear in our console. Before anything particularly interesting
-however, the Teal CLI tries to interpret our request.
+however, the Hark CLI tries to interpret our request.

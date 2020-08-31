@@ -5,7 +5,7 @@
 
 ## Introduction
 
-Teal ([the language](/language/index.html)) compiles into [bytecode][3] that
+Hark ([the language](/language/index.html)) compiles into [bytecode][3] that
 runs on a virtual machine designed for *concurrency* and *portability*.
 
 **Concurrency**: When you do `y = async f(x)`, `f(x)` is started in a new thread
@@ -13,7 +13,7 @@ runs on a virtual machine designed for *concurrency* and *portability*.
 halts, and automatically *continues* when `y` is finished being computed.
 
 **Portability**: Two implementations of this VM exist so far—local and AWS
-Lambda, but there's no reason Teal couldn't run on top of (for example)
+Lambda, but there's no reason Hark couldn't run on top of (for example)
 Kubernetes ([See Issue #8][2]).
 
 
@@ -32,7 +32,7 @@ compile-time source-code annotations. For example, if some functions have very
 high memory requirements, the VM can happily invoke them on an appropriate
 instance, while invoking other functions in a smaller instance.
 
-**Implement both of these, and you can run Teal.**
+**Implement both of these, and you can run Hark.**
 
 Here's the current implementation landscape.
 
@@ -45,5 +45,5 @@ Here's the current implementation landscape.
 
 
 [1]: https://en.wikipedia.org/wiki/Foreign_function_interface
-[2]: https://github.com/condense9/teal-lang/issues/8
+[2]: https://github.com/condense9/hark-lang/issues/8
 [3]: https://en.wikipedia.org/wiki/Bytecode
