@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for Teal
+about: Suggest a way to improve Hark
 title: ''
 labels: 'Type: Enhancement'
 assignees: ''
