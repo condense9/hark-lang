@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Generalise unary operators async/await
+- Generalise unary operators
 - Support for all boolean, arithmetic, and comparison operators
 
 
