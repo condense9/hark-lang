@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
 
-from hark_lang.hark_parser import parser, nodes
+from hark_lang.hark_parser import parser
 
 
 @pytest.mark.parametrize(
