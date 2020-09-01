@@ -57,7 +57,7 @@ def examples(root=None):
 )
 def test_successful_code(source_file):
     with open(source_file) as f:
-        ast = parser.tl_parse(source_file, f.read())
+        parser.tl_parse(source_file, f.read())
 
 
 def test_bad_syntax():

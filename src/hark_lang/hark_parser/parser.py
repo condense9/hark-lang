@@ -50,8 +50,6 @@ class HarkLexer(Lexer):
         LAMBDA,
         IF,
         ELSE,
-        # ASYNC,
-        # AWAIT,
         TRUE,
         FALSE,
         # values
@@ -59,7 +57,6 @@ class HarkLexer(Lexer):
         STRING,
         SQ_STRING,
         NULL,
-        # NEG
         # binary operators
         AND,
         OR,
