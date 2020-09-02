@@ -31,9 +31,11 @@ def node_generator():
     ustr = str(uuid4())
     return N_Label(*NULL_ARGS, name="label_{}".format(ustr))
 
+
 def node_equality(graph_node_a, graph_node_b):
     return graph_node_a.get_name() == graph_node_b.get_name() and \
            graph_node_a.get_label() == graph_node_b.get_label()
+
 
 def check_edges(ast_enerator, graph_nodes, graph_edges, sub_n, gn, attr_name, attr_i=None):
     node_matches = [sub_gn for sub_gn in graph_nodes if node_equality(ast_enerator.node(sub_n),
@@ -49,6 +51,7 @@ def check_edges(ast_enerator, graph_nodes, graph_edges, sub_n, gn, attr_name, at
     else:
         assert edge.obj_dict['attributes']['label'] == "{}_{}".format(attr_name, attr_i)
     return edge
+
 
 @pytest.mark.parametrize("RootNode", NODES)
 @pytest.mark.parametrize("leaf_generator", [list_generator, node_generator])
@@ -85,5 +88,3 @@ def test_recursion(RootNode, leaf_generator):
 
     assert len(seen_edges) == len(graph_edges)
     assert set(seen_edges) == set(graph_edges)
-
-

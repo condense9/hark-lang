@@ -1,12 +1,11 @@
 from functools import singledispatchmethod
-import hashlib
 from pathlib import Path
 import os
 from uuid import uuid4
 
 import pydot
 
-from .nodes import *
+from ..hark_parser import nodes
 from .parser import tl_parse
 
 
@@ -22,7 +21,7 @@ class ASTGenerator:
     def __init__(self, node_list, graph_name=None):
         self.graph = pydot.Dot(graph_type="graph", graph_name=graph_name)
         self.node_type_counts = {}
-        self._teal_nodes = []
+        self._hark_nodes = []
         self._graph_nodes = []
         for n in node_list:
             self.recurse_tree(n)
@@ -35,19 +34,19 @@ class ASTGenerator:
             self.graph.add_edge(pydot.Edge(src_node, dest_node, label=label))
 
     @classmethod
-    def _class_name(self, teal_node):
-        return teal_node.__class__.__name__
+    def _class_name(self, hark_node):
+        return hark_node.__class__.__name__
 
     @singledispatchmethod
-    def _teal_node_style(self, teal_node: Node):
+    def _hark_node_style(self, hark_node: nodes.Node):
         return NodeStyles.default
 
-    @_teal_node_style.register
-    def _(self, teal_node: N_If):
+    @_hark_node_style.register
+    def _(self, hark_node: nodes.N_If):
         return NodeStyles.conditional
 
-    def _nameless_node_label(self, teal_node):
-        class_name = self._class_name(teal_node)
+    def _nameless_node_label(self, hark_node):
+        class_name = self._class_name(hark_node)
         if class_name not in self.node_type_counts:
             self.node_type_counts[class_name] = 0
 
@@ -55,141 +54,141 @@ class ASTGenerator:
         self.node_type_counts[class_name] += 1
         return label
 
-    def _attempt_label_from(self, teal_node, attribute):
-        attr = getattr(teal_node, attribute)
+    def _attempt_label_from(self, hark_node, attribute):
+        attr = getattr(hark_node, attribute)
         if isinstance(attr, self._PRINTABLE_TYPES):
-            return "{}:{}".format(self._class_name(teal_node), attr)
+            return "{}:{}".format(self._class_name(hark_node), attr)
         else:
-            return self._nameless_node_label(teal_node)
+            return self._nameless_node_label(hark_node)
 
     @singledispatchmethod
-    def _teal_node_label(self, teal_node: Node):
-        if hasattr(teal_node, "name"):
-            return "{}:{}".format(self._class_name(teal_node), teal_node.name)
+    def _hark_node_label(self, hark_node: nodes.Node):
+        if hasattr(hark_node, "name"):
+            return "{}:{}".format(self._class_name(hark_node), hark_node.name)
         else:
-            return self._nameless_node_label(teal_node)
+            return self._nameless_node_label(hark_node)
 
-    @_teal_node_label.register
-    def _(self, teal_node: N_Binop):
-        return "{}:{}".format(self._class_name(teal_node), teal_node.op)
+    @_hark_node_label.register
+    def _(self, hark_node: nodes.N_Binop):
+        return "{}:{}".format(self._class_name(hark_node), hark_node.op)
 
-    @_teal_node_label.register
-    def _(self, teal_node: N_Async):
-        if isinstance(teal_node.expr, self._PRINTABLE_TYPES):
-            return "{}:{}".format(self._class_name(teal_node), teal_node.expr)
+    @_hark_node_label.register
+    def _(self, hark_node: nodes.N_Async):
+        if isinstance(hark_node.expr, self._PRINTABLE_TYPES):
+            return "{}:{}".format(self._class_name(hark_node), hark_node.expr)
         else:
-            return "{}".format(self._class_name(teal_node))
+            return "{}".format(self._class_name(hark_node))
 
-    @_teal_node_label.register
-    def _(self, teal_node: N_Import):
-        return "{}:{}:{}".format(self._class_name(teal_node), teal_node.name, teal_node.mod)
+    @_hark_node_label.register
+    def _(self, hark_node: nodes.N_Import):
+        return "{}:{}:{}".format(self._class_name(hark_node), hark_node.name, hark_node.mod)
 
-    @_teal_node_label.register
-    def _(self, teal_node: N_Call):
-        return self._attempt_label_from(teal_node, "fn")
+    @_hark_node_label.register
+    def _(self, hark_node: nodes.N_Call):
+        return self._attempt_label_from(hark_node, "fn")
 
-    @_teal_node_label.register
-    def _(self, teal_node: N_Argument):
-        label = self._class_name(teal_node)
-        if isinstance(teal_node.symbol, self._PRINTABLE_TYPES):
-            label += ":{}".format(teal_node.symbol)
-        if isinstance(teal_node.value, self._PRINTABLE_TYPES):
-            label += ":{}".format(teal_node.value)
+    @_hark_node_label.register
+    def _(self, hark_node: nodes.N_Argument):
+        label = self._class_name(hark_node)
+        if isinstance(hark_node.symbol, self._PRINTABLE_TYPES):
+            label += ":{}".format(hark_node.symbol)
+        if isinstance(hark_node.value, self._PRINTABLE_TYPES):
+            label += ":{}".format(hark_node.value)
         return label
 
-    @_teal_node_label.register
-    def _(self, teal_node: N_Literal):
-        return self._attempt_label_from(teal_node, "value")
+    @_hark_node_label.register
+    def _(self, hark_node: nodes.N_Literal):
+        return self._attempt_label_from(hark_node, "value")
 
-    def node(self, teal_node):
-        if teal_node not in self._teal_nodes:
+    def node(self, hark_node):
+        if hark_node not in self._hark_nodes:
             # Need to put double-quote label since pydot doesn't do escaping or checks for that
-            kwargs = {"label": '"{}"'.format(self._teal_node_label(teal_node))}
-            kwargs.update(self._teal_node_style(teal_node))
+            kwargs = {"label": '"{}"'.format(self._hark_node_label(hark_node))}
+            kwargs.update(self._hark_node_style(hark_node))
 
-            self._teal_nodes.append(teal_node)
+            self._hark_nodes.append(hark_node)
             self._graph_nodes.append(pydot.Node(str(uuid4()), **kwargs))
             self.graph.add_node(self._graph_nodes[-1])
-        return self._graph_nodes[self._teal_nodes.index(teal_node)]
+        return self._graph_nodes[self._hark_nodes.index(hark_node)]
 
-    def _recurse_type_any(self, teal_node, attribute_name):
-        attr = getattr(teal_node, attribute_name)
-        root_graph_node = self.node(teal_node)
+    def _recurse_type_any(self, hark_node, attribute_name):
+        attr = getattr(hark_node, attribute_name)
+        root_graph_node = self.node(hark_node)
         if isinstance(attr, list):
             for i, n in enumerate(attr):
                 self.connect_nodes(root_graph_node, self.recurse_tree(n), label="{}_{}".format(
                     attribute_name, i))
-        elif isinstance(attr, Node):
+        elif isinstance(attr, nodes.Node):
             self.connect_nodes(root_graph_node, self.recurse_tree(attr), label=attribute_name)
 
     @singledispatchmethod
-    def recurse_tree(self, teal_node: Node):
-        return self.node(teal_node)
+    def recurse_tree(self, hark_node: nodes.Node):
+        return self.node(hark_node)
 
     @recurse_tree.register
-    def _(self, teal_node: N_Definition):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "paramlist")
-        self._recurse_type_any(teal_node, "body")
+    def _(self, hark_node: nodes.N_Definition):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "paramlist")
+        self._recurse_type_any(hark_node, "body")
         return root_graph_node
 
     @recurse_tree.register
-    def _(self, teal_node: N_Lambda):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "paramlist")
-        self._recurse_type_any(teal_node, "body")
+    def _(self, hark_node: nodes.N_Lambda):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "paramlist")
+        self._recurse_type_any(hark_node, "body")
         return root_graph_node
 
     @recurse_tree.register
-    def _(self, teal_node: N_Call):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "args")
-        self._recurse_type_any(teal_node, "fn")
+    def _(self, hark_node: nodes.N_Call):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "args")
+        self._recurse_type_any(hark_node, "fn")
         return root_graph_node
 
     @recurse_tree.register
-    def _(self, teal_node: N_Await):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "expr")
+    def _(self, hark_node: nodes.N_Await):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "expr")
         return root_graph_node
 
     @recurse_tree.register
-    def _(self, teal_node: N_Binop):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "lhs")
-        self._recurse_type_any(teal_node, "rhs")
+    def _(self, hark_node: nodes.N_Binop):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "lhs")
+        self._recurse_type_any(hark_node, "rhs")
         return root_graph_node
 
     @recurse_tree.register
-    def _(self, teal_node: N_If):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "cond")
-        self._recurse_type_any(teal_node, "then")
-        self._recurse_type_any(teal_node, "els")
+    def _(self, hark_node: nodes.N_If):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "cond")
+        self._recurse_type_any(hark_node, "then")
+        self._recurse_type_any(hark_node, "els")
         return root_graph_node
 
     @recurse_tree.register
-    def _(self, teal_node: N_Progn):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "exprs")
+    def _(self, hark_node: nodes.N_Progn):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "exprs")
         return root_graph_node
 
     @recurse_tree.register
-    def _(self, teal_node: N_MultipleValues):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "exprs")
+    def _(self, hark_node: nodes.N_MultipleValues):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "exprs")
         return root_graph_node
 
     @recurse_tree.register
-    def _(self, teal_node: N_Argument):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "value")
+    def _(self, hark_node: nodes.N_Argument):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "value")
         return root_graph_node
 
     @recurse_tree.register
-    def _(self, teal_node: N_Literal):
-        root_graph_node = self.node(teal_node)
-        self._recurse_type_any(teal_node, "value")
+    def _(self, hark_node: nodes.N_Literal):
+        root_graph_node = self.node(hark_node)
+        self._recurse_type_any(hark_node, "value")
         return root_graph_node
 
     def write_png(self, path):
@@ -197,7 +196,6 @@ class ASTGenerator:
 
     def write_raw(self, path):
         self.graph.write(path, format="raw")
-
 
 
 def ast_tree(filename: Path) -> ASTGenerator:
