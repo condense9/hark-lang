@@ -72,6 +72,14 @@ fn neg_value() {
   -neg()
 }
 
+fn not() {
+  !true
+}
+
+fn not_value() {
+  !not()
+}
+
 fn async_await(x, y) {
   a = async add(parse_float(x), parse_float(y));
   b = async sub(parse_float(x), parse_float(y));

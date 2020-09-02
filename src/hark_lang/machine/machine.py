@@ -106,6 +106,7 @@ class TlMachine:
         "<=": LessThanOrEqual,
         "&&": OpAnd,
         "||": OpOr,
+        "!": BooloeanNeg,
         "parse_float": ParseFloat,
         "signal": Signal,
         "sid": GetSessionId,
@@ -619,7 +620,7 @@ class TlMachine:
     @evali.register
     def _(self, i: BooloeanNeg):
         a = self.state.ds_pop()
-        self.state.ds_push(tl_bool(not a))
+        self.state.ds_push(tl_bool(not mt.to_py_type(a)))
 
     @evali.register
     def _(self, i: UnaryMinus):

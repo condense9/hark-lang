@@ -150,6 +150,12 @@ operators:
   neg_value:
     - []
     - 3
+  not:
+    - []
+    - false
+  not_value:
+    - []
+    - true
   async_await:
     - [4, 2]
     - 8
