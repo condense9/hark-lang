@@ -1,8 +1,8 @@
 from uuid import uuid4
 import pytest
 
-from teal_lang.teal_parser.nodes import Node, N_Label
-from teal_lang.teal_parser.ast_tree import ASTGenerator
+from hark_lang.hark_parser.nodes import Node, N_Label
+from hark_lang.hark_parser.ast_tree import ASTGenerator
 
 
 def string_attributes(Node, ignore_attrs=None):

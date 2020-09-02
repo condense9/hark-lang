@@ -179,7 +179,7 @@ def _asm(args):
 
 def _ast(args):
     """Create AST and store in file"""
-    from ..teal_parser.ast_tree import ast_tree
+    from ..hark_parser.ast_tree import ast_tree
 
     input_path = Path(args["FILE"])
 
