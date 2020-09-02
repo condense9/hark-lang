@@ -7,13 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [unreleased]
 
-### Changed
+## [0.5.0] (2020-08-28)
 
-- Generalise unary operators.
-- Support for all boolean, arithmetic, and comparison operators.
+Dummy release to fix package version number - did not use the release script
+last time!
 
 
-## [0.5.0] (2020-08-27)
+## [0.5.0] (2020-08-28)
 
 ### Changed
 
@@ -206,7 +206,8 @@ Initial release.
 - A few examples
 
 
-[unreleased]: https://github.com/condense9/hark-lang/compare/v0.5.0...HEAD
+[unreleased]: https://github.com/condense9/hark-lang/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/condense9/hark-lang/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/condense9/hark-lang/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/condense9/hark-lang/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/condense9/hark-lang/compare/v0.4.1...v0.4.2
