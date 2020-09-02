@@ -27,22 +27,16 @@ class ASTGenerator:
         for n in node_list:
             self.recurse_tree(n)
 
-    def connect_nodes(self, node_a, node_b, label=None):
+    def connect_nodes(self, src_node, dest_node, label=None):
         if label is None:
             # pydot doesn't handle None values correctly
-            self.graph.add_edge(pydot.Edge(node_a, node_b))
+            self.graph.add_edge(pydot.Edge(src_node, dest_node))
         else:
-            self.graph.add_edge(pydot.Edge(node_a, node_b, label=label))
+            self.graph.add_edge(pydot.Edge(src_node, dest_node, label=label))
 
     @classmethod
     def _class_name(self, teal_node):
         return teal_node.__class__.__name__
-
-    @classmethod
-    def node_hash(cls, teal_node):
-        data = [getattr(teal_node, k) for k in ["source_filename", "source_lineno", "source_line",
-                                                "source_column"]]
-        return hashlib.sha224("{}:{}".format(cls._class_name(teal_node), str(data)).encode()).hexdigest()
 
     @singledispatchmethod
     def _teal_node_style(self, teal_node: Node):
@@ -135,6 +129,7 @@ class ASTGenerator:
     @recurse_tree.register
     def _(self, teal_node: N_Definition):
         root_graph_node = self.node(teal_node)
+        self._recurse_type_any(teal_node, "paramlist")
         self._recurse_type_any(teal_node, "body")
         return root_graph_node
 
