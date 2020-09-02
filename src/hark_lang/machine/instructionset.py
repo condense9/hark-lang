@@ -197,7 +197,11 @@ class OpOr(I):
     pass
 
 
-class Neg(I):
+class BooloeanNeg(I):
+    pass
+
+
+class UnaryMinus(I):
     pass
 
 
@@ -277,6 +281,10 @@ class Multiply(I):
 
 
 class Modulo(I):
+    pass
+
+
+class Divide(I):
     pass
 
 

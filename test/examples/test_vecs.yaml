@@ -111,3 +111,45 @@ operators:
   nope_or:
     - []
     - False
+  eq:
+    - [3, 1]
+    - False
+  neq:
+    - [3, 1]
+    - True
+  gte:
+    - [2, 2]
+    - True
+  lte:
+    - [2, 2]
+    - True
+  lt:
+    - [1, 2]
+    - True
+  gt:
+    - [3, 1]
+    - True
+  add:
+    - [3, 1]
+    - 4
+  sub:
+    - [3, 1]
+    - 2
+  mul:
+    - [3, 3]
+    - 9
+  div:
+    - [4, 2]
+    - 2
+  mod:
+    - [11, 3]
+    - 2
+  neg:
+    - []
+    - -3
+  neg_value:
+    - []
+    - 3
+  async_await:
+    - [4, 2]
+    - 8

@@ -19,3 +19,61 @@ fn yup_or() {
 fn nope_or() {
   false || false
 }
+
+fn eq(x, y) {
+  parse_float(x) == parse_float(y)
+}
+
+fn neq(x, y) {
+  parse_float(x) != parse_float(y)
+}
+
+fn gte(x, y) {
+  parse_float(x) >= parse_float(y)
+}
+
+fn lte(x, y) {
+  parse_float(x) <= parse_float(y)
+}
+
+fn lt(x, y) {
+  parse_float(x) < parse_float(y)
+}
+
+fn gt(x, y) {
+  parse_float(x) > parse_float(y)
+}
+
+fn add(x, y) {
+  parse_float(x) + parse_float(y)
+}
+
+fn sub(x, y) {
+  parse_float(x) - parse_float(y)
+}
+
+fn mul(x, y) {
+  parse_float(x) * parse_float(y)
+}
+
+fn div(x, y) {
+  parse_float(x) / parse_float(y)
+}
+
+fn mod(x, y) {
+  parse_float(x) % parse_float(y)
+}
+
+fn neg() {
+  -3
+}
+
+fn neg_value() {
+  -neg()
+}
+
+fn async_await(x, y) {
+  a = async add(parse_float(x), parse_float(y));
+  b = async sub(parse_float(x), parse_float(y));
+  await a + await b
+}

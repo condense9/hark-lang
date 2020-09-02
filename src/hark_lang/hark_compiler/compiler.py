@@ -313,19 +313,13 @@ class CompileToplevel:
         if isinstance(expr, nodes.N_Literal):
             val = mt.to_hark_type(-expr.value)
             return [mi.PushV.from_node(expr, val)]
-        return [
-            self.compile_expr(expr)
-            + [
-                mi.PushB.from_node(expr, mt.TlSymbol("-")),
-                mi.Call.from_node(expr, mt.TlInt(1)),
-            ]
-        ]
+        return [*self.compile_expr(expr), mi.UnaryMinus.from_node(expr, mt.TlInt(0))]
 
     def _compile_boolean_negation(self, expr: nodes.Node):
         if isinstance(expr, nodes.N_Literal):
             val = mt.to_hark_type(not expr.value)
             return [mi.PushV.from_node(expr, val)]
-        return [*self.compile_expr(expr), mi.Neg.from_node(expr, mt.TlInt(0))]
+        return [*self.compile_expr(expr), mi.BooloeanNeg.from_node(expr, mt.TlInt(0))]
 
 
 ###
