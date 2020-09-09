@@ -6,33 +6,42 @@
 > 
 > Change your remotes: `git remote set-url origin git@github.com:condense9/hark-lang.git`
 
-Hark hides the complexity of AWS Lambda + SQS, so you can build serverless data
-workflows without managing infrastructure.
+Hark lets you build serverless data pipelines in *minutes*, without managing any
+infrastructure.
 
-Describe your workflows in a *real programming language* with first-class
-functions, concurrency, and native Python inter-op. Test end-to-end locally,
-then deploy to serverless AWS infrastructure in under 60s and start workflows
-from anything that can invoke Lambda.
+Hark is for you if:
+- You use AWS.
+- You use Python for data engineering or business process pipelines.
+- You don't want to manage a task platform (Airflow, Celery, etc).
 
-Like AWS Step Functions but cheaper and much nicer to use (overheads: a little
-Lambda runtime, and a DynamoDB for Hark state).
+Key features:
+- First-class local testing (there's a local Hark runtime).
+- Concurrency primitives for multi-threaded pipelines.
+- Zero infrastructure management and minimal maintenance.
 
-Like Serverless Framework, but handles runtime glue logic in addition to
-deployment.
+[Build an AWS Lambda pipeline in 2 minutes](#up-and-running-in-2-minutes).
+
+Comparisons:
+- Like Apache Airflow, but serverless.
+- Like AWS Step Functions but portable and JSON-free :).
+- Like Serverless Framework, but handles runtime glue logic in addition to
+  deployment.
+
+[Read more...](https://guide.condense9.com/why.html)
 
 *Status*: Hark works well for small workflows: 5-10 Lambda invocations. Larger
 workflows may cause problems, and there is a known issue caused by DynamoDB
 restrictions ([#12](https://github.com/condense9/hark-lang/issues/12)).
 
-<!-- As presented at PyCon Africa 2020. (Watch the presentation, or follow along with the examples). -->
+Hark was Presented at PyCon Africa 2020. [Watch the presentation][pycon], or
+[check out the demos][demos].
 
 <!-- Watch an introduction video. -->
 
-[Get started in 2 minutes](#up-and-running-in-2-minutes).
-
 [Read the documentation](https://guide.condense9.com).
 
-[PyCon Africa 2020 Demos!](https://github.com/condense9/hark-demos).
+[demos]: https://github.com/condense9/hark-demos
+[pycon]: https://www.youtube.com/watch?v=I8VGfOBzmF4
 
 
 ## Contributing
@@ -43,9 +52,9 @@ Hark is growing rapidly, and contributions are [warmly welcomed](CONTRIBUTING.md
 ## Is Hark for me?
 
 Hark *is* for you if:
+- Your data is in AWS
 - You use Python for processing data, or writing business process workflows.
-- You want an alternative to AWS Step Functions.
-- You don't want to to deploy and manage a task platform (Airflow, Celery, etc).
+- You don't want to deploy and manage a task platform (Airflow, Celery, etc).
 
 **Data in**: You can invoke Hark like any Lambda function (AWS cli, S3 trigger,
 API gateway, etc).

@@ -10,7 +10,7 @@ applications which are then *compiled into* distributed applications.
 Hark lets you do that. Some benefits:
 
 - **Local testing**. Full local testing of the application *logic* (you still
-  have to mock out third party services.
+  have to mock out third party services).
 
 - **Advanced metrics**. Automatic log aggregation (like structured logging),
   making for much easier contextual debugging. Deep insight into application
