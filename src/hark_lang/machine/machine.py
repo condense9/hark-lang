@@ -94,13 +94,19 @@ class TlMachine:
         "set": HSet,
         "nth": Nth,
         "==": Eq,
+        "!=": NEq,
         "+": Plus,
-        # "-": Minus
+        "-": Minus,
         "*": Multiply,
+        "%": Modulo,
+        "/": Divide,
         ">": GreaterThan,
+        ">=": GreaterThanOrEqual,
         "<": LessThan,
+        "<=": LessThanOrEqual,
         "&&": OpAnd,
         "||": OpOr,
+        "!": BooloeanNeg,
         "parse_float": ParseFloat,
         "signal": Signal,
         "sid": GetSessionId,
@@ -540,11 +546,31 @@ class TlMachine:
         self.state.ds_push(cls(a + b))
 
     @evali.register
+    def _(self, i: Minus):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        cls = new_number_type(a, b)
+        self.state.ds_push(cls(a - b))
+
+    @evali.register
     def _(self, i: Multiply):
         a = self.state.ds_pop()
         b = self.state.ds_pop()
         cls = new_number_type(a, b)
         self.state.ds_push(cls(a * b))
+
+    @evali.register
+    def _(self, i: Divide):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        cls = new_number_type(a, b)
+        self.state.ds_push(cls(a / b))
+
+    @evali.register
+    def _(self, i: Modulo):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self.state.ds_push(mt.TlInt(a % b))
 
     @evali.register
     def _(self, i: Eq):
@@ -590,6 +616,39 @@ class TlMachine:
         self.state.ds_push(
             tl_bool(isinstance(a, mt.TlTrue) or isinstance(b, mt.TlTrue))
         )
+
+    @evali.register
+    def _(self, i: BooloeanNeg):
+        a = self.state.ds_pop()
+        self.state.ds_push(tl_bool(not mt.to_py_type(a)))
+
+    @evali.register
+    def _(self, i: UnaryMinus):
+        a = self.state.ds_pop()
+        if isinstance(a, float):
+            self.state.ds_push(mt.TlFloat(-a))
+        elif isinstance(a, int):
+            self.state.ds_push(mt.TlInt(-a))
+        else:
+            raise UnexpectedError("cannot negate non-numeric types")
+
+    @evali.register
+    def _(self, i: NEq):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self.state.ds_push(tl_bool(a != b))
+
+    @evali.register
+    def _(self, i: GreaterThanOrEqual):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self.state.ds_push(tl_bool(a >= b))
+
+    @evali.register
+    def _(self, i: LessThanOrEqual):
+        a = self.state.ds_pop()
+        b = self.state.ds_pop()
+        self.state.ds_push(tl_bool(a <= b))
 
     @evali.register
     def _(self, i: ParseFloat):

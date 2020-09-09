@@ -249,22 +249,9 @@ class CompileToplevel:
         return self._compile_call(n, False)
 
     @compile_expr.register
-    def _(self, n: nodes.N_Async):
-        if not isinstance(n.expr, nodes.N_Call):
-            raise ValueError(f"Can't use async with {n.expr}")
-        return self._compile_call(n.expr, True)
-
-    @compile_expr.register
     def _(self, n: nodes.N_Argument):
         # TODO optional arguments...
         return self.compile_expr(n.value)
-
-    @compile_expr.register
-    def _(self, n: nodes.N_Await):
-        if not isinstance(n.expr, (nodes.N_Call, nodes.N_Id)):
-            raise ValueError(f"Can't use await with {n.expr} - {type(n.expr)}")
-        val = self.compile_expr(n.expr)
-        return val + [mi.Wait.from_node(n, mt.TlInt(0))]
 
     @compile_expr.register
     def _(self, n: nodes.N_If):
@@ -300,6 +287,39 @@ class CompileToplevel:
                     mi.Call.from_node(n, mt.TlInt(2)),
                 ]
             )
+
+    @compile_expr.register
+    def _(self, n: nodes.N_UnaryOp):
+        if n.op == "async":
+            return self._compile_async_expr(n.rhs)
+        elif n.op == "await":
+            return self._compile_await_expr(n.rhs)
+        elif n.op == "!":
+            return self._compile_boolean_negation(n.rhs)
+        elif n.op == "-":
+            return self._compile_negation_expr(n.rhs)
+        raise ValueError(f"Unrecognised unary expression {n}")
+
+    def _compile_async_expr(self, expr: nodes.Node):
+        if not isinstance(expr, nodes.N_Call):
+            raise ValueError(f"Can't use async with {expr} - {type(expr)}")
+        return self._compile_call(expr, True)
+
+    def _compile_await_expr(self, expr: nodes.Node):
+        val = self.compile_expr(expr)
+        return val + [mi.Wait.from_node(expr, mt.TlInt(0))]
+
+    def _compile_negation_expr(self, expr: nodes.Node):
+        if isinstance(expr, nodes.N_Literal):
+            val = mt.to_hark_type(-expr.value)
+            return [mi.PushV.from_node(expr, val)]
+        return [*self.compile_expr(expr), mi.UnaryMinus.from_node(expr, mt.TlInt(0))]
+
+    def _compile_boolean_negation(self, expr: nodes.Node):
+        if isinstance(expr, nodes.N_Literal):
+            val = mt.to_hark_type(not expr.value)
+            return [mi.PushV.from_node(expr, val)]
+        return [*self.compile_expr(expr), mi.BooloeanNeg.from_node(expr, mt.TlInt(0))]
 
 
 ###
