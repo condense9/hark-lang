@@ -2,16 +2,15 @@
 
 ![Tests](https://github.com/condense9/hark-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/hark-lang.svg)](https://pypi.org/project/hark-lang) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380)
 
-> [Formerly, Teal](https://condense9.com/2020/08/formerly-teal).
-> 
-> Change your remotes: `git remote set-url origin git@github.com:condense9/hark-lang.git`
-
 Hark lets you build serverless data pipelines in *minutes*, without managing any
 infrastructure.
 
+[Join the Slack workspace][slack]! We're talking about making cloud development
+easier.
+
 Hark is for you if:
 - You use AWS.
-- You use Python for data engineering or business process pipelines.
+- You use Python for **data engineering** or business process pipelines.
 - You don't want to manage a task platform (Airflow, Celery, etc).
 
 Key features:
@@ -19,34 +18,36 @@ Key features:
 - Concurrency primitives for multi-threaded pipelines.
 - Zero infrastructure management and minimal maintenance.
 
-[Build an AWS Lambda pipeline in 2 minutes](#up-and-running-in-2-minutes).
+[Quick start: Build an AWS Lambda pipeline in 2 minutes](#up-and-running-in-2-minutes).
 
-Comparisons:
-- Like Apache Airflow, but serverless.
-- Like AWS Step Functions but portable and JSON-free :).
+**Comparisons**:
+- Like Apache Airflow, but without infrastructure to manage.
+- Like AWS Step Functions but cloud-portable and locally testable.
 - Like Serverless Framework, but handles runtime glue logic in addition to
   deployment.
-
-[Read more...](https://guide.condense9.com/why.html)
 
 *Status*: Hark works well for small workflows: 5-10 Lambda invocations. Larger
 workflows may cause problems, and there is a known issue caused by DynamoDB
 restrictions ([#12](https://github.com/condense9/hark-lang/issues/12)).
 
+<!-- Watch an introduction video. -->
+
+[Documentation](https://guide.condense9.com).
+
 Hark was Presented at PyCon Africa 2020. [Watch the presentation][pycon], or
 [check out the demos][demos].
 
-<!-- Watch an introduction video. -->
 
-[Read the documentation](https://guide.condense9.com).
-
+[slack]: https://join.slack.com/t/condense9/shared_invite/zt-isf6bpcw-4sE0ExD4~dCd2R9BrVwPGQ
 [demos]: https://github.com/condense9/hark-demos
 [pycon]: https://www.youtube.com/watch?v=I8VGfOBzmF4
 
 
 ## Contributing
 
-Hark is growing rapidly, and contributions are [warmly welcomed](CONTRIBUTING.md).
+Hark is growing rapidly, and contributions are [welcome](CONTRIBUTING.md).
+
+[Jump on slack][slack] to talk to us.
 
 
 ## Is Hark for me?
@@ -80,7 +81,7 @@ of the box, since the entire application is described in one place.
 [Read more...](https://guide.condense9.com/why.html)
 
 
-## Up and running in 2 minutes
+## The 2 minute pipeline
 
 All you need:
 - An AWS account, and [AWS CLI](https://github.com/aws/aws-cli#getting-started)
@@ -88,56 +89,59 @@ All you need:
 - A Python 3.8 virtual environment
 
 Hark is built with Python, and distributed as a Python package. To install it,
-run:
+run in a new virtualenv:
 
 ```shell
-$ pip install hark-lang
+pip install hark-lang
 ```
 
 This gives you the `hark` executable. Try `hark -h`.
 
-Copy the following snippet into a file called `service.hk`:
+Initialise the project with a few template files:
 
+```shell
+hark init
 ```
-// service.hk
 
-fn main() {
-  print("Hello World!");
+Copy the following snippet into `service.hk`:
+
+```javascript
+// Import the processing functions defined in Python
+import(process_video_step1, src.video, 2);
+import(process_video_step2, src.video, 3);
+import(process_video_step3, src.video, 3);
+import(process_video_final_step, src.video, 3);
+
+// Process a named file
+fn process_csv(key) {
+  a = async process_video_step1(bucket, key);
+  b = async process_video_step2(bucket, key, await a);
+  c = async process_video_step3(bucket, key, await b);
+  process_video_final_step(bucket, key, await c);
 }
 ```
 
-Run it (`-f main` is optional, and `main` is the default):
+Run it locally to test:
 
 ```shell
-~/new_project $> hark service.hk -f main
-```
-
-Initialise the project (required for deployment):
-
-```shell
-~/new_project $> hark init
+hark service.hk -f on_upload filename.csv
 ```
 
 And deploy the service to your AWS account (requires AWS credentials and
 `AWS_DEFAULT_REGION` to be defined):
 
 ```shell
-~/new_project $> hark deploy
+hark deploy
 ```
+
+[Read more](https://guide.condense9.com/dev/aws.html) about what this actually
+creates.
 
 Finally, invoke it in AWS (`-f main` is optional, as before):
 
 ```shell
-~/new_project $> hark invoke -f main
+hark invoke -f main your_bucket filename.csv
 ```
-
-That's it! You now have a Hark instance configured in your AWS account, built on
-the AWS serverless platform (S3 + Lambda + DynamoDB). [More info...](https://guide.condense9.com/dev/aws.html)
-
-Explore a more complex example: [Fractals](examples/fractals).
-
-[Create an issue](https://github.com/condense9/hark-lang/issues) if none of this
-makes sense, or you'd like help getting started.
 
 Read more...
 - [about the language](https://guide.condense9.com/language/index.html)
@@ -145,16 +149,7 @@ Read more...
 - [about configuring Hark](https://guide.condense9.com/configuration.html)
 
 
-## Why should I learn a new language?
-
-It's a big ask! There's *so much* that's missing from a brand new language. For
-now, think about it like learning a new library or API -- you can do most of the
-hard work in regular Python, using existing packages and code, while Hark lets
-you express things you can't easily do in Python.
-
-They key concept is this: when running in AWS, Hark threads run in separate
-lambda invocations, and the language comes with primitives to manage these
-threads.
+## Language Features
 
 ### Concurrency & Synchronisation
 
@@ -390,7 +385,7 @@ whole process manually. An exception handling system is
 
 Function inputs and outputs aren't typed. This is a limitation, and will be
 fixed soon, probably using
-[ProtoBufs](https://developers.google.com/protocol-buffers/) as the interface
+[ProtoBufs](https://developers.google.com/protocol-buffers) as the interface
 definition language.
 
 ### Calling Arbitrary Services
@@ -414,6 +409,20 @@ productive and *hark* like software engineering. As an industry, we've spent
 decades growing a wealth of computer science knowledge, but building data
 pipelines in $IaC, or manually crafting workflow DAGs with $AutomationTool,
 *just isn't software*.
+
+[Join us on Slack.][slack]
+
+
+### Teal
+
+[Hark used to be called Teal](https://condense9.com/2020/08/formerly-teal).
+ 
+Change your remotes if you checked out the previous repository:
+
+```
+git remote set-url origin git@github.com:condense9/hark-lang.git
+```
+
 
 ## License
 
