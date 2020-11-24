@@ -134,7 +134,7 @@ And deploy the service to your AWS account (requires AWS credentials and
 hark deploy
 ```
 
-[Read more](https://guide.condense9.com/dev/aws.html) about what this actually
+[Read more](https://guide.condense9.com/aws.html) about what this actually
 creates.
 
 Finally, invoke it in AWS (`-f main` is optional, as before):
