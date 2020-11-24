@@ -5,12 +5,11 @@
   - [Use Cases](./use_cases.md)
 
 - [Getting started](./getting_started/index.md)
-  - [Installation](./getting_started/installation.md)
   - [Hello Worlds!](./getting_started/hello_worlds.md)
   - [Deploy something!](./getting_started/deploy.md)
 
 - [Developing with Hark](./development/index.md)
-  - [Creating a new project](./getting_started/new_project.md)
+  - [Creating a new project](./development/new_project.md)
   - [Configuration with hark.toml](./development/config.md)
   - [Testing](./development/testing.md)
   - [Deployment](./development/deployment.md)
