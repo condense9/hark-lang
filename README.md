@@ -2,11 +2,8 @@
 
 ![Tests](https://github.com/condense9/hark-lang/workflows/Build/badge.svg?branch=master) [![PyPI](https://badge.fury.io/py/hark-lang.svg)](https://pypi.org/project/hark-lang) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380)
 
-Hark lets you build serverless data pipelines in *minutes*, without managing any
+Hark lets you quickly build serverless data pipelines without managing any
 infrastructure.
-
-[Join the Slack workspace][slack]! We're talking about making cloud development
-easier.
 
 Hark is for you if:
 - You use AWS.
@@ -37,8 +34,6 @@ restrictions ([#12](https://github.com/condense9/hark-lang/issues/12)).
 Hark was Presented at PyCon Africa 2020. [Watch the presentation][pycon], or
 [check out the demos][demos].
 
-
-[slack]: https://join.slack.com/t/condense9/shared_invite/zt-isf6bpcw-4sE0ExD4~dCd2R9BrVwPGQ
 [demos]: https://github.com/condense9/hark-demos
 [pycon]: https://www.youtube.com/watch?v=I8VGfOBzmF4
 
@@ -46,8 +41,6 @@ Hark was Presented at PyCon Africa 2020. [Watch the presentation][pycon], or
 ## Contributing
 
 Hark is growing rapidly, and contributions are [welcome](CONTRIBUTING.md).
-
-[Jump on slack][slack] to talk to us.
 
 
 ## Is Hark for me?
@@ -400,28 +393,11 @@ normal Hark function and `await` on the result.
 
 ## About
 
-Hark is maintained by [Condense9 Ltd.](https://www.condense9.com/). Get in touch
-with [ric@condense9.com](ric@condense9.com) for help getting running, or if you
-need enterprise deployment.
-
 Hark started because we couldn't find any data engineering tools that were
-productive and *hark* like software engineering. As an industry, we've spent
+productive and *feel* like software engineering. As an industry, we've spent
 decades growing a wealth of computer science knowledge, but building data
 pipelines in $IaC, or manually crafting workflow DAGs with $AutomationTool,
-*just isn't software*.
-
-[Join us on Slack.][slack]
-
-
-### Teal
-
-[Hark used to be called Teal](https://condense9.com/2020/08/formerly-teal).
- 
-Change your remotes if you checked out the previous repository:
-
-```
-git remote set-url origin git@github.com:condense9/hark-lang.git
-```
+feels more like hardware than software.
 
 
 ## License
